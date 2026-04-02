@@ -2026,7 +2026,8 @@ function renderPanel(){
       '설정',
       '저장 / 불러오기 / 컨트롤 감도',
       `<div class="item"><div class="row"><strong>저장 데이터</strong><span class="small">${raw?'있음':'없음'}</span></div><div class="buttons"><button class="btn good" data-save>저장</button><button class="btn" data-load ${raw?'':'disabled'}>불러오기</button></div></div>
-      <div class="item"><div class="row"><strong>컨트롤 감도</strong><span class="small" id="senseValue">${sens}%</span></div><div class="small" style="margin:8px 0 10px">낮출수록 이동 범위와 속도 반응이 더 차분해집니다.</div><input type="range" id="senseRange" min="40" max="100" step="1" value="${sens}" style="width:100%"></div>`,
+      <div class="item"><div class="row"><strong>컨트롤 감도</strong><span class="small" id="senseValue">${sens}%</span></div><div class="small" style="margin:8px 0 10px">낮출수록 이동 범위와 속도 반응이 더 차분해집니다.</div><input type="range" id="senseRange" min="40" max="100" step="1" value="${sens}" style="width:100%"></div>
+      <div class="item"><div class="row"><strong>게임 종료</strong><span class="small">타이틀 화면으로 이동</span></div><div class="small" style="margin:8px 0 10px">현재 플레이를 멈추고 타이틀 화면으로 돌아갑니다. 저장 데이터는 유지됩니다.</div><div class="buttons"><button class="btn warn" data-quit>그만하기</button></div></div>`,
       'save-shell'
     );
   }else if(S.panel==='shop1'||S.panel==='shop2'){
@@ -2051,6 +2052,7 @@ function renderPanel(){
   const adv=panelBox.querySelector('[data-advance]'); if(adv) bindTap(adv,advanceJob);
   const saveBtn=panelBox.querySelector('[data-save]'); if(saveBtn) bindTap(saveBtn,saveGame);
   const loadBtn=panelBox.querySelector('[data-load]'); if(loadBtn) bindTap(loadBtn,loadGame);
+  const quitBtn=panelBox.querySelector('[data-quit]'); if(quitBtn) bindTap(quitBtn,quitToTitle);
   const senseRange=panelBox.querySelector('#senseRange');
   if(senseRange){
     const senseValue=panelBox.querySelector('#senseValue');
@@ -2060,6 +2062,33 @@ function renderPanel(){
       saveSettings();
     };
   }
+}
+
+function resetControlState(){
+  S.input.up=0; S.input.down=0; S.input.left=0; S.input.right=0;
+  S.input.ax=0; S.input.ay=0; S.input.analog=false;
+  S.once={};
+  hidePad();
+  document.querySelectorAll('.ctrl.on').forEach(el=>el.classList.remove('on'));
+}
+function finalizeQuitToTitle(){
+  dialogOverlay.classList.remove('show');
+  panelOverlay.classList.remove('show');
+  delete panelBox.dataset.panel;
+  S.panel=null;
+  resetControlState();
+  titleScreen.style.display='flex';
+  document.body.classList.add('title-active');
+  S.mode='title';
+  showToast('타이틀 화면으로 돌아왔습니다.');
+}
+function quitToTitle(){
+  if(!S.hero) return;
+  closePanel();
+  openDialog('그만하기','현재 플레이를 종료하고 타이틀 화면으로 돌아갈까요?\n저장 데이터는 유지됩니다.',[
+    {label:'그만하기',fn:finalizeQuitToTitle,cls:'warn'},
+    {label:'취소',fn:closeDialog,cls:'secondary'}
+  ]);
 }
 
 function saveGame(){
