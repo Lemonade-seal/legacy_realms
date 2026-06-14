@@ -1538,9 +1538,9 @@
     <input id="nicknameInput" type="text" value="" maxlength="12" placeholder="닉네임을 입력하세요" autocomplete="nickname" inputmode="text">
 
     <div class="loginBtns simpleLoginBtns">
-      <button class="primary" onclick="loginWithKakao()">카카오 로그인</button>
+      <button class="primary" onclick="startKakaoLogin()">카카오 로그인</button>
     </div>
-    <p id="loginMsg">닉네임을 작성한 뒤 카카오 로그인 버튼을 누르세요.</p>
+    <p id="loginMsg">게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.</p>
   </div>
 </div>
 <div id="app">
@@ -4959,18 +4959,124 @@ function setLoginMsg(msg){
   if(el) el.textContent = msg;
 }
 
+
+const LEGACY_LOGIN_CONFIG = {
+  url: DEFAULT_SUPABASE_URL,
+  anonKey: DEFAULT_SUPABASE_ANON_KEY,
+  redirectTo: (location.origin + (location.pathname.endsWith('/')
+    ? location.pathname + 'index7.html'
+    : location.pathname.replace(/\/[^\/]*$/, '/index7.html')))
+};
+const SUPABASE_SDK_SOURCES = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+];
+let supabaseSdkLoadPromise = null;
+const cloudState = {
+  ready:false,
+  loading:false,
+  user:null,
+  session:null,
+  status:'로그인 필요'
+};
+
+function supabaseSdkReady(){
+  return !!(window.supabase && window.supabase.createClient);
+}
+
+function loadSupabaseSdk(){
+  if(supabaseSdkReady()) return Promise.resolve(true);
+  if(supabaseSdkLoadPromise) return supabaseSdkLoadPromise;
+
+  supabaseSdkLoadPromise = new Promise(resolve=>{
+    let i = 0;
+    const next = ()=>{
+      if(supabaseSdkReady()) return resolve(true);
+      if(i >= SUPABASE_SDK_SOURCES.length) return resolve(false);
+
+      const src = SUPABASE_SDK_SOURCES[i++];
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = ()=>setTimeout(()=>supabaseSdkReady() ? resolve(true) : next(), 0);
+      s.onerror = next;
+      document.head.appendChild(s);
+    };
+    next();
+  });
+  return supabaseSdkLoadPromise;
+}
+
+function supabaseConfigured(){
+  return !!(DEFAULT_SUPABASE_URL && DEFAULT_SUPABASE_ANON_KEY);
+}
+
+async function ensureSupabaseClient(showError=true){
+  seedSupabaseDefaults();
+
+  const s = saveLoginSettings();
+  const url = normalizeSupabaseUrl(s.url || DEFAULT_SUPABASE_URL);
+  const anon = s.anon || DEFAULT_SUPABASE_ANON_KEY;
+
+  if(!url || !anon){
+    if(showError) setLoginMsg('Supabase 설정이 없습니다.');
+    return null;
+  }
+
+  if(supabaseClient) return supabaseClient;
+
+  if(!supabaseSdkReady()){
+    const ok = await loadSupabaseSdk();
+    if(!ok || !supabaseSdkReady()){
+      if(showError) setLoginMsg('Supabase SDK를 불러오지 못했습니다. 네트워크 또는 CDN 차단을 확인하세요.');
+      return null;
+    }
+  }
+
+  try{
+    supabaseClient = window.supabase.createClient(url, anon, {
+      auth: {
+        persistSession:true,
+        autoRefreshToken:true,
+        detectSessionInUrl:true
+      }
+    });
+    return supabaseClient;
+  }catch(e){
+    console.error(e);
+    if(showError) setLoginMsg('Supabase 초기화 실패: ' + (e.message || String(e)));
+    return null;
+  }
+}
+
+function cloudUserLabel(){
+  const u = cloudState.user;
+  return u ? ((u.user_metadata && (u.user_metadata.email || u.user_metadata.kakao_account_email)) || u.email || u.id || '로그인됨') : '로그인 필요';
+}
+
+function cloudStatusText(){
+  return cloudState.user ? `서버 계정: ${cloudUserLabel()} · ${cloudState.status || '대기'}` : '서버 계정 없음';
+}
+
+
 function createSupabaseClient(){
-  const {url, anon} = saveLoginSettings();
+  seedSupabaseDefaults();
+  const { url, anon } = saveLoginSettings();
+
   if(!url || !anon){
     setLoginMsg('로그인 설정을 확인하세요.');
     return null;
   }
+
   if(!window.supabase || !window.supabase.createClient){
-    setLoginMsg('Supabase 클라이언트를 불러오지 못했습니다.');
+    setLoginMsg('Supabase SDK 확인 중입니다. 잠시 후 다시 누르세요.');
+    loadSupabaseSdk();
     return null;
   }
-  supabaseClient = window.supabase.createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+
+  supabaseClient = window.supabase.createClient(normalizeSupabaseUrl(url), anon, {
+    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }
   });
   return supabaseClient;
 }
@@ -5060,26 +5166,71 @@ function gotoLoginPageForReauth(reason='reauth'){
 async function finishOAuthRedirect(client){
   const params = new URLSearchParams(window.location.search);
   const err = params.get('error_description') || params.get('error');
+
   if(err){
     setLoginMsg('카카오 로그인 오류: ' + decodeURIComponent(err));
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-    return;
+    return false;
   }
 
   const code = params.get('code');
   if(code && client?.auth?.exchangeCodeForSession){
     const { error } = await client.auth.exchangeCodeForSession(code);
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+
     if(error){
       const msg = String(error.message || error);
       if(!/already|invalid.*state|flow/i.test(msg)){
         setLoginMsg('로그인 세션 처리 오류: ' + msg);
+        return false;
       }
     }
   }
+
+  return true;
 }
 
-async function loginWithKakao(){
+async function showKakaoLoginPage(autoCheck=true){
+  seedSupabaseDefaults();
+  fillLoginDefaults();
+
+  const loginPage = document.getElementById('loginPage');
+  loginPage?.classList.remove('hidden');
+
+  cloudState.ready = false;
+  cloudState.status = '로그인 필요';
+  updateOnlineBadge();
+
+  const client = await ensureSupabaseClient(false);
+  if(!client){
+    setLoginMsg('Supabase SDK 또는 설정을 확인하세요. 잠시 후 다시 시도하세요.');
+    return false;
+  }
+
+  setLoginMsg('게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.');
+
+  if(autoCheck){
+    try{
+      const { data } = await client.auth.getSession();
+      if(data?.session){
+        showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
+        await loadCloudStateAndEnter();
+        return true;
+      }
+    }catch(e){
+      console.error(e);
+    }
+  }
+
+  return true;
+}
+
+function showCloudLoadingPage(msg='서버 데이터 확인 중...'){
+  document.getElementById('loginPage')?.classList.remove('hidden');
+  setLoginMsg(msg);
+}
+
+async function startKakaoLogin(){
   const nickInput = document.getElementById('nicknameInput');
   const nick = typeof typedGameNickname === 'function'
     ? typedGameNickname()
@@ -5091,96 +5242,104 @@ async function loginWithKakao(){
     return;
   }
 
-  if(typeof saveGameNickname === 'function'){
-    saveGameNickname(nick);
-  }else{
+  if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+  else{
     localStorage.setItem('legacyNickname', nick);
     player.nickname = nick;
   }
 
-  const client = createSupabaseClient();
-  if(!client) return;
+  const client = await ensureSupabaseClient();
+  if(!client){
+    await showKakaoLoginPage(false);
+    return;
+  }
 
-  const forceReauth = shouldForceKakaoReauth();
+  try{
+    setLoginMsg('카카오톡 로그인 화면으로 이동합니다.');
+    const { error } = await client.auth.signInWithOAuth({
+      provider:'kakao',
+      options:{ redirectTo:getKakaoRedirectUrl() }
+    });
+    if(error) throw error;
+  }catch(e){
+    console.error(e);
+    setLoginMsg('카카오/Supabase 로그인 호출 실패: ' + (e.message || String(e)));
+  }
+}
 
-  if(forceReauth){
-    try{ await client.auth.signOut({ scope:'global' }); }
-    catch(e){ try{ await client.auth.signOut(); }catch(e2){} }
+async function loginWithKakao(){
+  return startKakaoLogin();
+}
 
-    clearLocalAuthStateForReauth(true);
+async function loadCloudStateAndEnter(){
+  const client = await ensureSupabaseClient();
+  if(!client) return false;
 
-    if(typeof saveGameNickname === 'function') saveGameNickname(nick);
-    else localStorage.setItem('legacyNickname', nick);
+  cloudState.loading = true;
+  cloudState.status = '서버 데이터 확인 중';
+  showCloudLoadingPage('서버 데이터 확인 중...');
 
-    markKakaoReauthRequired(localStorage.getItem('legacyReauthReason') || 'reauth');
-  }else{
-    const { data } = await client.auth.getSession();
-    if(data?.session){
-      setLoginMsg('기존 카카오 인증 확인. 게임 접속 중...');
-      await enterOnlineGame();
-      return;
+  try{
+    await finishOAuthRedirect(client);
+
+    const { data:{ session }, error:sessionError } = await client.auth.getSession();
+    if(sessionError) throw sessionError;
+
+    if(!session){
+      cloudState.user = null;
+      cloudState.session = null;
+      cloudState.ready = false;
+      cloudState.loading = false;
+      cloudState.status = '로그인 필요';
+      await showKakaoLoginPage(false);
+      return false;
     }
+
+    cloudState.session = session;
+    cloudState.user = session.user;
+    onlineSession = session;
+    player.userId = session.user.id;
+    player.isOnline = true;
+    cloudState.status = '서버 데이터 불러오는 중';
+
+    const gameNick = (typeof storedGameNickname === 'function' ? storedGameNickname() : localStorage.getItem('legacyNickname') || '').slice(0,12);
+    if(gameNick){
+      if(typeof saveGameNickname === 'function') saveGameNickname(gameNick);
+      player.nickname = gameNick;
+    }
+
+    await ensureSupabaseProfile(session.user);
+    await loadCloudCharacter(true);
+
+    if(gameNick) player.nickname = gameNick;
+    player.userId = session.user.id;
+    player.isOnline = true;
+    if(!player.job || player.job === '모험가') player.job = '방랑자';
+
+    cloudState.ready = true;
+    cloudState.loading = false;
+    cloudState.status = '서버 데이터 로드 완료';
+
+    hideLoginPage();
+    setupRealtimeOnline();
+    await saveCloudCharacter(true);
+    await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
+
+    toast('서버 데이터 로드 완료');
+    return true;
+  }catch(e){
+    console.error(e);
+    cloudState.loading = false;
+    cloudState.ready = false;
+    cloudState.status = '서버 오류';
+    document.getElementById('loginPage')?.classList.remove('hidden');
+    setLoginMsg('서버 로드 실패: ' + (e.message || String(e)));
+    return false;
   }
-
-  setLoginMsg(forceReauth ? '카카오 재인증 화면으로 이동합니다.' : '카카오 인증 화면으로 이동합니다.');
-
-  const options = {
-    redirectTo: getKakaoRedirectUrl()
-  };
-
-  if(forceReauth){
-    options.queryParams = {
-      prompt: 'login',
-      auth_type: 'reauthenticate'
-    };
-  }
-
-  const { error } = await client.auth.signInWithOAuth({
-    provider: 'kakao',
-    options
-  });
-
-  if(error) setLoginMsg('카카오 로그인 오류: ' + error.message);
 }
 
 async function enterOnlineGame(){
-  const nickInput = document.getElementById('nicknameInput');
-  const nick = typedGameNickname() || storedGameNickname();
-  if(!nick){
-    setLoginMsg('게임 닉네임을 먼저 입력하세요. 카카오 프로필 이름은 게임 안에서 쓰지 않습니다.');
-    nickInput?.focus();
-    return;
-  }
-
-  saveGameNickname(nick);
-
-  const client = createSupabaseClient();
-  if(!client) return;
-  const { data } = await client.auth.getSession();
-  onlineSession = data?.session || null;
-  if(!onlineSession){
-    setLoginMsg('먼저 카카오 인증을 완료하세요.');
-    return;
-  }
-
-  player.userId = onlineSession.user.id;
-  player.isOnline = true;
-  player.nickname = nick;
-
-  await loadCloudCharacter(true);
-
-  // 클라우드 저장값이나 카카오 프로필 이름이 "나"여도 게임 닉네임을 최우선 적용.
-  player.nickname = nick;
-  player.userId = onlineSession.user.id;
-  player.isOnline = true;
-  if(!player.job || player.job === '모험가') player.job = '방랑자';
-
-  await ensureSupabaseProfile(onlineSession.user);
-  clearKakaoReauthRequired();
-  hideLoginPage();
-  setupRealtimeOnline();
-  await saveCloudCharacter(true);
-  await recordGameEvent('login', { nickname: displayGameNickname() });
+  return loadCloudStateAndEnter();
 }
 
 
@@ -5210,94 +5369,13 @@ async function bootAuth(){
   const s = loginSettings();
   if(s.nick) player.nickname = s.nick;
 
-  const params = new URLSearchParams(window.location.search);
-  const hasOAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
-  const mustReauth = shouldForceKakaoReauth();
-
-  if(params.has('login') || params.has('deleted') || params.has('logout') || params.has('reauth') || (mustReauth && !hasOAuthReturn)){
-    if(params.has('deleted')) markKakaoReauthRequired('deleted');
-    else if(params.has('logout')) markKakaoReauthRequired('logout');
-    else if(params.has('reauth') || mustReauth) markKakaoReauthRequired('reauth');
-
-    onlineSession = null;
-    remotePlayers = {};
-    resetPlayerForNewKakaoAccount('', 'guest', false);
-    player.nickname = '';
-    player.userId = 'guest';
-    player.isOnline = false;
-
-    if(document.getElementById('nicknameInput')) document.getElementById('nicknameInput').value = '';
-    document.getElementById('loginPage')?.classList.remove('hidden');
-
-    const reason = localStorage.getItem('legacyReauthReason') || '';
-    setLoginMsg(reason === 'deleted'
-      ? '계정 데이터가 삭제되었습니다. 게임 닉네임을 작성하면 카카오 재인증 화면으로 이동합니다.'
-      : '로그아웃되었습니다. 게임 닉네임을 작성하면 카카오 재인증 화면으로 이동합니다.'
-    );
-
-    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-    updateOnlineBadge();
-    draw();
-    return true;
+  const client = await ensureSupabaseClient(false);
+  if(client){
+    await finishOAuthRedirect(client);
   }
 
-  if(s.url && s.anon && window.supabase?.createClient){
-    supabaseClient = window.supabase.createClient(s.url, s.anon, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-    });
-
-    if(hasOAuthReturn){
-      await finishOAuthRedirect(supabaseClient);
-      const { data } = await supabaseClient.auth.getSession();
-
-      if(data?.session){
-        const nick = typeof storedGameNickname === 'function'
-          ? storedGameNickname()
-          : (localStorage.getItem('legacyNickname') || '').slice(0,12);
-
-        if(!nick){
-          setLoginMsg('카카오 인증은 완료되었습니다. 게임 닉네임을 입력하고 카카오 로그인 버튼을 다시 누르세요.');
-          document.getElementById('nicknameInput')?.focus();
-          updateOnlineBadge();
-          return true;
-        }
-
-        if(typeof saveGameNickname === 'function') saveGameNickname(nick);
-        else localStorage.setItem('legacyNickname', nick);
-
-        onlineSession = data.session;
-        player.userId = data.session.user.id;
-        player.isOnline = true;
-        player.nickname = nick;
-
-        await loadCloudCharacter(true);
-
-        player.nickname = nick;
-        player.userId = data.session.user.id;
-        player.isOnline = true;
-        if(!player.job || player.job === '모험가') player.job = '방랑자';
-
-        await ensureSupabaseProfile(data.session.user);
-        clearKakaoReauthRequired();
-        hideLoginPage();
-        setupRealtimeOnline();
-        await saveCloudCharacter(true);
-        return true;
-      }
-    }
-
-    const { data } = await supabaseClient.auth.getSession();
-    if(data?.session){
-      setLoginMsg('카카오 인증이 남아 있습니다. 게임 닉네임을 확인하고 카카오 로그인 버튼을 누르면 접속합니다.');
-    }else{
-      setLoginMsg('게임 닉네임을 작성한 뒤 카카오 로그인 버튼을 누르세요.');
-    }
-  }else{
-    setLoginMsg('로그인 설정을 확인하세요.');
-  }
-
+  await showKakaoLoginPage(true);
   updateOnlineBadge();
-  draw();
   return true;
 }
 
@@ -5644,7 +5722,7 @@ async function loadCloudCharacter(silent=false){
 }
 
 
-async function logoutAccount(){
+async function kakaoLogout(){
   try{
     if(onlineChannel && supabaseClient){
       try{ await onlineChannel.untrack(); }catch(e){}
@@ -5652,15 +5730,33 @@ async function logoutAccount(){
       onlineChannel = null;
     }
 
-    if(supabaseClient?.auth){
-      try{ await supabaseClient.auth.signOut({ scope:'global' }); }
-      catch(e){ try{ await supabaseClient.auth.signOut(); }catch(e2){} }
-    }
-  }catch(e){
-    console.warn('logout warning', e);
-  }
+    player.isOnline = false;
+    onlineSession = null;
+    remotePlayers = {};
 
-  gotoLoginPageForReauth('logout');
+    const client = await ensureSupabaseClient(false);
+    try{
+      if(client) await client.auth.signOut();
+    }catch(e){
+      console.error(e);
+    }
+
+    cloudState.ready = false;
+    cloudState.user = null;
+    cloudState.session = null;
+    cloudState.status = '로그아웃';
+
+    toast('로그아웃');
+    await showKakaoLoginPage(false);
+  }catch(e){
+    console.error(e);
+    setLoginMsg('로그아웃 처리 오류: ' + (e.message || String(e)));
+    document.getElementById('loginPage')?.classList.remove('hidden');
+  }
+}
+
+async function logoutAccount(){
+  return kakaoLogout();
 }
 
 
@@ -5684,10 +5780,12 @@ function hardRedirectToLogin(reason='login'){
 }
 
 async function deleteAccountData(){
-  if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다. 계속할까요?')) return;
+  if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 계속할까요?')) return;
 
   try{
-    const user = await currentAuthUser();
+    const client = await ensureSupabaseClient(false);
+    const { data } = client ? await client.auth.getSession() : { data:null };
+    const user = data?.session?.user || (typeof currentAuthUser === 'function' ? await currentAuthUser() : null);
     const uid = user?.id || player.userId;
 
     if(onlineChannel && supabaseClient){
@@ -5696,7 +5794,7 @@ async function deleteAccountData(){
       onlineChannel = null;
     }
 
-    if(supabaseClient && uid && uid !== 'guest'){
+    if(client && uid && uid !== 'guest'){
       const targets = [
         ['player_presence','user_id',uid],
         ['characters','user_id',uid],
@@ -5707,7 +5805,7 @@ async function deleteAccountData(){
 
       for(const [table,col,value] of targets){
         try{
-          const { error } = await supabaseClient.from(table).delete().eq(col,value);
+          const { error } = await client.from(table).delete().eq(col,value);
           if(error) console.warn(`delete ${table}.${col}`, error.message);
         }catch(e){
           console.warn(`delete ${table}.${col}`, e.message);
@@ -5715,22 +5813,51 @@ async function deleteAccountData(){
       }
     }
 
-    if(supabaseClient?.auth){
-      try{ await supabaseClient.auth.signOut({ scope:'global' }); }
-      catch(e){ try{ await supabaseClient.auth.signOut(); }catch(e2){} }
-    }
-  }catch(e){
-    console.warn('delete warning', e);
-  }
+    try{
+      localStorage.removeItem('legacyRealmsSave');
+      localStorage.removeItem('legacyGameNickname');
+      localStorage.removeItem('legacyNickname');
+      localStorage.removeItem('legacyPendingGameNickname');
+      sessionStorage.removeItem('legacyPendingGameNickname');
+    }catch(e){}
 
-  gotoLoginPageForReauth('deleted');
+    resetPlayerForNewKakaoAccount('', 'guest', false);
+    player.nickname = '';
+    player.userId = 'guest';
+    player.isOnline = false;
+
+    if(client){
+      try{ await client.auth.signOut(); }catch(e){ console.error(e); }
+    }
+
+    cloudState.ready = false;
+    cloudState.user = null;
+    cloudState.session = null;
+    cloudState.status = '계정탈퇴';
+
+    const input = document.getElementById('nicknameInput');
+    if(input) input.value = '';
+
+    toast('계정 데이터 삭제 완료');
+    await showKakaoLoginPage(false);
+    setLoginMsg('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
+  }catch(e){
+    console.error(e);
+    setLoginMsg('계정탈퇴 처리 오류: ' + (e.message || String(e)));
+    document.getElementById('loginPage')?.classList.remove('hidden');
+  }
 }
 
 
 function renderAccountStatus(){
   const el = document.getElementById('accountStatusText');
   if(!el) return;
-  el.textContent = player.isOnline ? `온라인 · ${displayGameNickname()} · Lv.${player.level || 1}` : '오프라인 / 카카오 인증 필요';
+  if(onlineSession?.user || cloudState.user){
+    const u = onlineSession?.user || cloudState.user;
+    el.textContent = `온라인 · ${displayGameNickname ? displayGameNickname() : player.nickname || '유저'} · Lv.${player.level || 1} · ${cloudState.status || '서버 연결'}`;
+  }else{
+    el.textContent = '오프라인 / 카카오 로그인 필요';
+  }
 }
 
 async function savePresenceRow(force=false){
@@ -6393,12 +6520,13 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카카오 로그아웃 리다이렉트 메뉴 없는 구조로 수정',
+    title:'네온 RPG 방식 로그인 시스템 이식',
     items:[
-      '카카오 Logout Redirect URI 메뉴가 없어도 동작하게 kauth 로그아웃 URL 제거',
-      '회원탈퇴/로그아웃 후 reauth 플래그로 로그인 페이지 정지',
-      '다음 카카오 로그인 버튼에서 Supabase OAuth에 prompt=login 적용',
-      '카카오 REST API 키 입력 의존성 제거'
+      '업로드한 index6 로그인 구조 분석 후 동일 흐름으로 교체',
+      'Supabase SDK 3개 CDN 순차 로딩 적용',
+      '카카오 로그인 후 서버 데이터 자동 로드',
+      '로그아웃은 Supabase signOut 후 로그인 화면 복귀',
+      '회원탈퇴는 서버/로컬 데이터 삭제 후 로그인 화면 복귀'
     ]
   },
   {
@@ -6789,6 +6917,16 @@ addLog('아이템 이미지를 기존 스프라이트 기준으로 복구하고 
 addLog('내 캐릭터 주변 노란색 네모 경계선을 제거했다.');
 addLog('메뉴와 상태창을 압축 정리하고 NPC/경비/동물 AI를 확장했다.');
 addLog('게이지 명칭을 HP/MP/SP/XP로 바꾸고 박스 자동 크기와 그래픽을 정리했다.');
+
+try{
+  window.startKakaoLogin = startKakaoLogin;
+  window.loginWithKakao = loginWithKakao;
+  window.showKakaoLoginPage = showKakaoLoginPage;
+  window.kakaoLogout = kakaoLogout;
+  window.logoutAccount = logoutAccount;
+  window.deleteAccountData = deleteAccountData;
+}catch(e){}
+
 addLog('Supabase DB 저장/불러오기, 프로필, 캐릭터, 온라인 위치 테이블 연동 코드를 추가했다.');
 addLog('체력 빨강, 스태미너 초록, 경험치 노랑으로 색상을 정리했다.');
 addLog('상단 정보 정렬과 아날로그 패드 중심/경계선 맞춤을 수정했습니다.');
