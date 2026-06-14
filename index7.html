@@ -1472,6 +1472,36 @@
     z-index:10060 !important;
   }
 
+
+  /* transparent integrated menu buttons */
+  #popMainMenu button,
+  #popSettings button,
+  #popPatchNotes button,
+  .pop button,
+  .mainMenu button,
+  .menuGrid button{
+    background:rgba(8,12,7,.16) !important;
+    background-color:rgba(8,12,7,.16) !important;
+    background-image:none !important;
+    border-color:rgba(215,180,90,.28) !important;
+    box-shadow:none !important;
+    backdrop-filter:blur(2px) !important;
+    -webkit-backdrop-filter:blur(2px) !important;
+  }
+  #popMainMenu button.primary,
+  #popSettings button.primary,
+  .pop button.primary{
+    background:rgba(88,68,22,.20) !important;
+    background-color:rgba(88,68,22,.20) !important;
+    border-color:rgba(255,223,121,.36) !important;
+  }
+  #popMainMenu button:active,
+  #popSettings button:active,
+  .pop button:active{
+    background:rgba(215,180,90,.22) !important;
+    background-color:rgba(215,180,90,.22) !important;
+  }
+
 </style>
 
 
@@ -5488,6 +5518,8 @@ async function ensureSupabaseProfile(user=null){
   user = user || await currentAuthUser();
   if(!user) return false;
 
+  // 카카오 프로필명은 게임 닉네임으로 쓰지 않는다.
+  // 로그인창에서 작성한 legacyGameNickname/displayGameNickname 값만 저장한다.
   const gameNick = displayGameNickname();
 
   const profile = {
@@ -6365,12 +6397,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카카오 프로필명 대신 게임 닉네임 표시',
+    title:'DB 닉네임 충돌 대응 · 통합메뉴 투명 버튼',
     items:[
-      '카카오 프로필 이름을 게임 닉네임으로 쓰지 않도록 차단',
-      '로그인창에 입력한 게임 닉네임을 sessionStorage/localStorage에 별도 저장',
-      '클라우드 로드 후에도 게임 닉네임으로 다시 덮어쓰기',
-      '프로필/캐릭터/presence/HUD/채팅 이름 표시를 모두 displayGameNickname으로 통일'
+      '카카오 프로필명이 profiles.nickname에 저장되는 SQL 트리거 문제 대응',
+      '앱 프로필 저장도 displayGameNickname 값만 쓰도록 고정',
+      '통합메뉴와 팝업 버튼 배경을 반투명 처리',
+      'Supabase용 닉네임 트리거 교체 SQL 추가'
     ]
   },
   {
