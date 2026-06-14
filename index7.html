@@ -493,6 +493,57 @@
   .itemIcon{font-size:20px; line-height:1; text-align:center;}
   .itemName{font-size:11px; line-height:1.1; text-align:center; color:#efe8c8;}
   .itemMeta{font-size:10px; color:#b8b08d; text-align:center;}
+
+
+  /* trade layout: left merchant / right user, both scrollable */
+  #popShop .popBody{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden !important;
+  }
+  #popShop .tradeWrap{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    gap:8px;
+    flex:1 1 auto;
+    min-height:0;
+    height:calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height:520px;
+  }
+  #popShop .tradePanel{
+    min-height:0 !important;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    padding:8px;
+  }
+  #popShop .tradePanel h3{
+    flex:0 0 auto;
+    margin:0 0 6px;
+    font-size:12px;
+    line-height:1.1;
+  }
+  #popShop .itemGrid{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    grid-template-columns:repeat(auto-fill,minmax(58px,1fr));
+    gap:5px;
+    padding-right:3px;
+  }
+  #popShop .itemSlot{
+    min-height:62px;
+    padding:5px;
+  }
+  #popShop .itemName{font-size:10px;}
+  #popShop .itemMeta{font-size:9px;}
+  #popShop .itemGrid::-webkit-scrollbar{width:6px;}
+  #popShop .itemGrid::-webkit-scrollbar-thumb{background:rgba(215,180,90,.45); border-radius:999px;}
   .bagDropZone{
     min-height:88px;
     border:1px dashed #8d7d45;
@@ -935,6 +986,15 @@
     .grid2,.grid3{grid-template-columns:1fr;}
     .tradeWrap{grid-template-columns:1fr; gap:8px;}
     .tradePanel{min-height:210px;}
+    #popShop .tradeWrap{
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+      height:calc(100dvh - 154px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      max-height:none;
+      gap:5px;
+    }
+    #popShop .tradePanel{min-height:0 !important; padding:6px;}
+    #popShop .itemGrid{grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); gap:4px;}
+    #popShop .itemSlot{min-height:56px; padding:4px;}
     .itemGrid{grid-template-columns:repeat(auto-fill,minmax(64px,1fr));}
     .itemSlot{min-height:66px; padding:5px;}
     .miniTrade{
@@ -1969,14 +2029,13 @@
     <section class="pop" id="popShop">
       <div class="popHead"><b id="shopTitle">NPC 가방</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <div class="notice">상인 터치 시 캐릭터 근처에 작은 슬롯창이 열린다. NPC 아이템은 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.</div>
         <div class="tradeWrap">
           <div class="tradePanel">
-            <h3 id="merchantPanelTitle">NPC 아이템</h3>
+            <h3 id="merchantPanelTitle">상인</h3>
             <div id="merchantGrid" class="itemGrid"></div>
           </div>
           <div class="tradePanel">
-            <h3>내 가방</h3>
+            <h3>유저</h3>
             <div id="tradeBagGrid" class="itemGrid"></div>
           </div>
         </div>
@@ -5183,7 +5242,7 @@ function renderShop(){
 
   const stock = ensureMerchantStock(activeTradeNpc);
   if(title) title.textContent = `${activeTradeNpc.name} 보관함`;
-  if(panelTitle) panelTitle.textContent = `${activeTradeNpc.name} 아이템`;
+  if(panelTitle) panelTitle.textContent = `상인 · ${activeTradeNpc.name}`;
 
   merchantGrid.innerHTML = merchantCatalog(activeTradeNpc).map(row=>{
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
@@ -8195,6 +8254,15 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {
+    title:'거래창 좌우 배치·스크롤 개선',
+    items:[
+      '거래창을 좌측 상인, 우측 유저 가방 구조로 고정',
+      '상인 물품과 유저 인벤토리 영역을 각각 내부 스크롤로 확인 가능하게 수정',
+      '모바일 화면에서도 거래창이 한 줄 좌우 구조를 유지하도록 보정',
+      '거래창 상단 안내 문구를 제거하고 실제 아이템 목록 영역을 넓힘'
+    ]
+  },
   {
     title:'거래 가방 복구·타겟 자동 접근 공격',
     items:[
