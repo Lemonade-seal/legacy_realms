@@ -2901,6 +2901,65 @@ function isNight(){
   return m < 360 || m > 1200;
 }
 
+
+function terrainBrightnessForDisplay(type){
+  const table = {
+    dungeon:.18, danger:.22, jailWall:.24, darkGrass:.26, swamp:.29, forest:.32,
+    graveyard:.34, water:.36, mountain:.40, jail:.42, grass:.46, road:.58,
+    town:.60, ruins:.66, sand:.72, desert:.78, ice:.86
+  };
+  return table[type] ?? .46;
+}
+
+function localTerrainBrightness(){
+  const cx = gridX(player.x), cy = gridY(player.y);
+  let sum = 0, weight = 0;
+  for(let y=cy-1;y<=cy+1;y++){
+    for(let x=cx-1;x<=cx+1;x++){
+      if(x<0 || y<0 || x>=W || y>=H) continue;
+      const w = (x===cx && y===cy) ? 2.2 : 1;
+      sum += terrainBrightnessForDisplay(map[y][x]) * w;
+      weight += w;
+    }
+  }
+  return weight ? sum / weight : terrainBrightnessForDisplay(tileAt(player.x, player.y));
+}
+
+function adaptiveDisplayTone(){
+  const b = localTerrainBrightness();
+  let alpha = 0;
+
+  // 밝은 지형(사막, 모래, 빙원, 유적, 밝은 마을 바닥)에서는 디스플레이 야간모드처럼 자동으로 어둡게 보정한다.
+  if(b > .55) alpha = clamp((b - .55) * .62, 0, .22);
+
+  // 맑은 날 밝은 지역은 조금 더 눈부시므로 보정을 추가한다.
+  if(worldWeather === 'clear' && b > .68 && !isNight()) alpha += .025;
+
+  // 기존 야간 어둡게 처리는 자동 톤 시스템 안으로 통합한다.
+  if(isNight()) alpha = Math.max(alpha, .24);
+
+  // 안개/비는 화면 대비를 낮추는 느낌만 약하게 더한다.
+  if(worldWeather === 'mist') alpha += .025;
+  if(worldWeather === 'rain') alpha += .015;
+
+  return {brightness:b, alpha:clamp(alpha, 0, .30)};
+}
+
+function applyAdaptiveDisplayTone(vw, vh){
+  const tone = adaptiveDisplayTone();
+  if(tone.alpha <= .005) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(5,9,16,${tone.alpha})`;
+  ctx.fillRect(0,0,vw,vh);
+
+  // 밝은 낮 지형에서는 차가운 청회색을 아주 얇게 더해 채도를 낮춘다.
+  if(!isNight() && tone.brightness > .65){
+    ctx.fillStyle = `rgba(22,31,42,${clamp((tone.brightness-.65)*.18, 0, .08)})`;
+    ctx.fillRect(0,0,vw,vh);
+  }
+  ctx.restore();
+}
+
 function ensureDurability(id){
   if(!id) return;
   if(!player.durability) player.durability = {};
@@ -8203,10 +8262,7 @@ function draw(){
 
   drawCombatEffects(camPxX, camPxY);
 
-  if(isNight()){
-    ctx.fillStyle='rgba(0,0,32,.24)';
-    ctx.fillRect(0,0,vw,vh);
-  }
+  applyAdaptiveDisplayTone(vw, vh);
 
   drawMini();
 }
@@ -8297,6 +8353,15 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {
+    title:'밝은 지형 자동 다크톤 보정',
+    items:[
+      '사막·모래·빙원·유적·밝은 마을 바닥처럼 눈부신 타일에 올라가면 화면 톤을 자동으로 어둡게 보정',
+      '주변 3x3 타일 밝기를 평균 내어 급격한 깜빡임 없이 자연스럽게 다크 계열 오버레이 적용',
+      '기존 야간 어둡게 처리를 자동 디스플레이 톤 시스템 안으로 통합',
+      '맑은 날 밝은 지형은 청회색 저채도 보정을 추가해 모바일 화면 눈부심을 완화'
+    ]
+  },
   {
     title:'거래창 좌우 배치·스크롤 개선',
     items:[
