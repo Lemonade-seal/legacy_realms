@@ -1649,6 +1649,13 @@
     -webkit-backdrop-filter:blur(3px) !important;
   }
 
+
+  /* force generated game scene visibility */
+  #game,
+  canvas#game{
+    background:transparent !important;
+  }
+
 </style>
 
 
@@ -1933,6 +1940,7 @@
     <section class="pop" id="popSettings">
       <div class="popHead"><b>설정</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
+        <button onclick="toggleGeneratedSceneBg()">생성 게임화면 전환</button>
         <button onclick="toggleGeneratedSceneBg()">생성 배경 전환</button>
         <div class="grid2">
           <button onclick="toggleGrid()">격자 ON/OFF</button>
@@ -2007,21 +2015,23 @@
 'use strict';
 
 
+
+function softenGeneratedSceneOverlay(){
+  if(!useGeneratedSceneBg || !ctx || !canvas) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.restore();
+}
+
+
+
 const GENERATED_SCENE_BG_SRC = './game-scene-portrait.png';
 const GENERATED_SCENE_BG = new Image();
 GENERATED_SCENE_BG.src = GENERATED_SCENE_BG_SRC;
-let useGeneratedSceneBg = true;
-
-
-function toggleGeneratedSceneBg(){
-  useGeneratedSceneBg = !useGeneratedSceneBg;
-  localStorage.setItem('legacyUseGeneratedSceneBg', useGeneratedSceneBg ? '1' : '0');
-  toast(useGeneratedSceneBg ? '생성 배경 켜짐' : '생성 배경 꺼짐');
-  draw();
-}
-try{
-  useGeneratedSceneBg = localStorage.getItem('legacyUseGeneratedSceneBg') !== '0';
-}catch(e){}
+GENERATED_SCENE_BG.onload = ()=>{ try{ draw(); }catch(e){} };
+let useGeneratedSceneBg = localStorage.getItem('legacyUseGeneratedSceneBg') !== '0';
 
 function drawGeneratedSceneBackground(){
   if(!useGeneratedSceneBg || !ctx || !canvas) return false;
@@ -2036,21 +2046,21 @@ function drawGeneratedSceneBackground(){
   const dw = iw * scale;
   const dh = ih * scale;
   const dx = (cw - dw) / 2;
-  const dy = 0;
+  const dy = (ch - dh) / 2;
 
+  ctx.save();
+  ctx.globalAlpha = 1;
   ctx.drawImage(GENERATED_SCENE_BG, dx, dy, dw, dh);
+  ctx.restore();
   return true;
 }
 
-function softenGeneratedSceneOverlay(){
-  if(!useGeneratedSceneBg || !ctx || !canvas) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(255,255,255,.92)';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.restore();
+function toggleGeneratedSceneBg(){
+  useGeneratedSceneBg = !useGeneratedSceneBg;
+  localStorage.setItem('legacyUseGeneratedSceneBg', useGeneratedSceneBg ? '1' : '0');
+  toast(useGeneratedSceneBg ? '생성 게임화면 켜짐' : '생성 게임화면 꺼짐');
+  draw();
 }
-
 
 const TILE = 32;
 const W = 100, H = 70;
@@ -6839,10 +6849,11 @@ function drawMobSprite(m, x, y){
 }
 
 function draw(){
-  const generatedBgDrawn = drawGeneratedSceneBackground();
   updateHud();
   const vw = canvas.width, vh = canvas.height;
   ctx.clearRect(0,0,vw,vh);
+  const __generatedBgActive = drawGeneratedSceneBackground();
+  if(__generatedBgActive){ ctx.save(); ctx.globalAlpha = 0.24; }
 
   const worldPxW = W * TILE;
   const worldPxH = H * TILE;
@@ -6854,6 +6865,7 @@ function draw(){
   const endY = Math.min(H - 1, Math.ceil((camPxY + vh) / TILE));
 
   drawOrganicTerrain(startX, startY, endX, endY, camPxX, camPxY, vw, vh);
+  if(__generatedBgActive){ ctx.restore(); }
 
   for(const r of resources){
     if(r.amount<=0) continue;
@@ -7160,12 +7172,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'계정탈퇴 시 Supabase 프로필 삭제 고정',
+    title:'생성 게임화면 캔버스 직접 적용',
     items:[
-      '계정탈퇴 시 profiles를 명시적으로 삭제',
-      'characters/player_presence/game_events도 같은 유저 id로 삭제',
-      '삭제 실패 시 서버 상태 박스에 RLS 오류 표시',
-      'auth.users는 클라이언트에서 삭제하지 않고 게임 데이터만 삭제'
+      '기존 타일맵이 배경 이미지를 덮던 문제 수정',
+      'game-scene-portrait.png를 canvas draw() 안에서 직접 그림',
+      '타일 배경을 반투명 처리하고 캐릭터/NPC/몹은 위에 표시',
+      '설정 메뉴에 생성 게임화면 전환 버튼 유지'
     ]
   },
   {
