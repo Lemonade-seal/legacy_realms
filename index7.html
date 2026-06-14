@@ -1521,6 +1521,25 @@
     pointer-events:auto !important;
   }
 
+
+  /* login overlay strict visibility */
+  #loginPage.hidden{
+    display:none !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+  #loginPage:not(.hidden){
+    position:fixed !important;
+    inset:0 !important;
+    z-index:200000 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+    background:rgba(0,0,0,.92) !important;
+  }
+
 </style>
 
 
@@ -5267,17 +5286,16 @@ async function startKakaoLogin(){
     player.nickname = nick;
   }
 
-  const client = await ensureSupabaseClient();
-  if(!client){
-    await showKakaoLoginPage(false);
-    return;
-  }
+  const client = await ensureSupabaseClient(true);
+  if(!client) return;
 
   try{
     setLoginMsg('카카오톡 로그인 화면으로 이동합니다.');
     const { error } = await client.auth.signInWithOAuth({
       provider:'kakao',
-      options:{ redirectTo:getKakaoRedirectUrl() }
+      options:{
+        redirectTo:getKakaoRedirectUrl()
+      }
     });
     if(error) throw error;
   }catch(e){
@@ -5299,8 +5317,6 @@ async function loadCloudStateAndEnter(){
   showCloudLoadingPage('서버 데이터 확인 중...');
 
   try{
-    await finishOAuthRedirect(client);
-
     const { data:{ session }, error:sessionError } = await client.auth.getSession();
     if(sessionError) throw sessionError;
 
@@ -5384,9 +5400,15 @@ async function bootAuth(){
 
   const params = new URLSearchParams(window.location.search);
   const isLogoutRoute = params.has('logout');
+  const hasOAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
 
   const loginPage = document.getElementById('loginPage');
   loginPage?.classList.remove('hidden');
+
+  const s = loginSettings();
+  if(s.nick) player.nickname = s.nick;
+
+  const client = await ensureSupabaseClient(false);
 
   if(isLogoutRoute){
     forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.');
@@ -5394,12 +5416,10 @@ async function bootAuth(){
     return true;
   }
 
-  const s = loginSettings();
-  if(s.nick) player.nickname = s.nick;
-
-  const client = await ensureSupabaseClient(false);
-  if(client){
+  if(client && hasOAuthReturn){
     await finishOAuthRedirect(client);
+    await loadCloudStateAndEnter();
+    return true;
   }
 
   await showKakaoLoginPage(true);
@@ -5751,10 +5771,9 @@ async function loadCloudCharacter(silent=false){
 
 
 
+
 function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.'){
-  try{
-    closePop?.();
-  }catch(e){}
+  try{ closePop?.(); }catch(e){}
 
   try{
     if(onlineChannel && supabaseClient){
@@ -5781,14 +5800,9 @@ function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임
 
   const loginPage = document.getElementById('loginPage');
   loginPage?.classList.remove('hidden');
-  loginPage?.style.setProperty('display', 'flex', 'important');
-  loginPage?.style.setProperty('z-index', '200000', 'important');
 
   const input = document.getElementById('nicknameInput');
-  if(input){
-    input.value = '';
-    setTimeout(()=>input.focus(), 80);
-  }
+  if(input) setTimeout(()=>input.focus(), 80);
 
   setLoginMsg(message);
   updateOnlineBadge?.();
@@ -5797,19 +5811,15 @@ function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임
   history.replaceState({}, document.title, window.location.origin + window.location.pathname);
 }
 
+
 async function kakaoLogout(){
   forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.');
 
   try{
-    if(supabaseClient?.auth){
-      try{ await supabaseClient.auth.signOut({ scope:'global' }); }
-      catch(e){ await supabaseClient.auth.signOut(); }
-    }else{
-      const client = await ensureSupabaseClient(false);
-      if(client?.auth){
-        try{ await client.auth.signOut({ scope:'global' }); }
-        catch(e){ await client.auth.signOut(); }
-      }
+    const client = await ensureSupabaseClient(false);
+    if(client?.auth){
+      try{ await client.auth.signOut({ scope:'global' }); }
+      catch(e){ await client.auth.signOut(); }
     }
   }catch(e){
     console.warn('signOut warning', e);
@@ -5828,12 +5838,11 @@ async function kakaoLogout(){
     sessionStorage.clear();
   }catch(e){}
 
-  // Kakao in-app browser can keep the old DOM unless the page is re-entered.
   setTimeout(()=>{
     const u = new URL('./index7.html', window.location.href);
     u.searchParams.set('logout', String(Date.now()));
     window.location.replace(u.href);
-  }, 180);
+  }, 120);
 }
 
 async function logoutAccount(){
@@ -6593,12 +6602,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카카오 브라우저 로그아웃 화면 전환 수정',
+    title:'로그인 불가 복구',
     items:[
-      '로그아웃 버튼 클릭 즉시 로그인 페이지 오버레이 표시',
-      'Supabase signOut 완료 전에도 화면 상태를 먼저 초기화',
-      '로그아웃 후 index7.html?logout 으로 재진입해 인앱 브라우저 DOM 유지 문제 차단',
-      '계정탈퇴도 동일하게 로그인 페이지로 강제 복귀'
+      '로그아웃 오버레이가 정상 카카오 로그인까지 막던 문제 수정',
+      '카카오 로그인 버튼을 단순 signInWithOAuth 흐름으로 복구',
+      'OAuth code 복귀 시에만 서버 데이터 로드 수행',
+      '?logout 상태에서는 자동 세션 입장만 차단'
     ]
   },
   {
