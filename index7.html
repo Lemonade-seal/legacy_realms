@@ -4378,10 +4378,39 @@ function createSupabaseClient(){
   return supabaseClient;
 }
 
+function getKakaoRedirectUrl(){
+  const u = new URL('./index7.html', window.location.href);
+  u.search = '';
+  u.hash = '';
+  return u.href;
+}
+
+async function finishOAuthRedirect(client){
+  const params = new URLSearchParams(window.location.search);
+  const err = params.get('error_description') || params.get('error');
+  if(err){
+    setLoginMsg('카카오 로그인 오류: ' + decodeURIComponent(err));
+    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    return;
+  }
+
+  const code = params.get('code');
+  if(code && client?.auth?.exchangeCodeForSession){
+    const { error } = await client.auth.exchangeCodeForSession(code);
+    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    if(error){
+      const msg = String(error.message || error);
+      if(!/already|invalid.*state|flow/i.test(msg)){
+        setLoginMsg('로그인 세션 처리 오류: ' + msg);
+      }
+    }
+  }
+}
+
 async function loginWithKakao(){
   const client = createSupabaseClient();
   if(!client) return;
-  const redirectTo = window.location.origin + window.location.pathname;
+  const redirectTo = getKakaoRedirectUrl();
   const { error } = await client.auth.signInWithOAuth({
     provider: 'kakao',
     options: { redirectTo }
@@ -4440,6 +4469,7 @@ async function bootAuth(){
     supabaseClient = window.supabase.createClient(s.url, s.anon, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
+    await finishOAuthRedirect(supabaseClient);
     const { data } = await supabaseClient.auth.getSession();
     if(data?.session){
       onlineSession = data.session;
