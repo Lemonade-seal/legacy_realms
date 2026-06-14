@@ -1846,6 +1846,7 @@
           <button onclick="openPop('popCraft')">제작</button>
           <button onclick="openPop('popBank')">은행</button>
           <button onclick="openPop('popQuest')">의뢰</button>
+          <button onclick="openPop('popParty')">파티</button>
           <button onclick="openPop('popShop')">상점</button>
           <button onclick="openPop('popMap')">지도</button>
           <button onclick="openPop('popJournal')">저널</button>
@@ -1853,6 +1854,14 @@
           <button onclick="openPop('popSettings')">설정</button>
           <button onclick="openPop('popPatchNotes')">패치노트</button>
         </div>
+      </div>
+    </section>
+
+    <section class="pop" id="popParty">
+      <div class="popHead"><b>파티</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">온라인 유저를 초대해 파티를 만든다. 파티원은 지도 위에 표시되고, 근처에서 처치한 몬스터의 골드/경험치를 나눠 받는다. 채팅 입력창에서 <b>/p 내용</b>을 쓰면 파티 채팅.</div>
+        <div id="partyPanel"></div>
       </div>
     </section>
 
@@ -1970,7 +1979,7 @@
 'use strict';
 
 const TILE = 32;
-const W = 100, H = 70;
+const W = 140, H = 100;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const mini = document.getElementById('mini');
@@ -2044,7 +2053,7 @@ Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
   manaPotion:17, healthPotion:17, oakLog:8, copperOre:7, silverOre:13,
   dungeonKey:16, batWing:12, slimeGel:10, ancientRelic:18,
-  steelSword:2, rangerBow:3
+  steelSword:2, rangerBow:3, relicShard:18, boneCharm:18, frostOre:13, jailToken:16
 });
 
 const recipes = [
@@ -2090,7 +2099,10 @@ const questDefs = [
   {id:'log12', title:'목수 조합 목재 납품', type:'collect', target:'log', targetName:'통나무', need:12, rewardGold:70, rewardFame:3, rewardItems:{}},
   {id:'fish6', title:'여관 식재료 조달', type:'collect', target:'fish', targetName:'민물고기', need:6, rewardGold:54, rewardFame:2, rewardItems:{herb:1}},
   {id:'bandit2', title:'남동쪽 강도 소탕', type:'kill', target:'bandit', targetName:'강도', need:2, rewardGold:110, rewardFame:5, rewardItems:{gem:1}},
-  {id:'coin8', title:'고대 은화 회수', type:'collect', target:'silverCoin', targetName:'고대 은화', need:8, rewardGold:150, rewardFame:4, rewardItems:{treasureMap:1}}
+  {id:'coin8', title:'고대 은화 회수', type:'collect', target:'silverCoin', targetName:'고대 은화', need:8, rewardGold:150, rewardFame:4, rewardItems:{treasureMap:1}},
+  {id:'ruinShard5', title:'고대 유적 파편 조사', type:'collect', target:'relicShard', targetName:'유물 파편', need:5, rewardGold:210, rewardFame:6, rewardItems:{ancientRelic:1}},
+  {id:'graveCharm4', title:'묘지의 뼈 부적 회수', type:'collect', target:'boneCharm', targetName:'뼈 부적', need:4, rewardGold:160, rewardFame:4, rewardItems:{bandage:2}},
+  {id:'frostOre6', title:'빙원 광석 납품', type:'collect', target:'frostOre', targetName:'빙결 광석', need:6, rewardGold:240, rewardFame:5, rewardItems:{steelSword:1}}
 ];
 recipes.push(
   {id:'bandage', name:'붕대', skill:'healing', skillName:'회복', need:{herb:3, hide:1}, gold:6, min:10},
@@ -2098,6 +2110,7 @@ recipes.push(
   {id:'backpack', name:'여행 가방', skill:'carpentry', skillName:'목공', need:{log:8, hide:6}, gold:16, min:18},
   {id:'shadowCloak', name:'그림자 망토', skill:'tailoring', skillName:'재봉', need:{hide:12, fang:3, gem:1}, gold:28, min:30},
   {id:'steelSword', name:'강철검', skill:'blacksmith', skillName:'대장기술', need:{ironSword:1, silverOre:5, fang:4}, gold:55, min:38},
+  {id:'frostOre', name:'빙결 광석 정제', skill:'blacksmith', skillName:'대장기술', need:{silverOre:2, gem:1}, gold:20, min:28},
   {id:'rangerBow', name:'순찰자 활', skill:'carpentry', skillName:'목공', need:{hunterBow:1, oakLog:8, hide:5}, gold:42, min:34},
   {id:'healthPotion', name:'체력 물약', skill:'healing', skillName:'회복', need:{herb:5, slimeGel:2}, gold:12, min:22},
   {id:'manaPotion', name:'마나 물약', skill:'healing', skillName:'회복', need:{herb:3, batWing:1}, gold:10, min:18}
@@ -2380,6 +2393,7 @@ let supabaseClient = null;
 let onlineChannel = null;
 let onlineSession = null;
 let remotePlayers = {};
+let partyState = {id:null, leaderId:null, members:{}, invites:[]};
 let localSpeech = {text:'', until:0};
 let lastNetSend = 0;
 let lastCloudSave = 0;
@@ -2397,7 +2411,8 @@ const map = [];
 const colors = {
   grass:'#29411e', darkGrass:'#223719', water:'#1c5362', sand:'#9a8549',
   stone:'#5d5b4d', town:'#6f6747', road:'#766746', forest:'#254e24',
-  mountain:'#4a4c48', danger:'#3b1f1d', dungeon:'#24202d', swamp:'#23382d', desert:'#8c7440'
+  mountain:'#4a4c48', danger:'#3b1f1d', dungeon:'#24202d', swamp:'#23382d', desert:'#8c7440',
+  jail:'#3f3a31', jailWall:'#24221f', ruins:'#57513d', graveyard:'#303533', ice:'#6d91a1'
 };
 
 /* -------------------------------------------------------
@@ -2545,6 +2560,31 @@ function makeTerrainTile(type){
     }
     noise(g,type,['#302a3b','#1b1822','#3c354c'],24);
     pxLine(g,3,3,12,3,'#44395b'); pxLine(g,12,3,12,12,'#44395b'); pxLine(g,12,12,3,12,'#44395b'); pxLine(g,3,12,3,3,'#44395b');
+  }else if(type==='jail'){
+    px(g,0,0,'#3f3a31',16,16);
+    for(let y=0;y<16;y+=4){ pxLine(g,0,y,15,y,'#27231d'); }
+    for(let x=0;x<16;x+=4){ pxLine(g,x,0,x,15,'#27231d'); }
+    noise(g,type,['#514a3d','#2b2823','#655b48'],22);
+    px(g,6,2,'#1b1a18',1,12); px(g,10,2,'#1b1a18',1,12);
+  }else if(type==='jailWall'){
+    px(g,0,0,'#24221f',16,16);
+    for(let y=1;y<16;y+=5) pxLine(g,0,y,15,y,'#0f0f0e');
+    for(let x=2;x<16;x+=5) pxLine(g,x,0,x,15,'#0f0f0e');
+    noise(g,type,['#38352f','#171615','#4a453a'],18);
+  }else if(type==='ruins'){
+    px(g,0,0,'#57513d',16,16);
+    noise(g,type,['#6d664d','#413d30','#7f7554'],34);
+    pxLine(g,1,4,8,4,'#2d2a22'); pxLine(g,8,4,8,11,'#2d2a22');
+    px(g,3,9,'#7f7554',4,2); px(g,10,2,'#3e3a2e',3,5);
+  }else if(type==='graveyard'){
+    px(g,0,0,'#303533',16,16);
+    noise(g,type,['#252a28','#3d4541','#1e2321'],30);
+    px(g,6,5,'#777d74',3,6); px(g,5,6,'#777d74',5,1);
+    px(g,11,9,'#666c64',2,4);
+  }else if(type==='ice'){
+    px(g,0,0,'#6d91a1',16,16);
+    noise(g,type,['#82aebf','#517889','#b7dbe6'],26);
+    pxLine(g,2,5,9,3,'#c8eef7'); pxLine(g,5,12,14,10,'#c8eef7');
   }else{
     noise(g,type,['#36572b','#1f3518','#436a34'],24);
   }
@@ -2595,7 +2635,7 @@ function makeObjectTile(type){
 }
 function ensurePixelTiles(){
   if(pixelTiles.ready) return;
-  ['grass','darkGrass','road','town','water','forest','mountain','swamp','desert','danger','dungeon','sand'].forEach(t=>{
+  ['grass','darkGrass','road','town','water','forest','mountain','swamp','desert','danger','dungeon','sand','jail','jailWall','ruins','graveyard','ice'].forEach(t=>{
     pixelTiles.terrain[t]=makeTerrainTile(t);
   });
   ['tree','rock','ore','herb','fish','chestLocked','chestOpen','bush'].forEach(t=>{
@@ -2620,6 +2660,16 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function gridX(v){ return Math.round(v); }
 function gridY(v){ return Math.round(v); }
+const JAIL = {x1:16, y1:29, x2:26, y2:38, cellX:21, cellY:34, releaseX:22, releaseY:27};
+function isJailTile(x,y){
+  const gx = gridX(x), gy = gridY(y);
+  return gx>=15 && gx<=27 && gy>=28 && gy<=39;
+}
+function isInsideJailCell(x,y){
+  const gx = gridX(x), gy = gridY(y);
+  return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
+}
+function jailRemainingSeconds(){ return Math.max(0, Math.ceil(((player.jailUntilTick||0)-tick)*0.45)); }
 function tileAt(x,y){
   const gx = gridX(x), gy = gridY(y);
   if(gx<0||gy<0||gx>=W||gy>=H) return null;
@@ -2630,8 +2680,12 @@ function playerTile(){ return {x:gridX(player.x), y:gridY(player.y)}; }
 function regionNameAt(x,y){
   const gx = gridX(x), gy = gridY(y);
   const t = map[gy]?.[gx];
+  if(t==='jail' || t==='jailWall' || (gx>=15 && gx<=27 && gy>=28 && gy<=39)) return '브라이트헤이븐 감옥';
   if(gx>20 && gx<39 && gy>16 && gy<28) return '브라이트헤이븐';
   if(t==='dungeon') return '검은동굴 던전';
+  if(t==='ruins') return '동부 고대 유적';
+  if(t==='graveyard') return '망자의 묘지';
+  if(t==='ice') return '북서 빙원';
   if(t==='swamp') return '동부 늪지';
   if(t==='desert') return '남동 사막';
   if(t==='forest') return '서부 숲';
@@ -2687,7 +2741,8 @@ function updateWorldHud(){
   player.discoveredRegions = player.discoveredRegions || {};
   player.discoveredRegions[region] = true;
   const restText = tick >= (player.restReadyTick||0) ? '가능' : Math.ceil(((player.restReadyTick||0)-tick)*0.45)+'초';
-  el.innerHTML = `<b>${region}</b> · 위험 ${regionDangerLevel()}<br>Day ${c.day} · ${c.hh}:${c.mm} ${isNight()?'밤':'낮'} · ${weatherLabel()}<br>휴식 ${restText} · 자동저장 ${Math.max(0, 60 - Math.floor((tick-lastAutoSaveTick)*0.45))}초`;
+  const jailText = tick < (player.jailUntilTick||0) ? ` · 수감 ${jailRemainingSeconds()}초` : '';
+  el.innerHTML = `<b>${region}</b> · 위험 ${regionDangerLevel()}${jailText}<br>Day ${c.day} · ${c.hh}:${c.mm} ${isNight()?'밤':'낮'} · ${weatherLabel()}<br>휴식 ${restText} · 자동저장 ${Math.max(0, 60 - Math.floor((tick-lastAutoSaveTick)*0.45))}초`;
 }
 
 function addLog(msg){
@@ -2712,42 +2767,70 @@ function initMap(){
     map[y] = [];
     for(let x=0;x<W;x++){
       let t = 'grass';
+
+      // 주요 지형. 맵을 140x100으로 확장하고 지역별 목적지를 늘린다.
       if(x>20 && x<39 && y>16 && y<28) t='town';
-      if((x>0 && x<W-1 && y===22) || (y>0 && y<H-1 && x===30) || (x>30 && x<76 && y===46) || (x===75 && y>22 && y<62)) t='road';
-      if(y>58 || (x<12 && y>24) || (x>62 && x<75 && y>44 && y<58)) t='water';
-      if((x>4 && x<22 && y>4 && y<18) || (x>8 && x<30 && y>34 && y<52)) t='forest';
-      if((x>42 && y<18) || (x>70 && x<94 && y>5 && y<26)) t='mountain';
-      if(x>72 && y>46 && y<60) t='desert';
-      if(x>54 && x<70 && y>22 && y<38) t='swamp';
-      if((x>45 && x<62 && y>50 && y<66) || (x>82 && x<96 && y>28 && y<45)) t='danger';
-      if(x>78 && x<94 && y>28 && y<42) t='dungeon';
+      if(
+        (x>0 && x<W-1 && y===22) ||
+        (y>0 && y<H-1 && x===30) ||
+        (x>30 && x<118 && y===46) ||
+        (x===75 && y>22 && y<82) ||
+        (x===118 && y>40 && y<88) ||
+        (x>96 && x<132 && y===72) ||
+        (x>4 && x<34 && y===74)
+      ) t='road';
+      if(y>86 || (x<12 && y>24) || (x>102 && x<116 && y>22 && y<82) || (x>38 && x<52 && y>70 && y<92)) t='water';
+      if((x>4 && x<22 && y>4 && y<18) || (x>8 && x<30 && y>34 && y<58) || (x>44 && x<72 && y>62 && y<84)) t='forest';
+      if((x>42 && y<18) || (x>70 && x<104 && y>5 && y<28) || (x>112 && x<136 && y>6 && y<34)) t='mountain';
+      if(x>76 && y>54 && y<82) t='desert';
+      if((x>54 && x<70 && y>22 && y<38) || (x>58 && x<78 && y>82 && y<96)) t='swamp';
+      if((x>45 && x<62 && y>50 && y<66) || (x>82 && x<96 && y>28 && y<45) || (x>120 && x<137 && y>46 && y<66)) t='danger';
+      if((x>78 && x<94 && y>28 && y<42) || (x>122 && x<136 && y>50 && y<62)) t='dungeon';
+      if(x>102 && x<134 && y>64 && y<84) t='ruins';
+      if(x>6 && x<25 && y>66 && y<88) t='graveyard';
+      if(x>2 && x<48 && y>1 && y<12) t='ice';
       if(rand(100)<4 && t==='grass') t='darkGrass';
+
+      // 브라이트헤이븐 북서쪽 감옥. 벽은 충돌, 내부는 이동 가능.
+      if(x>=15 && x<=27 && y>=28 && y<=39){
+        t = 'jail';
+        if(x===15 || x===27 || y===28 || y===39) t = 'jailWall';
+        if(x===21 && y===28) t = 'jail'; // 출입문/석방 지점
+        if((x===18 || x===24) && y>30 && y<38) t = 'jailWall';
+        if((x===18 || x===24) && (y===34 || y===37)) t = 'jail';
+      }
+
       map[y][x] = t;
     }
   }
 
-  for(let i=0;i<165;i++){
+  const resourceTarget = 280;
+  for(let i=0;i<resourceTarget;i++){
     const x = rand(W), y = rand(H);
     const t = map[y][x];
-    if(['forest','mountain','water','grass','darkGrass','swamp','desert'].includes(t)){
+    if(['forest','mountain','water','grass','darkGrass','swamp','desert','ruins','graveyard','ice'].includes(t)){
       let kind = t==='mountain' ? 'ore' : t==='forest' ? 'tree' : t==='water' ? 'fish' : t==='swamp' ? 'herb' : t==='desert' ? 'ore' : 'herb';
       if(t==='grass' || t==='darkGrass') kind = rand(2) ? 'herb' : 'tree';
+      if(t==='ruins') kind = Math.random()<0.55 ? 'ore' : 'herb';
+      if(t==='graveyard') kind = Math.random()<0.45 ? 'herb' : 'ore';
+      if(t==='ice') kind = Math.random()<0.65 ? 'ore' : 'herb';
       resources.push({x,y,kind,amount: 2+rand(5), respawn:0});
     }
   }
 
-  for(let i=0;i<34;i++){
+  for(let i=0;i<70;i++){
     let placed = false;
-    for(let tries=0; tries<180 && !placed; tries++){
+    for(let tries=0; tries<220 && !placed; tries++){
       const x = rand(W), y = rand(H);
       const t = map[y][x];
-      if(['forest','mountain','danger','darkGrass','dungeon','swamp','desert'].includes(t) && !isBlocked(x,y)){
+      if(['forest','mountain','danger','darkGrass','dungeon','swamp','desert','ruins','graveyard','ice'].includes(t) && !isBlocked(x,y)){
         chests.push({
           x,y,
-          locked: Math.random()<0.72,
+          locked: Math.random()<0.74,
           opened:false,
           respawn:0,
-          tier: t==='dungeon' ? 4 : t==='danger' ? 3 : t==='mountain' ? 2 : 1
+          tier: t==='dungeon' || t==='ruins' ? 4 : t==='danger' || t==='graveyard' ? 3 : t==='mountain' || t==='ice' ? 2 : 1,
+          note: t==='ruins' ? '고대 유적 상자' : t==='graveyard' ? '묘지 봉인 상자' : t==='ice' ? '빙원 보급 상자' : ''
         });
         placed = true;
       }
@@ -2782,7 +2865,7 @@ function isBlocked(x,y){
     const gx = gridX(px), gy = gridY(py);
     if(gx<0||gy<0||gx>=W||gy>=H) return true;
     const t = map[gy][gx];
-    if(t==='water') return true;
+    if(t==='water' || t==='jailWall') return true;
   }
   if(resources.some(r=>r.kind==='tree' && r.amount>0 && Math.hypot(r.x-x, r.y-y)<0.42)) return true;
   return false;
@@ -2896,7 +2979,10 @@ function spawnMobs(){
     spider:{name:'동굴 거미', level:10, hp:36, atk:8, gold:11, drop:'batWing', color:'#37343a', hostile:true},
     bat:{name:'동굴 박쥐', level:7, hp:22, atk:6, gold:7, drop:'batWing', color:'#4a4155', hostile:true},
     cultist:{name:'던전 광신도', level:15, hp:54, atk:13, gold:30, drop:'dungeonKey', color:'#5d3f71', rareDrop:'ancientRelic', hostile:true},
-    mummy:{name:'사막 미라', level:16, hp:58, atk:12, gold:28, drop:'silverCoin', color:'#c3ad78', rareDrop:'ancientRelic', hostile:true}
+    mummy:{name:'사막 미라', level:16, hp:58, atk:12, gold:28, drop:'silverCoin', color:'#c3ad78', rareDrop:'ancientRelic', hostile:true},
+    wraith:{name:'묘지 망령', level:18, hp:62, atk:15, gold:30, drop:'boneCharm', color:'#9aa2a0', rareDrop:'ancientRelic', hostile:true},
+    relicGuard:{name:'유적 수호병', level:20, hp:76, atk:17, gold:42, drop:'relicShard', color:'#8c8060', rareDrop:'ancientRelic', hostile:true},
+    frostWolf:{name:'빙원 늑대', level:14, hp:52, atk:13, gold:24, drop:'hide', color:'#b9d8e2', rareDrop:'frostOre', hostile:true}
   };
 
   while(mobs.filter(m=>!m.animal && !m.boss).length < targetCount){
@@ -2911,6 +2997,9 @@ function spawnMobs(){
     else if(t==='desert') pool = ['mummy','bandit','skeleton'];
     else if(t==='dungeon') pool = ['bat','spider','skeleton','cultist','golem'];
     else if(t==='darkGrass') pool = ['wolf','boar','slime'];
+    else if(t==='ruins') pool = ['relicGuard','skeleton','cultist','golem'];
+    else if(t==='graveyard') pool = ['wraith','skeleton','mummy','bat'];
+    else if(t==='ice') pool = ['frostWolf','direwolf','golem'];
     const type = pool[rand(pool.length)];
     mobs.push({x,y,prevX:x,prevY:y,type, ...defs[type], maxHp: defs[type].hp});
   }
@@ -2940,9 +3029,10 @@ function removeItem(id, qty=1){
 }
 
 function move(dx,dy, step=0.22){
-  if(tick < (player.jailUntilTick||0)){
-    if(tick % 10 === 0) toast(`체포 대기 ${Math.ceil(((player.jailUntilTick||0)-tick)*0.45)}초`);
-    return false;
+  const jailed = tick < (player.jailUntilTick||0);
+  if(jailed && !isInsideJailCell(player.x, player.y)){
+    player.x = JAIL.cellX;
+    player.y = JAIL.cellY;
   }
   const len = Math.hypot(dx,dy);
   if(len < 0.01) return false;
@@ -2957,14 +3047,20 @@ function move(dx,dy, step=0.22){
 
   const nx = player.x + ux*step;
   const ny = player.y + uy*step;
-  if(!isBlocked(nx,ny)){
+  const canStepTo = (tx,ty)=>{
+    if(isBlocked(tx,ty)) return false;
+    if(jailed && !isInsideJailCell(tx,ty)) return false;
+    return true;
+  };
+  if(canStepTo(nx,ny)){
     player.x = clamp(nx, 0, W-1);
     player.y = clamp(ny, 0, H-1);
-  }else if(!isBlocked(nx, player.y)){
+  }else if(canStepTo(nx, player.y)){
     player.x = clamp(nx, 0, W-1);
-  }else if(!isBlocked(player.x, ny)){
+  }else if(canStepTo(player.x, ny)){
     player.y = clamp(ny, 0, H-1);
   }else{
+    if(jailed && tick % 18 === 0) toast(`감옥 수감 중 ${jailRemainingSeconds()}초`);
     return false;
   }
 
@@ -3051,7 +3147,7 @@ function manualAttackCandidateScore(entity, kind){
 
   // 수동 공격은 조작감 우선. 방향 판정은 완전히 보조값으로만 쓴다.
   // 근처에 보이는 적이면 공격 버튼이 항상 먹히도록 범위를 넓힌다.
-  const maxRange = kind === 'npc' ? 2.05 : 5.25;
+  const maxRange = kind === 'npc' ? 2.05 : 7.25;
   if(d > maxRange) return null;
 
   const dx = (typeof renderX === 'function' ? renderX(entity) : entity.x) - player.x;
@@ -3074,7 +3170,7 @@ function isManualAttackLockedTargetValid(){
   if(!lock || !lock.ref || tick > (lock.until||0)) return false;
   if(lock.kind === 'mob' && lock.ref.hp <= 0) return false;
   if(lock.kind === 'npc' && lock.ref.down) return false;
-  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 5.75;
+  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 7.75;
   return entityScreenAwareDistance(lock.ref) <= maxKeepRange;
 }
 
@@ -3120,7 +3216,7 @@ function pullPlayerTowardManualTarget(target){
   player.dir = [dx/len, dy/len];
 
   // 수동 공격이 멀리서 헛치는 느낌을 줄이기 위한 짧은 보정 이동.
-  const step = Math.min(0.38, Math.max(0, d - 1.18));
+  const step = Math.min(0.72, Math.max(0, d - 1.05));
   const nx = player.x + (dx/len)*step;
   const ny = player.y + (dy/len)*step;
   if(!isBlocked(nx, ny)){
@@ -3152,6 +3248,11 @@ function attack(target=null){
       return;
     }
     if(picked?.kind === 'mob') target = picked.ref;
+    if(!target){
+      // 마지막 보정: 화면/방향과 상관 없이 가장 가까운 적을 잡는다. 공격 버튼이 끊기는 느낌을 막는다.
+      target = mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=7.75).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0] || null;
+      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 110};
+    }
   }
 
   if(!target){ toast('주변 적 없음'); return; }
@@ -3520,12 +3621,14 @@ function killMob(mob){
   player.questKills[mob.type] = (player.questKills[mob.type]||0) + 1;
   applyChoiceConsequencesOnKill(mob);
   const g = (mob.gold||0) + (mob.animal ? 0 : rand(mob.boss ? 80 : 8));
-  player.gold += g;
+  const expReward = (mob.animal ? 4 : mob.boss ? 160 : 18) + Math.floor((mob.maxHp||20)/4);
+  const partyReward = partyAwardMobReward(mob, g, expReward);
+  player.gold += partyReward.gold;
   if(Math.random()<0.82 && mob.drop && canCarryItem(mob.drop,1)) addItem(mob.drop,1);
   if(mob.rareDrop && (mob.boss || Math.random()<0.12) && canCarryItem(mob.rareDrop,1)) addItem(mob.rareDrop,1);
   if(!mob.animal && Math.random()<(mob.boss ? 0.35 : 0.05) && canCarryItem('gem',1)) addItem('gem',1);
-  gainExp((mob.animal ? 4 : mob.boss ? 160 : 18) + Math.floor((mob.maxHp||20)/4));
-  addLog(`${mob.name} 처치.${g ? ` ${g}g 획득.` : ''}${mob.drop ? ` ${itemDefs[mob.drop]?.name||mob.drop} 획득 가능.` : ''}`);
+  gainExp(partyReward.exp);
+  addLog(`${mob.name} 처치.${partyReward.gold ? ` ${partyReward.gold}g 획득.` : ''} EXP ${partyReward.exp}.${partyReward.shared ? ' 파티 분배.' : ''}${mob.drop ? ` ${itemDefs[mob.drop]?.name||mob.drop} 획득 가능.` : ''}`);
   toast(`${mob.name} 처치`);
 }
 
@@ -3657,21 +3760,63 @@ function confiscateStolenGoods(){
   return count;
 }
 
+function jailInteraction(){
+  normalizePlayer();
+  if(tick >= (player.jailUntilTick||0)){ releaseFromJail(); return; }
+  player.jailActionCd = player.jailActionCd || 0;
+  if(tick < player.jailActionCd){ toast(`감옥 수감 중 ${jailRemainingSeconds()}초`); return; }
+  player.jailActionCd = tick + 45;
+
+  const roll = Math.random();
+  if(roll < 0.34){
+    player.sta = clamp(player.sta + 8, 0, player.maxSta);
+    addLog(`감옥에서 숨을 고른다. 남은 수감 ${jailRemainingSeconds()}초.`);
+    toast('수감 대기');
+  }else if(roll < 0.64){
+    gainSkill('stealing',0.16);
+    addLog('철창과 자물쇠를 살핀다. 절도 기술이 조금 오른다. 탈옥은 아직 위험하다.');
+    toast('자물쇠 관찰');
+  }else{
+    const cut = 10 + rand(9);
+    player.jailUntilTick = Math.max(tick + 12, (player.jailUntilTick||tick) - cut);
+    player.karma = (player.karma||0) + 1;
+    addLog('조용히 복역해 형기가 조금 줄었다.');
+    toast('형기 감소');
+  }
+  draw();
+}
+
+function releaseFromJail(){
+  normalizePlayer();
+  if(!isJailTile(player.x, player.y) && tick < (player.jailUntilTick||0)) return;
+  if(tick < (player.jailUntilTick||0)) return;
+  player.jailUntilTick = 0;
+  player.criminalUntil = 0;
+  player.x = JAIL.releaseX;
+  player.y = JAIL.releaseY;
+  player.sta = clamp(player.sta + 25, 0, player.maxSta);
+  addLog('형기를 마치고 감옥 밖으로 석방되었다.');
+  toast('석방');
+  draw();
+}
+
 function arrestPlayer(){
   normalizePlayer();
   const stolen = confiscateStolenGoods();
   if(player.crimeRecord) player.crimeRecord.arrests = (player.crimeRecord.arrests||0) + 1;
-  const fine = Math.min(player.gold, 25 + (player.wanted||0)*12);
+  const wantedBefore = player.wanted || 0;
+  const fine = Math.min(player.gold, 30 + wantedBefore*15);
   player.gold -= fine;
-  player.wanted = Math.max(0, (player.wanted||0) - 6);
-  player.jailUntilTick = tick + 55;
-  player.hp = Math.max(40, Math.floor(player.maxHp*0.55));
+  player.wanted = Math.max(0, wantedBefore - 8);
+  player.jailUntilTick = tick + 150 + wantedBefore*12;
+  player.jailActionCd = 0;
+  player.hp = Math.max(45, Math.floor(player.maxHp*0.58));
   player.mana = Math.max(15, Math.floor(player.maxMana*0.35));
-  player.sta = Math.max(25, Math.floor(player.maxSta*0.35));
-  player.x = 24;
-  player.y = 24;
-  addLog(`체포됨. 벌금 ${fine}g, 장물 ${stolen}개 압수.`);
-  toast('체포됨');
+  player.sta = Math.max(30, Math.floor(player.maxSta*0.35));
+  player.x = JAIL.cellX;
+  player.y = JAIL.cellY;
+  addLog(`체포됨. 브라이트헤이븐 감옥 수감. 벌금 ${fine}g, 장물 ${stolen}개 압수. 남은 수감 ${jailRemainingSeconds()}초.`);
+  toast('감옥 수감');
   closeMiniTrade();
   draw();
 }
@@ -3896,6 +4041,7 @@ function openNpcTradeFromMenu(){
 }
 
 function smartUse(){
+  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
     openNpcMenu(ctx.npc);
@@ -3924,10 +4070,7 @@ function smartLifeAction(){
 }
 
 function useTile(){
-  if(tick < (player.jailUntilTick||0)){
-    toast(`체포 대기 ${Math.ceil(((player.jailUntilTick||0)-tick)*0.45)}초`);
-    return;
-  }
+  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const f = frontTile();
   const npc = npcs.find(n=>n.x===f.x&&n.y===f.y) || npcs.find(n=>dist(n,player)<=1.15);
   if(npc){
@@ -4046,7 +4189,13 @@ function gather(kind, forced=null){
     return;
   }
   if(player.sta < 4){ toast('기력이 부족하다'); return; }
-  const resultItem = kind === 'fish' ? pickFishCatch() : kind === 'mine' && regionNameAt(player.x,player.y)==='검은동굴 던전' && Math.random()<0.28 ? 'silverOre' : kind === 'wood' && Math.random()<0.24 ? 'oakLog' : itemMap[kind];
+  const regionHere = regionNameAt(player.x,player.y);
+  const resultItem = kind === 'fish' ? pickFishCatch() :
+    kind === 'mine' && regionHere==='북서 빙원' && Math.random()<0.38 ? 'frostOre' :
+    kind === 'mine' && regionHere==='동부 고대 유적' && Math.random()<0.34 ? 'relicShard' :
+    kind === 'mine' && regionHere==='망자의 묘지' && Math.random()<0.28 ? 'boneCharm' :
+    kind === 'mine' && regionHere==='검은동굴 던전' && Math.random()<0.28 ? 'silverOre' :
+    kind === 'wood' && Math.random()<0.24 ? 'oakLog' : itemMap[kind];
   if(!canCarryItem(resultItem,1)){ toast('가방 무게 초과'); return; }
   player.sta -= 4;
   const sk = player.skills[skillMap[kind]].v;
@@ -6202,6 +6351,18 @@ function sendChatMessage(){
   const input = document.getElementById('chatInput');
   const text = String(input?.value || '').trim().slice(0,60);
   if(!text){ closeChatInput(); return; }
+  if(text.startsWith('/p ')){
+    if(!partyState.id){ toast('파티 없음'); return; }
+    const ptxt = text.slice(3).trim().slice(0,80);
+    if(ptxt){
+      partySend('party_chat', {text:ptxt});
+      localSpeech = {text:`[파티] ${ptxt}`, until:Date.now()+4200};
+      addLog(`[파티] ${displayGameNickname()}: ${ptxt}`);
+    }
+    closeChatInput();
+    draw();
+    return;
+  }
   localSpeech = {text, until:Date.now()+4200};
   addLog(`${displayGameNickname()}: ${text}`);
   if(onlineChannel && player.isOnline){
@@ -6214,6 +6375,298 @@ function sendChatMessage(){
 function handleChatKey(e){
   if(e.key === 'Enter') sendChatMessage();
   if(e.key === 'Escape') closeChatInput();
+}
+
+
+function escapeJsString(s){
+  return String(s).replace(/[\\'"\n\r]/g, ch => ({'\\':'\\\\',"'":"\\'",'"':'\\"','\n':'\\n','\r':'\\r'}[ch]));
+}
+function partyLocalMember(){
+  return {
+    id: player.userId,
+    nick: displayGameNickname(),
+    level: player.level || 1,
+    job: player.job || '방랑자',
+    hp: Math.ceil(player.hp || 0),
+    maxHp: player.maxHp || 100,
+    x: player.x,
+    y: player.y,
+    ts: Date.now()
+  };
+}
+function partyEnsureLocalMember(){
+  partyState.invites = partyState.invites || [];
+  partyState.members = partyState.members || {};
+  if(partyState.id){
+    partyState.members[player.userId] = partyLocalMember();
+  }
+}
+function partyCreate(silent=false){
+  if(!player.isOnline || !onlineChannel){
+    toast('온라인 접속 후 파티 가능');
+    return false;
+  }
+  if(!partyState.id){
+    partyState.id = `party_${player.userId}_${Date.now()}`;
+    partyState.leaderId = player.userId;
+    partyState.members = {};
+    partyState.invites = partyState.invites || [];
+    partyState.members[player.userId] = partyLocalMember();
+    if(!silent) addLog('파티를 생성함.');
+    partyBroadcastUpdate();
+    sendOnlineState(true);
+  }
+  return true;
+}
+function partyIsLeader(){ return !!partyState.id && partyState.leaderId === player.userId; }
+function partyMemberArray(){
+  partyEnsureLocalMember();
+  return Object.values(partyState.members || {});
+}
+function partyMemberCount(){ return partyState.id ? partyMemberArray().length : 0; }
+function partySame(id){ return !!(partyState.id && id && partyState.members && partyState.members[id]); }
+function partyActiveRemoteMembers(range=Infinity){
+  if(!partyState.id) return [];
+  const now = Date.now();
+  return Object.values(remotePlayers || {}).filter(rp => {
+    if(!rp || !partySame(rp.id)) return false;
+    if(now - (rp.ts || 0) > 9000) return false;
+    if(range !== Infinity && dist(rp, player) > range) return false;
+    return true;
+  });
+}
+function partySend(event, payload={}){
+  if(!onlineChannel || !player.isOnline) return false;
+  onlineChannel.send({
+    type:'broadcast',
+    event,
+    payload:{
+      ...payload,
+      partyId: payload.partyId || partyState.id,
+      leaderId: payload.leaderId || partyState.leaderId,
+      fromId: player.userId,
+      fromNick: displayGameNickname(),
+      ts: Date.now()
+    }
+  });
+  return true;
+}
+function partyBroadcastUpdate(){
+  if(!partyState.id) return;
+  partyEnsureLocalMember();
+  partySend('party_update', {members: partyState.members});
+}
+function partyInvite(targetId){
+  if(!partyCreate(true)) return;
+  const rp = remotePlayers[targetId];
+  if(!rp){ toast('대상이 오프라인'); return; }
+  if(partySame(targetId)){ toast('이미 파티원'); return; }
+  partyEnsureLocalMember();
+  partySend('party_invite', {toId:targetId, members:partyState.members});
+  addLog(`${rp.nick || '유저'}에게 파티 초대.`);
+  toast('파티 초대 전송');
+  renderParty();
+}
+function partyAcceptInvite(idx){
+  const inv = (partyState.invites || [])[idx];
+  if(!inv) return;
+  partyState.id = inv.partyId;
+  partyState.leaderId = inv.leaderId || inv.fromId;
+  partyState.members = {...(inv.members || {})};
+  partyState.members[player.userId] = partyLocalMember();
+  partyState.invites.splice(idx,1);
+  partySend('party_accept', {partyId:partyState.id, leaderId:partyState.leaderId, toId:inv.fromId, member:partyLocalMember()});
+  addLog(`${inv.fromNick || '유저'}의 파티에 참가함.`);
+  toast('파티 참가');
+  sendOnlineState(true);
+  renderParty();
+}
+function partyDeclineInvite(idx){
+  const inv = (partyState.invites || [])[idx];
+  if(!inv) return;
+  partyState.invites.splice(idx,1);
+  partySend('party_decline', {partyId:inv.partyId, toId:inv.fromId});
+  renderParty();
+}
+function partyLeave(){
+  if(!partyState.id){ toast('파티 없음'); return; }
+  const oldParty = partyState.id;
+  const wasLeader = partyIsLeader();
+  if(wasLeader){
+    partySend('party_disband', {partyId:oldParty});
+    addLog('파티를 해산함.');
+  }else{
+    partySend('party_leave', {partyId:oldParty, memberId:player.userId});
+    addLog('파티에서 탈퇴함.');
+  }
+  partyState.id = null;
+  partyState.leaderId = null;
+  partyState.members = {};
+  sendOnlineState(true);
+  renderParty();
+}
+function partyKick(memberId){
+  if(!partyIsLeader()) return;
+  if(memberId === player.userId) return;
+  const m = partyState.members?.[memberId];
+  if(!m) return;
+  delete partyState.members[memberId];
+  partySend('party_kick', {partyId:partyState.id, memberId});
+  partyBroadcastUpdate();
+  addLog(`${m.nick || '유저'} 파티 추방.`);
+  renderParty();
+}
+function partySendChatMessage(){
+  const input = document.getElementById('partyChatInput');
+  const text = String(input?.value || '').trim().slice(0,80);
+  if(!text) return;
+  if(!partyState.id){ toast('파티 없음'); return; }
+  partySend('party_chat', {text});
+  addLog(`[파티] ${displayGameNickname()}: ${text}`);
+  localSpeech = {text:`[파티] ${text}`, until:Date.now()+4200};
+  if(input) input.value = '';
+  draw();
+}
+function partyHandleBroadcast(event, payload){
+  if(!payload || payload.fromId === player.userId) return;
+  if(event === 'party_invite'){
+    if(payload.toId !== player.userId) return;
+    partyState.invites = partyState.invites || [];
+    const exists = partyState.invites.some(x=>x.partyId === payload.partyId && x.fromId === payload.fromId);
+    if(!exists) partyState.invites.unshift(payload);
+    addLog(`${payload.fromNick || '유저'} 파티 초대 도착.`);
+    toast('파티 초대 도착');
+    renderParty();
+    return;
+  }
+  if(event === 'party_accept'){
+    if(!partyIsLeader() || payload.partyId !== partyState.id) return;
+    if(payload.member?.id) partyState.members[payload.member.id] = payload.member;
+    addLog(`${payload.member?.nick || payload.fromNick || '유저'} 파티 참가.`);
+    partyBroadcastUpdate();
+    renderParty();
+    return;
+  }
+  if(event === 'party_decline'){
+    if(payload.toId === player.userId || partyIsLeader()) addLog(`${payload.fromNick || '유저'} 파티 초대 거절.`);
+    return;
+  }
+  if(event === 'party_update'){
+    if(!payload.partyId) return;
+    const includesMe = payload.members && payload.members[player.userId];
+    if(partyState.id === payload.partyId || includesMe){
+      partyState.id = payload.partyId;
+      partyState.leaderId = payload.leaderId;
+      partyState.members = {...(payload.members || {})};
+      partyEnsureLocalMember();
+      sendOnlineState(true);
+      renderParty();
+    }
+    return;
+  }
+  if(event === 'party_leave'){
+    if(payload.partyId !== partyState.id) return;
+    const m = partyState.members?.[payload.memberId || payload.fromId];
+    delete partyState.members[payload.memberId || payload.fromId];
+    addLog(`${m?.nick || payload.fromNick || '유저'} 파티 탈퇴.`);
+    if(partyIsLeader()) partyBroadcastUpdate();
+    renderParty();
+    return;
+  }
+  if(event === 'party_kick'){
+    if(payload.partyId !== partyState.id) return;
+    if(payload.memberId === player.userId){
+      addLog('파티에서 추방됨.');
+      partyState.id = null; partyState.leaderId = null; partyState.members = {};
+      sendOnlineState(true);
+    }else{
+      delete partyState.members[payload.memberId];
+    }
+    renderParty();
+    return;
+  }
+  if(event === 'party_disband'){
+    if(payload.partyId !== partyState.id) return;
+    addLog('파티가 해산됨.');
+    partyState.id = null; partyState.leaderId = null; partyState.members = {};
+    sendOnlineState(true);
+    renderParty();
+    return;
+  }
+  if(event === 'party_chat'){
+    if(payload.partyId !== partyState.id) return;
+    const msg = String(payload.text || '').slice(0,80);
+    addLog(`[파티] ${payload.fromNick || '유저'}: ${msg}`);
+    const rp = remotePlayers[payload.fromId];
+    if(rp){ rp.chatText = `[파티] ${msg}`; rp.chatUntil = Date.now()+4200; }
+    draw();
+    return;
+  }
+  if(event === 'party_reward'){
+    if(payload.toId !== player.userId || payload.partyId !== partyState.id) return;
+    const gold = Math.max(0, Math.floor(payload.gold || 0));
+    const exp = Math.max(0, Math.floor(payload.exp || 0));
+    if(gold) player.gold += gold;
+    if(exp) gainExp(exp);
+    addLog(`[파티보상] ${payload.mobName || '전투'}: ${gold}g, EXP ${exp}`);
+    updateHud();
+    renderParty();
+  }
+}
+function partyAwardMobReward(mob, gold, exp){
+  if(!partyState.id) return {gold, exp, shared:false};
+  partyEnsureLocalMember();
+  const near = partyActiveRemoteMembers(12);
+  const count = 1 + near.length;
+  if(count <= 1) return {gold, exp, shared:false};
+  const myGold = Math.ceil(gold / count);
+  const myExp = Math.ceil(exp / count);
+  const eachGold = Math.floor(gold / count);
+  const eachExp = Math.floor(exp / count);
+  for(const rp of near){
+    partySend('party_reward', {toId:rp.id, gold:eachGold, exp:eachExp, mobName:mob.name});
+  }
+  addLog(`[파티공유] ${count}명 보상 분배.`);
+  return {gold:myGold, exp:myExp, shared:true};
+}
+function renderParty(){
+  const el = document.getElementById('partyPanel');
+  if(!el) return;
+  partyEnsureLocalMember();
+  const invites = partyState.invites || [];
+  const members = partyMemberArray();
+  const online = Object.values(remotePlayers || {}).filter(rp => Date.now() - (rp.ts || 0) <= 9000);
+  const leaderMark = partyIsLeader() ? '내가 파티장' : (partyState.id ? '파티원' : '파티 없음');
+  const inviteHtml = invites.length ? invites.map((inv,i)=>`
+    <div class="row">
+      <span><b>${escapeHtml(inv.fromNick || '유저')}</b> 초대 · ${escapeHtml(String(inv.partyId || '').slice(-8))}</span>
+      <span><button onclick="partyAcceptInvite(${i})">수락</button> <button onclick="partyDeclineInvite(${i})">거절</button></span>
+    </div>`).join('') : '<p>받은 초대 없음.</p>';
+  const membersHtml = partyState.id ? members.map(m=>{
+    const rp = remotePlayers[m.id] || m;
+    const near = m.id === player.userId || (rp.x != null && dist(rp, player) <= 12);
+    const hpPct = Math.round(100*((rp.hp || m.hp || 1)/(rp.maxHp || m.maxHp || 100)));
+    const kick = partyIsLeader() && m.id !== player.userId ? ` <button onclick="partyKick('${escapeJsString(m.id)}')">추방</button>` : '';
+    return `<div class="card"><h3>${escapeHtml(m.nick || rp.nick || '유저')} ${m.id===partyState.leaderId?'· 파티장':''}</h3><p>${escapeHtml(rp.job || m.job || '방랑자')} · Lv.${rp.level || m.level || 1} · HP ${hpPct}% · ${near?'근처':'멀리 있음'}${kick}</p></div>`;
+  }).join('') : '<p>파티를 만들거나 온라인 유저를 초대하세요.</p>';
+  const onlineHtml = online.length ? online.map(rp=>{
+    const disabled = partySame(rp.id) ? '이미 파티원' : '초대';
+    return `<div class="row"><span>${escapeHtml(rp.nick || '유저')} · Lv.${rp.level || 1} · ${Math.round(dist(rp, player)*10)/10}칸</span><button onclick="partyInvite('${escapeJsString(rp.id)}')">${disabled}</button></div>`;
+  }).join('') : '<p>현재 보이는 온라인 유저 없음.</p>';
+  el.innerHTML = `
+    <div class="card">
+      <h3>파티 상태</h3>
+      <p>${partyState.id ? `${leaderMark} · ${members.length}명 · ID ${escapeHtml(String(partyState.id).slice(-8))}` : '파티 없음'}</p>
+      <div class="actionLine">
+        <button onclick="partyCreate()">파티 만들기</button>
+        <button class="danger" onclick="partyLeave()">탈퇴/해산</button>
+      </div>
+    </div>
+    <div class="card"><h3>파티 채팅</h3><div class="actionLine"><input id="partyChatInput" placeholder="파티 채팅 입력" onkeydown="if(event.key==='Enter') partySendChatMessage()"><button onclick="partySendChatMessage()">전송</button></div><p>/p 내용 으로도 전송 가능.</p></div>
+    <div class="card"><h3>받은 초대</h3>${inviteHtml}</div>
+    <div class="card"><h3>파티원</h3><div class="wideList">${membersHtml}</div></div>
+    <div class="card"><h3>온라인 유저 초대</h3>${onlineHtml}</div>
+  `;
 }
 
 function updateOnlineBadge(){
@@ -6234,6 +6687,9 @@ function onlinePayload(){
     hp: player.hp,
     maxHp: player.maxHp,
     wanted: player.wanted || 0,
+    partyId: partyState.id || null,
+    partyLeaderId: partyState.leaderId || null,
+    partyCount: partyMemberCount(),
     ts: Date.now()
   };
 }
@@ -6274,6 +6730,15 @@ function setupRealtimeOnline(){
       addLog(`${payload.nick || '유저'}: ${String(payload.text||'').slice(0,60)}`);
       updateOnlineBadge();
     })
+    .on('broadcast', { event: 'party_invite' }, ({payload}) => partyHandleBroadcast('party_invite', payload))
+    .on('broadcast', { event: 'party_accept' }, ({payload}) => partyHandleBroadcast('party_accept', payload))
+    .on('broadcast', { event: 'party_decline' }, ({payload}) => partyHandleBroadcast('party_decline', payload))
+    .on('broadcast', { event: 'party_update' }, ({payload}) => partyHandleBroadcast('party_update', payload))
+    .on('broadcast', { event: 'party_leave' }, ({payload}) => partyHandleBroadcast('party_leave', payload))
+    .on('broadcast', { event: 'party_kick' }, ({payload}) => partyHandleBroadcast('party_kick', payload))
+    .on('broadcast', { event: 'party_disband' }, ({payload}) => partyHandleBroadcast('party_disband', payload))
+    .on('broadcast', { event: 'party_chat' }, ({payload}) => partyHandleBroadcast('party_chat', payload))
+    .on('broadcast', { event: 'party_reward' }, ({payload}) => partyHandleBroadcast('party_reward', payload))
     .subscribe(async (status) => {
       if(status === 'SUBSCRIBED'){
         await onlineChannel.track(onlinePayload());
@@ -6288,6 +6753,7 @@ function sendOnlineState(force=false){
   const now = performance.now ? performance.now() : Date.now();
   if(!force && now - lastNetSend < 140) return;
   lastNetSend = now;
+  partyEnsureLocalMember();
   const payload = onlinePayload();
   onlineChannel.track(payload);
   onlineChannel.send({ type:'broadcast', event:'pos', payload });
@@ -6303,8 +6769,19 @@ function drawRemotePlayers(camPxX, camPxY, vw, vh){
     drawPerson((rp.x*TILE - camPxX)/TILE,(rp.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',rp.nick||'유저',false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(x+5,y+3,22,4);
-    ctx.fillStyle='#74a9d8';
+    ctx.fillStyle=partySame(rp.id) ? '#ffdf79' : '#74a9d8';
     ctx.fillRect(x+5,y+3,22*((rp.hp||1)/(rp.maxHp||100)),4);
+    if(partySame(rp.id)){
+      ctx.strokeStyle='rgba(255,223,121,.9)';
+      ctx.lineWidth=2;
+      ctx.strokeRect(x+3,y+1,26,30);
+      ctx.fillStyle='rgba(0,0,0,.58)';
+      ctx.fillRect(x+2,y+29,28,10);
+      ctx.fillStyle='#ffdf79';
+      ctx.font='9px system-ui';
+      ctx.textAlign='center';
+      ctx.fillText('PARTY',x+16,y+37);
+    }
     if(rp.chatText && Date.now() < (rp.chatUntil||0)){
       drawSpeechBubble(x+16, y-8, rp.chatText);
     }
@@ -7443,59 +7920,74 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'계정탈퇴 시 Supabase 프로필 삭제 고정',
+    title:'유저 파티 시스템 구축',
     items:[
-      '계정탈퇴 시 profiles를 명시적으로 삭제',
-      'characters/player_presence/game_events도 같은 유저 id로 삭제',
-      '삭제 실패 시 서버 상태 박스에 RLS 오류 표시',
-      'auth.users는 클라이언트에서 삭제하지 않고 게임 데이터만 삭제'
+      '온라인 유저 대상 파티 생성·초대·수락·거절·탈퇴·추방·해산 기능 추가',
+      'Supabase 실시간 브로드캐스트 기반 파티 동기화 추가',
+      '파티 전용 채팅과 /p 명령어 추가',
+      '파티원 HP/레벨/거리 표시 및 월드 화면 파티원 강조 표시 추가',
+      '근처 파티원과 몬스터 처치 골드·경험치 분배 기능 추가'
     ]
   },
   {
     version:'전 단계 1',
-    title:'새로고침·닉네임·오토 체력 기준 수정',
+    title:'감옥·확장맵·자유 상황 컨텐츠 추가',
     items:[
-      '새로고침 시 자동 진입하지 않고 로그인 페이지 유지',
-      '로그인창 닉네임이 클라우드 저장 닉네임보다 우선 적용',
-      '자동 체력 기준을 1% 단위로 설정 가능하게 변경',
-      '상단 게이지 그라데이션 적용'
+      '브라이트헤이븐 북서쪽에 실제 감옥 구역과 철창 타일 추가',
+      '체포 시 감옥으로 이동, 벌금/장물 압수/수감 시간 적용',
+      '수감 중 말걸기 버튼으로 복역·자물쇠 관찰·형기 감소 상황 발생',
+      '형기 종료 시 감옥 밖으로 자동 석방',
+      '맵 크기 100x70에서 140x100으로 확장',
+      '북서 빙원, 동부 고대 유적, 망자의 묘지, 확장 던전/무법지대 추가',
+      '유적 수호병, 묘지 망령, 빙원 늑대와 지역별 희귀 재료 추가',
+      '수동 공격 범위를 7칸 이상으로 확대하고 마지막 보정 타겟 선택 추가'
+    ]
+  },
+  {
+    version:'전 단계 1',
+    title:'울티마식 동적 상황과 수동 공격 보정',
+    items:[
+      '현상금 사냥꾼, 숲/길/늪/던전 랜덤 상황 추가',
+      '숨겨진 상자, 주민 선물, 소문 로그 추가',
+      '수동 공격 타겟 잠금과 주변 적 자동 선택 추가',
+      '가축·강도·보스 처치에 평판/카르마 결과 반영'
     ]
   },
   {
     version:'전 단계 2',
-    title:'로그인 페이지 고정',
+    title:'사람·동물·몬스터 도트 전환',
     items:[
-      '로그인 페이지가 자동으로 넘어가지 않게 수정',
-      '닉네임 입력 후 버튼을 눌러야 접속되도록 변경',
-      '카카오 인증 복귀 시에만 세션 처리'
+      '플레이어, NPC, 온라인 유저를 코드 생성 도트 스프라이트로 변경',
+      '동물과 일반 몬스터, 보스의 형태를 도트 방식으로 분리',
+      '외부 이미지 없이 index 내부 JS에서 스프라이트 생성'
     ]
   },
   {
     version:'전 단계 3',
-    title:'통합 메뉴 패치노트 추가',
+    title:'배경 타일 도트화',
     items:[
-      '통합 메뉴에서 계정 버튼 제거',
-      '통합 메뉴에 패치노트 버튼 추가',
-      '패치노트 팝업 추가'
+      '풀, 길, 물, 숲, 산, 늪, 사막, 던전, 마을 바닥을 코드 생성 도트 타일로 변경',
+      '나무, 바위, 광석, 약초, 물고기, 상자 오브젝트 도트화',
+      '외부 PNG 없이 오프스크린 캔버스로 타일 생성'
     ]
   },
   {
     version:'전 단계 4',
-    title:'계정 시작 규칙',
+    title:'계정·온라인·채팅 정리',
     items:[
-      '테스터 로그인 제거',
-      '닉네임 입력 후 카카오 로그인',
-      '첫 로그인 시 방랑자 Lv.1로 시작',
-      '계정탈퇴 시 재인증 필요 구조 추가'
+      '설정 메뉴에서 클라우드 저장/로드/초기화 제거',
+      '계정 메뉴와 로그아웃/계정탈퇴 처리 추가',
+      '온라인 유저 채팅 말풍선 표시',
+      '로그창 클릭 시 채팅 입력창 열기'
     ]
   },
   {
     version:'전 단계 5',
-    title:'하단 조작 UI',
+    title:'UI 투명화와 메뉴 재배치',
     items:[
-      '로그창 터치 채팅 입력 활성화',
-      '아날로그와 액션 버튼 반투명 처리',
-      '아날로그 위치와 비율 조정'
+      '상단 HUD와 로그창 배경 제거',
+      '가방·상태·메뉴 박스 위치와 크기 조정',
+      '통합 메뉴와 설정 메뉴 구조 정리'
     ]
   }
 ];
@@ -7528,6 +8020,7 @@ function openPop(id){
   if(id==='popPatchNotes') renderPatchNotes();
   if(id==='popShop') renderShop();
   if(id==='popQuest') renderQuests();
+  if(id==='popParty') renderParty();
   if(id==='popFence') renderFence();
 }
 function closePop(){
@@ -7760,7 +8253,10 @@ function spawnSituationMob(type, name, opts={}){
     refugee:{level:1,hp:20,atk:0,gold:0,drop:'bandage',color:'#d1b079',animal:true,hostile:false},
     wolf:{level:5,hp:24,atk:5,gold:5,drop:'hide',color:'#9a9a8a',hostile:true},
     cultist:{level:15,hp:54,atk:13,gold:30,drop:'dungeonKey',color:'#5d3f71',rareDrop:'ancientRelic',hostile:true},
-    slime:{level:6,hp:26,atk:5,gold:8,drop:'slimeGel',color:'#69b37b',hostile:true}
+    slime:{level:6,hp:26,atk:5,gold:8,drop:'slimeGel',color:'#69b37b',hostile:true},
+    relicGuard:{level:20,hp:76,atk:17,gold:42,drop:'relicShard',color:'#8c8060',rareDrop:'ancientRelic',hostile:true},
+    wraith:{level:18,hp:62,atk:15,gold:30,drop:'boneCharm',color:'#9aa2a0',rareDrop:'ancientRelic',hostile:true},
+    frostWolf:{level:14,hp:52,atk:13,gold:24,drop:'hide',color:'#b9d8e2',rareDrop:'frostOre',hostile:true}
   };
   const def = {...(defs[type] || defs.bandit), ...opts};
   const spot = findSpawnNearPlayer(opts.minRange||3, opts.maxRange||7, opts.predicate || null);
@@ -7861,6 +8357,37 @@ function triggerWildernessSituation(){
     return true;
   }
 
+  if(t === 'ruins'){
+    if(Math.random()<0.62){
+      spawnSituationMob('relicGuard', '유적 수호병', {spriteType:'golem', minRange:4, maxRange:7, level:20, hp:76, atk:17, gold:42, drop:'relicShard', color:'#8c8060', rareDrop:'ancientRelic'});
+      addLog('고대 유적의 봉인이 흔들리며 수호병이 깨어났다.');
+    }else{
+      spawnNearbyCache('무너진 유적 보관함', 4);
+      addLog('무너진 석실에서 오래된 보관함을 발견했다.');
+    }
+    rememberWorldNote('고대 유적 상황 발생');
+    return true;
+  }
+
+  if(t === 'graveyard'){
+    spawnSituationMob('wraith', '묘지 망령', {spriteType:'sandWraith', minRange:3, maxRange:6, level:18, hp:62, atk:15, gold:30, drop:'boneCharm', color:'#9aa2a0'});
+    if(Math.random()<0.35) addLog('묘비 사이에서 낮은 속삭임이 들린다. 밤에는 더 위험하다.');
+    rememberWorldNote('묘지 망령 조우');
+    return true;
+  }
+
+  if(t === 'ice'){
+    if(Math.random()<0.45){
+      player.sta = Math.max(0, player.sta - 12);
+      addCombatEffect(player.x, player.y, '한기', 'guard');
+      addLog('빙원의 한기로 기력이 크게 떨어졌다.');
+    }else{
+      spawnSituationMob('frostWolf', '빙원 늑대', {spriteType:'wolf', minRange:4, maxRange:8, level:14, hp:52, atk:13, gold:24, drop:'hide', rareDrop:'frostOre', color:'#b9d8e2'});
+    }
+    rememberWorldNote('빙원 위험 상황');
+    return true;
+  }
+
   if(Math.random()<0.45){
     spawnNearbyCache('야영지 잔해', 1 + rand(3));
     addLog('버려진 야영지 흔적을 발견했다. 상자에 물자가 남아 있을 수 있다.');
@@ -7911,7 +8438,9 @@ function ultimaDynamicWorldTick(){
       '소문: 수배도가 높으면 마을 밖에서 현상금 사냥꾼이 붙는다.',
       '소문: 숲과 길에는 숨겨진 상자와 습격 상황이 생긴다.',
       '소문: 가축을 해치면 카르마와 평판이 내려간다.',
-      '소문: 보스와 강도를 잡으면 평판이 올라 주민 선물을 받을 수 있다.'
+      '소문: 보스와 강도를 잡으면 평판이 올라 주민 선물을 받을 수 있다.',
+      '소문: 감옥에서는 말걸기 버튼으로 형기를 줄이거나 자물쇠를 살필 수 있다.',
+      '소문: 북서 빙원·동부 유적·망자의 묘지는 확장 지역이라 희귀 재료가 나온다.'
     ];
     addLog(rumors[rand(rumors.length)]);
   }
@@ -7919,6 +8448,7 @@ function ultimaDynamicWorldTick(){
 
 function frameWorldAI(dt){
   simDtSeconds = Math.max(0.008, Math.min(0.05, dt/1000));
+  if((player.jailUntilTick||0) > 0 && tick >= player.jailUntilTick && isJailTile(player.x, player.y)) releaseFromJail();
   mobAI();
   guardAI();
   ultimaDynamicWorldTick();
@@ -7958,6 +8488,7 @@ window.addEventListener('keydown', e=>{
   if(k==='7') openPop('popShop');
   if(k==='8') openPop('popMainMenu');
   if(k==='9') openPop('popLife');
+  if(k==='0') openPop('popParty');
   if(k==='0') openFenceOrSell();
 });
 window.addEventListener('keyup', e=>{
