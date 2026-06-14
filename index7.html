@@ -5034,14 +5034,20 @@ function clearLocalAuthStateForAccountDelete(keepReauth=true){
 }
 
 function kakaoLogoutRedirect(reason='deleted'){
+  markKakaoReauthRequired();
+  localStorage.setItem('legacyPostLogoutReason', reason);
+
   const restKey = getKakaoRestApiKey();
+
+  // 카카오 Developers의 Logout Redirect URI에는 이 주소를 정확히 등록해야 함:
+  // https://lemonade-seal.github.io/legacy_realms/index7.html
+  // 쿼리스트링을 붙이면 등록값과 달라져 실패할 수 있으므로 고정 URL만 사용.
   const back = new URL('./index7.html', window.location.href);
-  back.searchParams.set(reason === 'deleted' ? 'deleted' : 'logout', String(Date.now()));
-  back.searchParams.set('reauth', '1');
+  back.search = '';
+  back.hash = '';
 
   if(!restKey){
-    // REST API 키가 코드에 없으면 카카오 로그아웃 URL을 만들 수 없다.
-    // 그래도 Supabase/로컬 상태는 제거하고 로그인 페이지로 이동한다.
+    setLoginMsg('카카오 REST API 키가 코드에 없어서 카카오 로그아웃 URL은 생략합니다. 다음 로그인은 재인증 모드로 진행됩니다.');
     window.location.replace(back.href);
     return;
   }
@@ -5117,6 +5123,7 @@ async function loginWithKakao(){
     catch(e){ try{ await client.auth.signOut(); }catch(e2){} }
     clearLocalAuthStateForAccountDelete(true);
     saveGameNickname(nick);
+    markKakaoReauthRequired();
   }else{
     const { data } = await client.auth.getSession();
     if(data?.session){
@@ -5213,8 +5220,13 @@ async function bootAuth(){
   if(s.nick) player.nickname = s.nick;
 
   const params = new URLSearchParams(window.location.search);
-  if(params.has('login') || params.has('deleted') || params.has('logout') || params.has('reauth')){
-    if(params.has('deleted') || params.has('logout') || params.has('reauth')) markKakaoReauthRequired();
+  const hasOAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
+  const mustReauth = shouldForceKakaoReauth();
+
+  if(params.has('login') || params.has('deleted') || params.has('logout') || params.has('reauth') || (mustReauth && !hasOAuthReturn)){
+    if(params.has('deleted') || params.has('logout') || params.has('reauth') || mustReauth){
+      markKakaoReauthRequired();
+    }
 
     onlineSession = null;
     remotePlayers = {};
@@ -5226,9 +5238,10 @@ async function bootAuth(){
     if(document.getElementById('nicknameInput')) document.getElementById('nicknameInput').value = '';
     document.getElementById('loginPage')?.classList.remove('hidden');
 
-    setLoginMsg(params.has('deleted')
+    const reason = localStorage.getItem('legacyPostLogoutReason') || '';
+    setLoginMsg(reason === 'deleted' || params.has('deleted')
       ? '계정 데이터가 삭제되었습니다. 게임 닉네임을 다시 작성하면 카카오 재인증 화면으로 이동합니다.'
-      : '게임 닉네임을 작성한 뒤 카카오 로그인 버튼을 누르세요.'
+      : '로그아웃되었습니다. 게임 닉네임을 작성하면 카카오 재인증 화면으로 이동합니다.'
     );
 
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
@@ -5236,8 +5249,6 @@ async function bootAuth(){
     draw();
     return true;
   }
-
-  const hasOAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
 
   if(s.url && s.anon && window.supabase?.createClient){
     supabaseClient = window.supabase.createClient(s.url, s.anon, {
@@ -5265,7 +5276,6 @@ async function bootAuth(){
 
         await loadCloudCharacter(true);
 
-        // 카카오 프로필명/클라우드의 옛 기본명보다 설정한 게임 닉네임 우선.
         player.nickname = nick;
         player.userId = data.session.user.id;
         player.isOnline = true;
@@ -5273,6 +5283,7 @@ async function bootAuth(){
 
         await ensureSupabaseProfile(data.session.user);
         clearKakaoReauthRequired();
+        localStorage.removeItem('legacyPostLogoutReason');
         hideLoginPage();
         setupRealtimeOnline();
         await saveCloudCharacter(true);
@@ -6397,12 +6408,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'DB 닉네임 충돌 대응 · 통합메뉴 투명 버튼',
+    title:'카카오 재인증 미이동 원인 수정',
     items:[
-      '카카오 프로필명이 profiles.nickname에 저장되는 SQL 트리거 문제 대응',
-      '앱 프로필 저장도 displayGameNickname 값만 쓰도록 고정',
-      '통합메뉴와 팝업 버튼 배경을 반투명 처리',
-      'Supabase용 닉네임 트리거 교체 SQL 추가'
+      '카카오 로그아웃 redirect_uri에서 동적 쿼리 제거',
+      '카카오 Logout Redirect URI는 index7.html 고정 주소만 사용',
+      'reauth 플래그가 있으면 bootAuth가 기존 세션 자동 입장을 차단',
+      '다음 카카오 로그인 버튼에서 prompt=login/auth_type=reauthenticate 적용'
     ]
   },
   {
