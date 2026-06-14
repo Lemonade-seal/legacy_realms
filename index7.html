@@ -1711,19 +1711,6 @@
     border-style:solid !important;
   }
 
-
-
-  /* trade UI: NPC item list only, no embedded player bag list */
-  #popShop .tradeWrap{
-    grid-template-columns:1fr !important;
-  }
-  #popShop #tradeBagGrid,
-  #popShop #bagDropZone,
-  #miniTrade #miniBagZone,
-  #miniTrade #miniBagGrid{
-    display:none !important;
-  }
-
 </style>
 
 
@@ -1802,6 +1789,10 @@
       <div class="miniTradeBody">
         <div class="slotLabel">NPC 소지품</div>
         <div id="miniMerchantGrid" class="miniSlotGrid"></div>
+        <div class="miniBagZone" id="miniBagZone">
+          <div class="slotLabel">내 가방</div>
+          <div id="miniBagGrid" class="miniSlotGrid"></div>
+        </div>
         <div id="miniItemInfo" class="miniInfo">아이템 칸을 누르면 정보가 표시됩니다.</div>
       </div>
     </div>
@@ -1983,6 +1974,10 @@
           <div class="tradePanel">
             <h3 id="merchantPanelTitle">NPC 아이템</h3>
             <div id="merchantGrid" class="itemGrid"></div>
+          </div>
+          <div class="tradePanel">
+            <h3>내 가방</h3>
+            <div id="tradeBagGrid" class="itemGrid"></div>
           </div>
         </div>
       </div>
@@ -3227,6 +3222,26 @@ function drawCombatEffects(camPxX, camPxY){
 }
 
 let manualAttackLock = {ref:null, kind:null, until:0};
+let autoAttackChase = {ref:null, until:0, attackTick:0};
+
+function isMobTargetAlive(mob){
+  return !!mob && mobs.includes(mob) && (mob.hp||0) > 0;
+}
+function selectMobTarget(mob, beginChase=false){
+  if(!isMobTargetAlive(mob)) return false;
+  manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999};
+  if(beginChase) startAutoAttackChase(mob);
+  return true;
+}
+function startAutoAttackChase(mob){
+  if(!isMobTargetAlive(mob)) return false;
+  manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999};
+  autoAttackChase = {ref:mob, until:tick + 360, attackTick:0};
+  return true;
+}
+function stopAutoAttackChase(){
+  autoAttackChase = {ref:null, until:0, attackTick:0};
+}
 
 function entityScreenAwareDistance(entity){
   const ex = typeof renderX === 'function' ? renderX(entity) : (entity.x || 0);
@@ -3266,7 +3281,7 @@ function isManualAttackLockedTargetValid(){
   if(!lock || !lock.ref || tick > (lock.until||0)) return false;
   if(lock.kind === 'mob' && lock.ref.hp <= 0) return false;
   if(lock.kind === 'npc' && lock.ref.down) return false;
-  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 7.75;
+  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 32;
   return entityScreenAwareDistance(lock.ref) <= maxKeepRange;
 }
 
@@ -3354,8 +3369,21 @@ function attack(target=null){
   if(!target){ toast('주변 적 없음'); return; }
 
   if(isManualAttack){
-    pullPlayerTowardManualTarget(target);
     manualAttackFeedback(target);
+    if(target && target.hp > 0 && entityScreenAwareDistance(target) > 1.62){
+      startAutoAttackChase(target);
+      const ex = typeof renderX === 'function' ? renderX(target) : target.x;
+      const ey = typeof renderY === 'function' ? renderY(target) : target.y;
+      const dx = ex - player.x;
+      const dy = ey - player.y;
+      const len = Math.hypot(dx,dy) || 1;
+      player.dir = [dx/len, dy/len];
+      addCombatEffect(target.x, target.y, '접근', 'guard');
+      toast(`${target.name}에게 접근 중`);
+      draw();
+      return;
+    }
+    pullPlayerTowardManualTarget(target);
   }
 
   // 수동 공격은 기력이 낮아도 멈추지 않는다. 대신 지친 공격은 피해가 줄어든다.
@@ -3386,6 +3414,7 @@ function attack(target=null){
     gainSkill('tactics', isManualAttack ? 0.16 : 0.13);
     if(target.hp <= 0){
       manualAttackLock = {ref:null, kind:null, until:0};
+      if(autoAttackChase.ref === target) stopAutoAttackChase();
       addCombatEffect(target.x, target.y, '처치', 'down');
       killMob(target);
     }
@@ -3972,7 +4001,8 @@ function updateContextButtons(){
   const ctx = getContextAction();
   if(use) use.textContent = ctx.type === 'use' ? '말걸기' : ctx.label;
   if(attackButton){
-    const nearbyEnemy = mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
+    const selectedEnemy = manualAttackLock?.kind === 'mob' && isManualAttackLockedTargetValid() ? manualAttackLock.ref : null;
+    const nearbyEnemy = selectedEnemy || mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
     attackButton.textContent = nearbyEnemy ? `공격:${nearbyEnemy.name.slice(0,3)}` : '공격';
   }
   if(autoButton){
@@ -5082,11 +5112,13 @@ function renderMiniTrade(){
   const box = document.getElementById('miniTrade');
   const title = document.getElementById('miniTradeTitle');
   const merchantGrid = document.getElementById('miniMerchantGrid');
-  if(!box || !merchantGrid) return;
+  const bagGrid = document.getElementById('miniBagGrid');
+  if(!box || !merchantGrid || !bagGrid) return;
 
   const npc = activeTradeNpc;
   if(!npc){
     merchantGrid.innerHTML = '';
+    bagGrid.innerHTML = renderMiniBagSlots();
     return;
   }
 
@@ -5104,12 +5136,13 @@ function renderMiniTrade(){
     </div>`;
   }).join('');
 
+  bagGrid.innerHTML = renderMiniBagSlots();
   const info = document.getElementById('miniItemInfo');
   if(info){
     const w = inventoryWeight();
     const max = maxCarryWeight();
     const cls = w > max * 0.9 ? 'weightBad' : 'weightGood';
-    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 물품</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.<br>판매는 가방에서 내 아이템을 눌러 처리한다.`;
+    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.`;
   }
 }
 
@@ -5132,9 +5165,10 @@ function renderMiniBagSlots(){
 function renderShop(){
   normalizePlayer();
   const merchantGrid = document.getElementById('merchantGrid');
+  const bagGrid = document.getElementById('tradeBagGrid');
   const title = document.getElementById('shopTitle');
   const panelTitle = document.getElementById('merchantPanelTitle');
-  if(!merchantGrid) return;
+  if(!merchantGrid || !bagGrid) return;
 
   if(!activeTradeNpc){
     const near = npcs.filter(n=>isMerchantNpc(n) && dist(n,player)<=2.0).sort((a,b)=>dist(a,player)-dist(b,player))[0];
@@ -5143,6 +5177,7 @@ function renderShop(){
 
   if(!activeTradeNpc){
     merchantGrid.innerHTML = '<div class="notice">가까운 NPC를 터치하세요.</div>';
+    bagGrid.innerHTML = renderTradeBagSlots();
     return;
   }
 
@@ -5161,6 +5196,8 @@ function renderShop(){
       <div class="itemMeta">재고 ${qty}<br>${row.price||def.price||0}g</div>
     </div>`;
   }).join('');
+
+  bagGrid.innerHTML = renderTradeBagSlots();
 }
 
 function renderTradeBagSlots(){
@@ -5501,17 +5538,12 @@ function renderLog(){
   el.innerHTML = player.journal.slice(0,2).map(x=>`<div>${escapeHtml(x)}</div>`).join('');
 }
 
-function isTradeUiOpen(){
-  return !!(document.getElementById('popShop')?.classList.contains('open') || document.getElementById('miniTrade')?.classList.contains('open'));
-}
-
 function inventoryItemActionButtons(id, ctx={}){
   const def = itemDefs[id] || {};
   const actions = [];
   const mode = ctx.mode || 'inventory';
-  let origin = ctx.origin || 'inventory';
-  const inTrade = !!activeTradeNpc && (mode === 'trade' || isTradeUiOpen());
-  if(inTrade && origin === 'inventory') origin = 'player';
+  const origin = ctx.origin || 'inventory';
+  const inTrade = mode === 'trade' && !!activeTradeNpc;
 
   if(inTrade){
     const npc = activeTradeNpc || currentNpc;
@@ -5565,8 +5597,7 @@ function showInventoryItemPopup(ev, id, ctx={}){
 
   const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
   const mode = ctx.mode || 'inventory';
-  let origin = ctx.origin || 'inventory';
-  if(activeTradeNpc && isTradeUiOpen() && origin === 'inventory') origin = 'player';
+  const origin = ctx.origin || 'inventory';
   const npc = activeTradeNpc || currentNpc;
   const qty = origin === 'merchant'
     ? (npc ? (ensureMerchantStock(npc)[id] || 0) : 0)
@@ -7662,6 +7693,7 @@ function isRoadOrTown(x,y){
 }
 
 function nearestTarget(){
+  if(manualAttackLock?.kind === 'mob' && isManualAttackLockedTargetValid()) return manualAttackLock.ref;
   const mob = mobs.filter(m=>dist(m, player)<=1.7).sort((a,b)=>dist(a,player)-dist(b,player))[0];
   if(mob) return mob;
   const npc = npcs.filter(n=>!n.down && dist(n, player)<=1.7).sort((a,b)=>dist(a,player)-dist(b,player))[0];
@@ -8163,7 +8195,15 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
-  {title:'거래창 내 가방 목록 제거·판매 동선 정리', items:['거래 팝업과 미니 거래창에서 내 가방 아이템 목록 박스를 제거','거래 중 판매는 가방 아이템 설명창의 판매 버튼으로 처리','상점 거래창은 NPC 아이템 목록만 표시하도록 단일 패널 구성']},
+  {
+    title:'거래 가방 복구·타겟 자동 접근 공격',
+    items:[
+      '거래창의 내 가방 아이템 목록은 복구하고 안내 문구 박스만 제거',
+      '미니 거래와 전체 거래의 내 가방 아이템 클릭 설명/판매 흐름 유지',
+      '몬스터를 터치하면 타겟으로 고정되도록 추가',
+      '타겟 고정 후 공격 버튼을 누르면 자동으로 접근해 근접 거리에서 공격하도록 수정'
+    ]
+  },
   {
     title:'퀘스트 HUD 텍스트화·드래그 훔치기 제거',
     items:[
@@ -8407,6 +8447,19 @@ function npcAtScreenPoint(clientX, clientY){
     .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.npc || null;
 }
 
+function mobAtScreenPoint(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) * (canvas.width / rect.width);
+  const sy = (clientY - rect.top) * (canvas.height / rect.height);
+  const cam = cameraPixels();
+
+  return mobs
+    .filter(m=>m.hp>0)
+    .map(m=>({mob:m, dx:sx-((typeof renderX==='function'?renderX(m):m.x)*TILE - cam.x + 16), dy:sy-((typeof renderY==='function'?renderY(m):m.y)*TILE - cam.y + 16)}))
+    .filter(o=>Math.hypot(o.dx,o.dy)<=28)
+    .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.mob || null;
+}
+
 function setupCanvasGestures(){
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
@@ -8414,9 +8467,18 @@ function setupCanvasGestures(){
   }, {passive:true});
 
   canvas.addEventListener('pointerup', e=>{
-    const npc = npcAtScreenPoint(e.clientX, e.clientY);
+    const mob = mobAtScreenPoint(e.clientX, e.clientY);
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
+    if(mob){
+      currentNpc = null;
+      selectMobTarget(mob, false);
+      toast(`타겟: ${mob.name}`);
+      draw();
+      return;
+    }
+
+    const npc = npcAtScreenPoint(e.clientX, e.clientY);
     if(!npc) return;
     currentNpc = npc;
     if(dist(npc, player) > 1.9){
@@ -8479,7 +8541,50 @@ function setupAnalogPad(){
   resetAnalogKnob();
 }
 
+function autoAttackChaseStep(dt){
+  const chase = autoAttackChase;
+  if(!chase || !chase.ref) return false;
+  const target = chase.ref;
+  if(tick > (chase.until||0) || !isMobTargetAlive(target) || tick < (player.jailUntilTick||0)){
+    stopAutoAttackChase();
+    return false;
+  }
+
+  const hasManualMove = analog.active || keysDown.has('arrowup') || keysDown.has('w') || keysDown.has('arrowdown') || keysDown.has('s') || keysDown.has('arrowleft') || keysDown.has('a') || keysDown.has('arrowright') || keysDown.has('d');
+  if(hasManualMove) return false;
+
+  const ex = typeof renderX === 'function' ? renderX(target) : target.x;
+  const ey = typeof renderY === 'function' ? renderY(target) : target.y;
+  const dx = ex - player.x;
+  const dy = ey - player.y;
+  const d = Math.hypot(dx,dy);
+  if(d > 32){
+    stopAutoAttackChase();
+    toast('대상이 너무 멀다');
+    return false;
+  }
+
+  manualAttackLock = {ref:target, kind:'mob', until:tick + 9999};
+  if(d <= 1.55){
+    if(tick - (chase.attackTick||0) >= 3){
+      autoAttackChase.attackTick = tick;
+      attack();
+    }
+    return true;
+  }
+
+  const len = d || 1;
+  player.dir = [dx/len, dy/len];
+  const moved = move(dx, dy, 4.2 * (dt/1000));
+  if(!moved && d <= 2.15 && tick - (chase.attackTick||0) >= 3){
+    autoAttackChase.attackTick = tick;
+    attack();
+  }
+  return true;
+}
+
 function processMovement(dt){
+  if(autoAttackChaseStep(dt)) return;
   let vx = analog.active ? analog.x : 0;
   let vy = analog.active ? analog.y : 0;
   if(keysDown.has('arrowup') || keysDown.has('w')) vy -= 1;
