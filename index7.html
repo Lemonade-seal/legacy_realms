@@ -5268,6 +5268,24 @@ function showCloudLoadingPage(msg='서버 데이터 확인 중...'){
   setLoginMsg(msg);
 }
 
+
+function goOAuthUrl(url){
+  if(!url){
+    setLoginMsg('카카오 OAuth 주소를 받지 못했습니다.');
+    return false;
+  }
+
+  setLoginMsg('카카오 인증 화면으로 이동 중...');
+
+  // Kakao in-app browser can ignore SDK's automatic redirect.
+  // Use direct navigation with multiple fallbacks.
+  try{ window.location.assign(url); }catch(e){}
+  setTimeout(()=>{ try{ window.location.href = url; }catch(e){} }, 80);
+  setTimeout(()=>{ try{ window.location.replace(url); }catch(e){} }, 240);
+  return true;
+}
+
+
 async function startKakaoLogin(){
   const nickInput = document.getElementById('nicknameInput');
   const nick = typeof typedGameNickname === 'function'
@@ -5280,31 +5298,51 @@ async function startKakaoLogin(){
     return;
   }
 
+  // 탈퇴 후 재로그인은 방금 입력한 닉네임을 먼저 확실히 저장한다.
   if(typeof saveGameNickname === 'function') saveGameNickname(nick);
   else{
+    localStorage.setItem('legacyGameNickname', nick);
     localStorage.setItem('legacyNickname', nick);
     player.nickname = nick;
   }
 
-  // 계정탈퇴 후 재로그인: 기존 Supabase auth 토큰만 지우고, 방금 입력한 게임 닉네임은 보존한다.
-  if(isDeletedLoginRequired()){
+  const deletedFlow = isDeletedLoginRequired();
+
+  // 탈퇴 후 남은 Supabase 세션 토큰만 제거. Supabase URL/Anon 설정은 건드리지 않음.
+  if(deletedFlow){
     clearOnlyAuthTokens();
     if(typeof saveGameNickname === 'function') saveGameNickname(nick);
-    else localStorage.setItem('legacyNickname', nick);
+    else{
+      localStorage.setItem('legacyGameNickname', nick);
+      localStorage.setItem('legacyNickname', nick);
+    }
   }
 
   const client = await ensureSupabaseClient(true);
-  if(!client) return;
+  if(!client){
+    setLoginMsg('Supabase 클라이언트 초기화 실패. 잠시 후 다시 시도하세요.');
+    return;
+  }
 
   try{
-    setLoginMsg('카카오톡 로그인 화면으로 이동합니다.');
-    const { error } = await client.auth.signInWithOAuth({
+    setLoginMsg(deletedFlow ? '탈퇴 후 재로그인: 카카오 인증 주소 생성 중...' : '카카오톡 로그인 화면으로 이동합니다.');
+
+    const { data, error } = await client.auth.signInWithOAuth({
       provider:'kakao',
       options:{
-        redirectTo:getKakaoRedirectUrl()
+        redirectTo:getKakaoRedirectUrl(),
+        skipBrowserRedirect:true
       }
     });
+
     if(error) throw error;
+
+    if(data?.url){
+      goOAuthUrl(data.url);
+      return;
+    }
+
+    setLoginMsg('카카오 OAuth 주소가 없습니다. Supabase Provider 설정을 확인하세요.');
   }catch(e){
     console.error(e);
     setLoginMsg('카카오/Supabase 로그인 호출 실패: ' + (e.message || String(e)));
@@ -6647,12 +6685,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'탈퇴 후 재로그인 불가 수정',
+    title:'카톡 브라우저 탈퇴 후 재로그인 수정',
     items:[
-      '계정탈퇴 후 ?logout이 아니라 ?deleted 전용 경로로 분리',
-      '탈퇴 후 재로그인 시 기존 Supabase auth 토큰만 제거하고 새 닉네임은 보존',
-      '카카오 OAuth 호출 전 legacyAccountDeleted 플래그 처리',
-      '로그인 성공 후에만 탈퇴 플래그 제거'
+      '카톡 인앱 브라우저에서 Supabase 자동 리다이렉트가 막히는 문제 대응',
+      'signInWithOAuth를 skipBrowserRedirect:true 로 호출',
+      '반환된 OAuth URL로 window.location 직접 이동',
+      '탈퇴 후 재로그인 시 새 닉네임은 보존하고 auth 토큰만 제거'
     ]
   },
   {
