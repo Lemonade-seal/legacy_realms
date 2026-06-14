@@ -3036,37 +3036,37 @@ function drawCombatEffects(camPxX, camPxY){
 
 let manualAttackLock = {ref:null, kind:null, until:0};
 
+function entityScreenAwareDistance(entity){
+  const ex = typeof renderX === 'function' ? renderX(entity) : (entity.x || 0);
+  const ey = typeof renderY === 'function' ? renderY(entity) : (entity.y || 0);
+  return Math.hypot(ex - player.x, ey - player.y);
+}
+
 function manualAttackCandidateScore(entity, kind){
   if(!entity) return null;
   if(kind === 'mob' && entity.hp <= 0) return null;
   if(kind === 'npc' && entity.down) return null;
 
-  const ex = renderX ? renderX(entity) : (entity.x || 0);
-  const ey = renderY ? renderY(entity) : (entity.y || 0);
-  const dx = ex - player.x;
-  const dy = ey - player.y;
-  const d = Math.hypot(dx, dy);
+  const d = entityScreenAwareDistance(entity);
 
-  // 수동 공격은 조작감 우선: 몬스터는 넓게, NPC는 실수 방지를 위해 짧게.
-  const maxRange = kind === 'npc' ? 1.55 : 3.05;
+  // 수동 공격은 조작감 우선. 방향 판정은 완전히 보조값으로만 쓴다.
+  // 근처에 보이는 적이면 공격 버튼이 항상 먹히도록 범위를 넓힌다.
+  const maxRange = kind === 'npc' ? 2.05 : 5.25;
   if(d > maxRange) return null;
 
+  const dx = (typeof renderX === 'function' ? renderX(entity) : entity.x) - player.x;
+  const dy = (typeof renderY === 'function' ? renderY(entity) : entity.y) - player.y;
   const dirX = player.dir?.[0] || 0;
   const dirY = player.dir?.[1] || 1;
   const dotDist = dx * dirX + dy * dirY;
   const sideDist = Math.abs(dx * dirY - dy * dirX);
 
-  // 캡슐형 공격 범위: 앞쪽 긴 판정 + 주변 원형 판정.
-  const closeCircle = kind === 'mob' ? d <= 2.15 : d <= 1.15;
-  const frontCapsule = dotDist >= -0.45 && dotDist <= maxRange && sideDist <= (kind === 'mob' ? 1.35 : 0.75);
-  const forgivingSideHit = kind === 'mob' && d <= 2.55 && sideDist <= 1.75;
-  if(!closeCircle && !frontCapsule && !forgivingSideHit) return null;
-
-  const frontBonus = Math.max(0, dotDist) * 0.25;
-  const sidePenalty = sideDist * 0.28;
-  const npcPenalty = kind === 'npc' ? 2.0 : 0;
-  const hostileBonus = kind === 'mob' && !entity.animal ? -0.35 : 0;
-  return d + sidePenalty - frontBonus + npcPenalty + hostileBonus;
+  const hostileBonus = kind === 'mob' && !entity.animal ? -1.25 : 0;
+  const hurtBonus = kind === 'mob' && entity.hp < entity.maxHp ? -0.9 : 0;
+  const frontBonus = dotDist > 0 ? -0.25 : 0;
+  const npcPenalty = kind === 'npc' ? 5.5 : 0;
+  const animalPenalty = kind === 'mob' && entity.animal ? 0.55 : 0;
+  return d + sideDist*0.05 + npcPenalty + animalPenalty + hostileBonus + hurtBonus + frontBonus;
 }
 
 function isManualAttackLockedTargetValid(){
@@ -3074,25 +3074,25 @@ function isManualAttackLockedTargetValid(){
   if(!lock || !lock.ref || tick > (lock.until||0)) return false;
   if(lock.kind === 'mob' && lock.ref.hp <= 0) return false;
   if(lock.kind === 'npc' && lock.ref.down) return false;
-  const maxKeepRange = lock.kind === 'npc' ? 1.8 : 3.35;
-  return dist(lock.ref, player) <= maxKeepRange;
+  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 5.75;
+  return entityScreenAwareDistance(lock.ref) <= maxKeepRange;
 }
 
 function pickManualAttackTarget(){
-  // 연타 중에는 직전 대상 잠금. 프레임 보간/좌표 흔들림 때문에 공격이 끊기는 문제 방지.
+  // 연타 중에는 직전 대상을 오래 잡고 간다. 좌표 보간/몹 이동 때문에 공격이 끊기지 않게 한다.
   if(isManualAttackLockedTargetValid()){
     return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
   }
 
   const candidates = [];
 
-  // 1순위: 몬스터. 수동 공격에서 NPC 오타격을 최대한 줄인다.
+  // 1순위: 몬스터. 방향 상관 없이 주변 5칸 안이면 잡는다.
   for(const m of mobs){
     const score = manualAttackCandidateScore(m, 'mob');
     if(score !== null) candidates.push({kind:'mob', ref:m, score});
   }
 
-  // 몬스터가 주변에 없을 때만 NPC 후보를 허용한다.
+  // 몬스터가 없을 때만 NPC 공격 후보를 허용한다. 오타격 방지.
   if(!candidates.length){
     for(const n of npcs){
       const score = manualAttackCandidateScore(n, 'npc');
@@ -3103,9 +3103,38 @@ function pickManualAttackTarget(){
   candidates.sort((a,b)=>a.score-b.score);
   const picked = candidates[0] || null;
   if(picked){
-    manualAttackLock = {ref:picked.ref, kind:picked.kind, until:tick + 28};
+    manualAttackLock = {ref:picked.ref, kind:picked.kind, until:tick + 90};
   }
   return picked;
+}
+
+function pullPlayerTowardManualTarget(target){
+  if(!target) return;
+  const d = entityScreenAwareDistance(target);
+  if(d <= 1.55) return;
+  const ex = typeof renderX === 'function' ? renderX(target) : target.x;
+  const ey = typeof renderY === 'function' ? renderY(target) : target.y;
+  const dx = ex - player.x;
+  const dy = ey - player.y;
+  const len = Math.hypot(dx,dy) || 1;
+  player.dir = [dx/len, dy/len];
+
+  // 수동 공격이 멀리서 헛치는 느낌을 줄이기 위한 짧은 보정 이동.
+  const step = Math.min(0.38, Math.max(0, d - 1.18));
+  const nx = player.x + (dx/len)*step;
+  const ny = player.y + (dy/len)*step;
+  if(!isBlocked(nx, ny)){
+    player.x = clamp(nx, 0, W-1);
+    player.y = clamp(ny, 0, H-1);
+  }
+}
+
+function manualAttackFeedback(target){
+  if(!target) return;
+  const d = entityScreenAwareDistance(target);
+  if(d > 2.15 && tick % 9 === 0){
+    addCombatEffect(target.x, target.y, '추격', 'guard');
+  }
 }
 
 function attack(target=null){
@@ -3118,13 +3147,24 @@ function attack(target=null){
   const isManualAttack = !target;
   if(isManualAttack){
     const picked = pickManualAttackTarget();
-    if(picked?.kind === 'npc'){ attackNpc(picked.ref); return; }
+    if(picked?.kind === 'npc'){
+      attackNpc(picked.ref);
+      return;
+    }
     if(picked?.kind === 'mob') target = picked.ref;
   }
 
-  if(!target){ toast('가까운 공격 대상 없음'); return; }
-  if(player.sta < 3){ toast('기력이 부족하다'); return; }
-  player.sta -= 3;
+  if(!target){ toast('주변 적 없음'); return; }
+
+  if(isManualAttack){
+    pullPlayerTowardManualTarget(target);
+    manualAttackFeedback(target);
+  }
+
+  // 수동 공격은 기력이 낮아도 멈추지 않는다. 대신 지친 공격은 피해가 줄어든다.
+  const tiredManual = isManualAttack && player.sta < 3;
+  if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
+  player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : 1.2) : 3));
 
   const weapon = itemDefs[player.weapon] || itemDefs.rustySword;
   ensureDurability(player.weapon);
@@ -3133,15 +3173,25 @@ function attack(target=null){
   const hit = isManualAttack
     ? 1
     : clamp(0.66 + sword/240, 0.66, 0.94);
+
   if(Math.random() < hit){
-    const dmg = Math.max(1, Math.floor((weapon.atk||1) * durabilityFactor(player.weapon) + tactics/12 + Math.random()*8));
-    damageDurability(player.weapon, 0.35);
+    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + tactics/12 + Math.random()*8;
+    const manualBonus = isManualAttack ? 1.12 : 1;
+    const tiredPenalty = tiredManual ? 0.45 : 1;
+    const dmg = Math.max(1, Math.floor(baseDmg * manualBonus * tiredPenalty));
+    damageDurability(player.weapon, isManualAttack ? 0.22 : 0.35);
     target.hp -= dmg;
+    target.aggroUntil = tick + 180;
     if(target.animal) target.fleeUntil = tick + 80;
     addCombatEffect(target.x, target.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-    addLog(`${target.name}에게 ${dmg} 피해.`);
-    gainSkill('sword',0.18); gainSkill('tactics',0.13);
-    if(target.hp <= 0){ addCombatEffect(target.x, target.y, '처치', 'down'); killMob(target); }
+    addLog(`${target.name}에게 ${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
+    gainSkill('sword', isManualAttack ? 0.22 : 0.18);
+    gainSkill('tactics', isManualAttack ? 0.16 : 0.13);
+    if(target.hp <= 0){
+      manualAttackLock = {ref:null, kind:null, until:0};
+      addCombatEffect(target.x, target.y, '처치', 'down');
+      killMob(target);
+    }
   }else{
     addCombatEffect(target.x, target.y, '빗나감', 'miss');
     addLog(`${target.name} 공격 빗나감.`);
@@ -3468,6 +3518,7 @@ function killMob(mob){
   normalizePlayer();
   mobs = mobs.filter(m=>m!==mob);
   player.questKills[mob.type] = (player.questKills[mob.type]||0) + 1;
+  applyChoiceConsequencesOnKill(mob);
   const g = (mob.gold||0) + (mob.animal ? 0 : rand(mob.boss ? 80 : 8));
   player.gold += g;
   if(Math.random()<0.82 && mob.drop && canCarryItem(mob.drop,1)) addItem(mob.drop,1);
@@ -3678,7 +3729,8 @@ function updateContextButtons(){
   const ctx = getContextAction();
   if(use) use.textContent = ctx.type === 'use' ? '말걸기' : ctx.label;
   if(attackButton){
-    attackButton.textContent = '공격';
+    const nearbyEnemy = mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
+    attackButton.textContent = nearbyEnemy ? `공격:${nearbyEnemy.name.slice(0,3)}` : '공격';
   }
   if(autoButton){
     autoButton.textContent = player.auto?.enabled ? '오토 ON' : '오토';
@@ -7671,10 +7723,205 @@ function processMovement(dt){
   move(vx,vy,step);
 }
 
+
+const ultimaSituationState = {lastTick:0, lastGift:0, lastAmbush:0, lastDiscovery:0, lastRumor:0};
+
+function ensureUltimaState(){
+  normalizePlayer();
+  player.deeds = player.deeds || {rescues:0, crimes:0, discoveries:0, contracts:0};
+  player.worldNotes = player.worldNotes || [];
+}
+
+function rememberWorldNote(text){
+  ensureUltimaState();
+  const stamp = `${Math.floor(worldMinutes/60).toString().padStart(2,'0')}:${(worldMinutes%60).toString().padStart(2,'0')}`;
+  player.worldNotes.unshift(`[${stamp}] ${text}`);
+  player.worldNotes = player.worldNotes.slice(0,30);
+}
+
+function findSpawnNearPlayer(rangeMin=3, rangeMax=7, predicate=null){
+  for(let i=0;i<90;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = rangeMin + Math.random()*(rangeMax-rangeMin);
+    const x = clamp(Math.round(player.x + Math.cos(a)*r), 1, W-2);
+    const y = clamp(Math.round(player.y + Math.sin(a)*r), 1, H-2);
+    if(isBlocked(x,y)) continue;
+    if(dist({x,y}, player) < rangeMin) continue;
+    if(predicate && !predicate(x,y)) continue;
+    return {x,y};
+  }
+  return null;
+}
+
+function spawnSituationMob(type, name, opts={}){
+  const defs = {
+    bandit:{level:10,hp:42,atk:9,gold:18,drop:'shortBow',color:'#b77855',hostile:true},
+    bountyHunter:{level:14,hp:64,atk:14,gold:35,drop:'silverCoin',rareDrop:'rangerBow',color:'#9b6a47',hostile:true},
+    refugee:{level:1,hp:20,atk:0,gold:0,drop:'bandage',color:'#d1b079',animal:true,hostile:false},
+    wolf:{level:5,hp:24,atk:5,gold:5,drop:'hide',color:'#9a9a8a',hostile:true},
+    cultist:{level:15,hp:54,atk:13,gold:30,drop:'dungeonKey',color:'#5d3f71',rareDrop:'ancientRelic',hostile:true},
+    slime:{level:6,hp:26,atk:5,gold:8,drop:'slimeGel',color:'#69b37b',hostile:true}
+  };
+  const def = {...(defs[type] || defs.bandit), ...opts};
+  const spot = findSpawnNearPlayer(opts.minRange||3, opts.maxRange||7, opts.predicate || null);
+  if(!spot) return null;
+  const mob = {x:spot.x, y:spot.y, prevX:spot.x, prevY:spot.y, type:opts.spriteType || (type==='bountyHunter'?'bandit':type), name:name || def.name || type, ...def, maxHp:def.hp};
+  mobs.push(mob);
+  return mob;
+}
+
+function spawnNearbyCache(label='버려진 보급품', tier=2){
+  const spot = findSpawnNearPlayer(2, 6, (x,y)=>tileAt(x,y)!=='water' && !isTownArea(x,y));
+  if(!spot) return null;
+  const chest = {x:spot.x, y:spot.y, tier, locked:Math.random()<0.45, opened:false, respawn:0, note:label};
+  chests.push(chest);
+  addCombatEffect(spot.x, spot.y, '발견', 'guard');
+  return chest;
+}
+
+function awardCivicGift(){
+  if((player.fame||0) < 8 || (player.wanted||0) > 0) return false;
+  if(tick - ultimaSituationState.lastGift < 900) return false;
+  if(!isTownArea(player.x, player.y)) return false;
+  if(Math.random() > 0.10) return false;
+  ultimaSituationState.lastGift = tick;
+  const pool = ['bandage','cookedFish','healthPotion','silverCoin'];
+  const id = pool[rand(pool.length)];
+  if(canCarryItem(id,1)) addItem(id,1);
+  player.karma = (player.karma||0) + 1;
+  addLog(`마을 주민이 평판을 듣고 ${itemDefs[id]?.name || id}을 건넸다.`);
+  rememberWorldNote('평판 보상: 주민 선물 획득');
+  toast('주민 선물');
+  return true;
+}
+
+function triggerWantedAmbush(){
+  if((player.wanted||0) < 4) return false;
+  if(tick - ultimaSituationState.lastAmbush < 780) return false;
+  if(isTownArea(player.x, player.y)) return false;
+  if(Math.random() > 0.18) return false;
+  ultimaSituationState.lastAmbush = tick;
+  const count = 1 + Math.min(2, Math.floor((player.wanted||0)/7));
+  for(let i=0;i<count;i++) spawnSituationMob('bountyHunter', '현상금 사냥꾼', {minRange:4, maxRange:8});
+  addLog('수배 전단을 본 현상금 사냥꾼이 추격해온다. 숨거나 맞서 싸워라.');
+  rememberWorldNote('현상금 사냥꾼 추격 발생');
+  toast('현상금 추격');
+  return true;
+}
+
+function triggerWildernessSituation(){
+  if(tick - ultimaSituationState.lastDiscovery < 640) return false;
+  if(isTownArea(player.x, player.y)) return false;
+  const t = tileAt(player.x, player.y);
+  if(Math.random() > 0.12) return false;
+  ultimaSituationState.lastDiscovery = tick;
+
+  if(t === 'forest'){
+    if(Math.random()<0.55){
+      spawnNearbyCache('숲속 은닉 상자', 2);
+      player.deeds.discoveries++;
+      addLog('숲속 수풀 뒤에서 은닉 상자를 발견했다. 열지 지나칠지 선택할 수 있다.');
+      rememberWorldNote('숲속 은닉 상자 발견');
+    }else{
+      for(let i=0;i<2;i++) spawnSituationMob('wolf', '굶주린 늑대', {minRange:3, maxRange:6});
+      addLog('굶주린 늑대 무리가 냄새를 맡고 접근한다.');
+      rememberWorldNote('늑대 무리 조우');
+    }
+    return true;
+  }
+
+  if(t === 'road'){
+    spawnSituationMob('bandit', '길목 강도', {minRange:4, maxRange:7});
+    if(Math.random()<0.5) spawnNearbyCache('습격당한 행상 짐', 2);
+    addLog('길목에서 강도가 나타났다. 쓰러뜨리면 평판이 오른다.');
+    rememberWorldNote('길목 강도 조우');
+    return true;
+  }
+
+  if(t === 'swamp'){
+    spawnSituationMob('slime', '독늪 슬라임', {minRange:3, maxRange:6});
+    if(Math.random()<0.35){
+      player.hp = Math.max(1, player.hp - 4);
+      addCombatEffect(player.x, player.y, '-4', 'hit');
+      addLog('늪 독기에 체력이 조금 깎였다. 약초나 붕대를 준비해야 한다.');
+    }
+    rememberWorldNote('늪지 위험 상황');
+    return true;
+  }
+
+  if(t === 'dungeon' || t === 'danger'){
+    if(Math.random()<0.5){
+      spawnSituationMob('cultist', '떠도는 광신도', {minRange:4, maxRange:7});
+    }else{
+      player.hp = Math.max(1, player.hp - 8);
+      addCombatEffect(player.x, player.y, '-8', 'hit');
+      addLog('바닥 함정을 밟았다. 던전은 더 조심스럽게 움직여야 한다.');
+    }
+    rememberWorldNote('던전 위험 상황');
+    return true;
+  }
+
+  if(Math.random()<0.45){
+    spawnNearbyCache('야영지 잔해', 1 + rand(3));
+    addLog('버려진 야영지 흔적을 발견했다. 상자에 물자가 남아 있을 수 있다.');
+    rememberWorldNote('야영지 잔해 발견');
+    player.deeds.discoveries++;
+    return true;
+  }
+  return false;
+}
+
+function applyChoiceConsequencesOnKill(mob){
+  ensureUltimaState();
+  if(!mob) return;
+  if(mob.animal){
+    player.karma = (player.karma||0) - (isTownArea(mob.x,mob.y) ? 2 : 1);
+    if(isTownArea(mob.x,mob.y) && Math.random()<0.35){
+      markCriminal('마을 가축을 해침.', 1);
+    }
+    rememberWorldNote(`${mob.name} 사냥: 카르마 하락`);
+    return;
+  }
+  if(['bandit','goblin','orc','skeleton','cultist','mummy','bountyHunter'].includes(mob.type) || /강도|광신도|현상금/.test(mob.name||'')){
+    player.fame = (player.fame||0) + (mob.boss ? 4 : 1);
+    player.karma = (player.karma||0) + 1;
+    if(Math.random()<0.08 && canCarryItem('silverCoin',1)){
+      addItem('silverCoin',1);
+      addLog('쓰러뜨린 적에게서 고대 은화를 추가로 발견했다.');
+    }
+  }
+  if(mob.boss){
+    player.deeds.contracts++;
+    rememberWorldNote(`보스 격파: ${mob.name}`);
+    if(canCarryItem('ancientRelic',1)) addItem('ancientRelic',1);
+  }
+}
+
+function ultimaDynamicWorldTick(){
+  ensureUltimaState();
+  if(tick - ultimaSituationState.lastTick < 75) return;
+  ultimaSituationState.lastTick = tick;
+  awardCivicGift();
+  triggerWantedAmbush();
+  triggerWildernessSituation();
+
+  if(tick - ultimaSituationState.lastRumor > 1200 && Math.random()<0.18){
+    ultimaSituationState.lastRumor = tick;
+    const rumors = [
+      '소문: 수배도가 높으면 마을 밖에서 현상금 사냥꾼이 붙는다.',
+      '소문: 숲과 길에는 숨겨진 상자와 습격 상황이 생긴다.',
+      '소문: 가축을 해치면 카르마와 평판이 내려간다.',
+      '소문: 보스와 강도를 잡으면 평판이 올라 주민 선물을 받을 수 있다.'
+    ];
+    addLog(rumors[rand(rumors.length)]);
+  }
+}
+
 function frameWorldAI(dt){
   simDtSeconds = Math.max(0.008, Math.min(0.05, dt/1000));
   mobAI();
   guardAI();
+  ultimaDynamicWorldTick();
 }
 
 function frameLoop(ts){
