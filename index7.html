@@ -1672,6 +1672,45 @@
     .questBox.active{display:block !important;}
   }
 
+
+  /* quest HUD text-only + popup layering patch */
+  .questBox,
+  #activeQuestHud{
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+    padding:0 !important;
+    z-index:40 !important;
+    text-shadow:0 1px 2px rgba(0,0,0,.85) !important;
+  }
+  .questBox b,
+  #activeQuestHud b{
+    display:block;
+    margin-bottom:3px;
+  }
+  .pop,
+  [id^="pop"],
+  .popup,
+  .miniTrade,
+  .miniNpcMenu,
+  .invDetailPopup,
+  .chatPanel,
+  .dragGhost{
+    z-index:10050 !important;
+  }
+  .invDetailPopup{z-index:10080 !important;}
+  .chatPanel{z-index:10090 !important;}
+  #loginPage{z-index:200000 !important;}
+  .bagDropZone,
+  .miniBagZone{
+    border-style:solid !important;
+  }
+
 </style>
 
 
@@ -1751,7 +1790,7 @@
         <div class="slotLabel">NPC 소지품</div>
         <div id="miniMerchantGrid" class="miniSlotGrid"></div>
         <div class="miniBagZone" id="miniBagZone">
-          <div class="slotLabel">내 가방 · 여기로 끌어오면 훔치기</div>
+          <div class="slotLabel">내 가방</div>
           <div id="miniBagGrid" class="miniSlotGrid"></div>
         </div>
         <div id="miniItemInfo" class="miniInfo">아이템 칸을 누르면 정보가 표시됩니다.</div>
@@ -1801,7 +1840,7 @@
         </div>
         <div class="card">
           <h3>현재 구현</h3>
-          <p>이동, 전투, NPC 가방 드래그 훔치기, 수배도, 경비병 반응, 암시장, 몬스터 리젠, 채집, 인벤토리, 제작, 은행, 상점, 의뢰, 평판, 판매, 저장.</p>
+          <p>이동, 전투, NPC 가방 아이템 설명창 훔치기, 수배도, 경비병 반응, 암시장, 몬스터 리젠, 채집, 인벤토리, 제작, 은행, 상점, 의뢰, 평판, 판매, 저장.</p>
         </div>
         <div id="journalRows"></div>
       </div>
@@ -1930,7 +1969,7 @@
     <section class="pop" id="popShop">
       <div class="popHead"><b id="shopTitle">NPC 가방</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <div class="notice">상인 터치 시 캐릭터 근처에 작은 슬롯창이 열린다. NPC 아이템 칸을 내 가방 칸으로 끌면 훔치기 판정.</div>
+        <div class="notice">상인 터치 시 캐릭터 근처에 작은 슬롯창이 열린다. NPC 아이템은 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.</div>
         <div class="tradeWrap">
           <div class="tradePanel">
             <h3 id="merchantPanelTitle">NPC 아이템</h3>
@@ -1938,11 +1977,8 @@
           </div>
           <div class="tradePanel">
             <h3>내 가방</h3>
-            <div id="bagDropZone" class="bagDropZone"
-                 ondragover="event.preventDefault()"
-                 ondrop="dropMerchantItemToBag(event)"
-                 onpointerup="dropMerchantItemToBag(event)">
-              여기로 끌어오면 훔치기 시도
+            <div id="bagDropZone" class="bagDropZone">
+              내 가방 아이템 목록
             </div>
             <div id="tradeBagGrid" class="itemGrid"></div>
           </div>
@@ -4123,7 +4159,7 @@ function smartLifeAction(){
   if(npc){
     currentNpc = npc;
     openMerchantTrade(npc);
-    toast('NPC 가방에서 아이템을 내 가방으로 끌면 훔치기');
+    toast('NPC 아이템을 누르면 설명창에서 훔치기 가능');
     return;
   }
   openPop('popLife');
@@ -4892,34 +4928,15 @@ function openMerchantTrade(npc){
 }
 
 function startMerchantDrag(ev, id){
-  ev.preventDefault();
-  ev.stopPropagation();
-  if(!activeTradeNpc){ toast('상인 없음'); return; }
-  const stock = ensureMerchantStock(activeTradeNpc);
-  if((stock[id]||0) <= 0){ toast('재고 없음'); return; }
-
-  merchantDrag = {
-    id,
-    npc:activeTradeNpc,
-    pointerId: ev.pointerId ?? null
-  };
-
-  document.querySelectorAll('.miniSlot,.itemSlot').forEach(x=>x.classList.remove('dragging'));
-  ev.currentTarget?.classList?.add('dragging');
-
-  const dz = document.getElementById('miniBagZone') || document.getElementById('bagDropZone');
-  if(dz) dz.classList.add('hot');
-
-  removeDragGhost();
-  dragGhost = document.createElement('div');
-  dragGhost.className = 'dragGhost';
-  dragGhost.innerHTML = itemIcon(id);
-  document.body.appendChild(dragGhost);
-  moveDragGhost(ev.clientX, ev.clientY);
-
-  try{ ev.currentTarget?.setPointerCapture?.(ev.pointerId); }catch(e){}
+  // Drag-to-steal is intentionally disabled.
+  // Stealing remains available only through the item description popup button.
+  if(ev){
+    ev.preventDefault?.();
+    ev.stopPropagation?.();
+  }
+  merchantDrag = null;
+  toast('아이템을 눌러 설명창에서 구매/훔치기를 선택하세요');
 }
-
 function moveDragGhost(x,y){
   if(!dragGhost) return;
   dragGhost.style.left = `${x}px`;
@@ -4949,26 +4966,11 @@ function pointInElement(clientX, clientY, el){
 
 function dropMerchantItemToBag(ev){
   if(ev){
-    ev.preventDefault();
-    ev.stopPropagation();
+    ev.preventDefault?.();
+    ev.stopPropagation?.();
   }
-  if(!merchantDrag) return;
-
-  const id = merchantDrag.id;
-  const npc = merchantDrag.npc;
-  const clientX = ev?.clientX ?? 0;
-  const clientY = ev?.clientY ?? 0;
-  const miniZone = document.getElementById('miniBagZone');
-  const fullZone = document.getElementById('bagDropZone');
-  const droppedOnBag = pointInElement(clientX, clientY, miniZone) || pointInElement(clientX, clientY, fullZone);
-
   clearMerchantDrag();
-
-  if(!droppedOnBag){
-    toast('내 가방 칸에 놓아야 함');
-    return;
-  }
-  attemptStealTradeItem(npc, id);
+  toast('드래그 훔치기는 제거됨');
 }
 
 document.addEventListener('pointermove', e=>{
@@ -5095,7 +5097,7 @@ function renderMiniTrade(){
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
     const qty = stock[row.id] || 0;
     return `<div class="miniSlot ${qty<=0?'empty':''}"
-      onpointerdown="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}" onclick="showMiniItemInfo('${row.id}','NPC 소지품',event)">
+      onclick="showMiniItemInfo('${row.id}','NPC 소지품',event)">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">${qty}</div>
@@ -5108,7 +5110,7 @@ function renderMiniTrade(){
     const w = inventoryWeight();
     const max = maxCarryWeight();
     const cls = w > max * 0.9 ? 'weightBad' : 'weightGood';
-    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 내 가방 영역으로 끌면 훔치기 판정.`;
+    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.`;
   }
 }
 
@@ -5155,11 +5157,8 @@ function renderShop(){
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
     const qty = stock[row.id] || 0;
     const disabled = qty<=0 ? 'opacity:.42; cursor:not-allowed;' : '';
-    return `<div class="itemSlot" style="${disabled}" draggable="${qty>0?'true':'false'}"
-      onclick="showTradeItemPopup(event,'${row.id}','merchant')"
-      onpointerdown="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}"
-      ondragstart="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}"
-      ondragend="clearMerchantDrag()">
+    return `<div class="itemSlot" style="${disabled}"
+      onclick="showTradeItemPopup(event,'${row.id}','merchant')">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">재고 ${qty}<br>${row.price||def.price||0}g</div>
@@ -8164,6 +8163,15 @@ function gameLoop(){
 
 const PATCH_NOTES = [
   {
+    title:'퀘스트 HUD 텍스트화·드래그 훔치기 제거',
+    items:[
+      '퀘스트 HUD의 박스 배경·테두리·그림자를 제거하고 텍스트만 표시',
+      '모든 팝업창과 아이템 설명창이 퀘스트 HUD보다 앞에 표시되도록 z-index 정리',
+      '거래창에서 아이템을 끌어와 훔치는 기능 제거',
+      '훔치기는 아이템 설명창의 훔치기 버튼으로만 실행되도록 정리'
+    ]
+  },
+  {
     version:'현재 단계',
     title:'전체 아이템 설명창·거래 구매/판매 버튼 추가',
     items:[
@@ -8171,7 +8179,7 @@ const PATCH_NOTES = [
       '거래 중 NPC 아이템 설명창에는 구매 버튼과 훔치기 버튼을 표시',
       '거래 중 내 가방 아이템 설명창에는 판매 버튼을 표시',
       '아이템 설명창에 수량·무게·기본가·구매가·판매가·장비 능력치를 함께 표시',
-      '상점 거래는 정상 구매/판매, 드래그는 기존 훔치기 판정을 유지하도록 분리'
+      '상점 거래는 정상 구매/판매, 훔치기는 설명창 버튼으로만 실행되도록 분리'
     ]
   },
   {
@@ -8811,7 +8819,7 @@ addLog('브라이트헤이븐 마을에서 시작.');
 addLog('원형 패드를 기울이면 360도 방향으로 이동합니다.');
 addLog('제작, 은행, 상점, 의뢰, 평판 시스템이 추가되었습니다.');
 addLog('모든 NPC 터치 시 캐릭터 근처 작은 가방 슬롯창이 열리도록 변경되었습니다.');
-addLog('NPC 가방의 아이템을 내 가방으로 드래그하면 훔치기 판정이 들어갑니다.');
+addLog('NPC 아이템을 누르면 설명창에서 구매/훔치기를 선택할 수 있습니다.');
 addLog('버튼 자동 크기 조정, 시간/지역, 잠긴 상자, 자동저장, 장비 내구도가 추가되었습니다.');
 addLog('화면 비율을 원래 느낌에 맞게 복원하고 아이템 이미지를 전면 개선했습니다.');
 addLog('새 아이템, 새 제작식, 새 몬스터, 날씨, 적재량 확장 시스템이 추가되었습니다.');
