@@ -290,6 +290,7 @@
     user-select:none;
     display:block;
     padding:0;
+    margin-left:clamp(24px, 7vw, 52px);
     overflow:visible;
     pointer-events:auto;
   }
@@ -297,15 +298,16 @@
     width:var(--padSize);
     height:var(--padSize);
     border-radius:50%;
-    border:1px solid #6d704b;
+    border:1px solid rgba(215,180,90,.46);
     background:
-      radial-gradient(circle at 50% 50%, rgba(215,180,90,.18) 0 22%, transparent 23%),
-      linear-gradient(#343b26,#1c2118);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 2px 0 rgba(0,0,0,.25);
+      radial-gradient(circle at 50% 50%, rgba(215,180,90,.16) 0 22%, transparent 23%),
+      rgba(24,31,20,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 2px 8px rgba(0,0,0,.18);
     position:absolute;
     left:50%;
     top:50%;
     transform:translate(-50%,-50%);
+    backdrop-filter:blur(1px);
   }
   .analogBase:before, .analogBase:after{
     content:""; position:absolute; background:rgba(239,232,200,.22); left:50%; top:50%; transform:translate(-50%,-50%);
@@ -318,9 +320,11 @@
     left:calc(var(--padSize) / 2);
     top:50%;
     transform:translate(-50%,-50%);
-    border:1px solid #9d8844; background:linear-gradient(#d7b45a,#725b25);
-    box-shadow:0 3px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25);
+    border:1px solid rgba(255,223,121,.68);
+    background:rgba(215,180,90,.34);
+    box-shadow:0 3px 8px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.18);
     pointer-events:none;
+    backdrop-filter:blur(1px);
   }
   .actions{
     grid-column:2;
@@ -335,6 +339,16 @@
   }
   .menuBtns{display:none;}
   .compactBtn{min-height:var(--btnH);}
+  .toolbar .actions button{
+    background:rgba(24,31,20,.28);
+    border-color:rgba(215,180,90,.45);
+    box-shadow:0 2px 8px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05);
+    backdrop-filter:blur(1px);
+  }
+  .toolbar .actions button.primary{
+    background:rgba(82,66,24,.32);
+    border-color:rgba(255,223,121,.58);
+  }
   button{
     min-height:var(--btnH, 36px);
     padding:0 clamp(6px, 1.8vw, 12px);
@@ -885,7 +899,7 @@
       bottom:calc(36px + env(safe-area-inset-bottom));
       padding:4px 6px;
     }
-    .analogPad{--padSize:var(--controlH); width:var(--padSize); height:var(--padSize); min-height:var(--padSize); padding-left:0;}
+    .analogPad{--padSize:var(--controlH); width:var(--padSize); height:var(--padSize); min-height:var(--padSize); padding-left:0; margin-left:clamp(18px, 7vw, 38px);}
     .analogBase{width:var(--padSize); height:var(--padSize);}
     .analogKnob{width:clamp(24px, 7vw, 30px); height:clamp(24px, 7vw, 30px);}
     .actions{grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -1083,18 +1097,19 @@
 
     <input id="supabaseUrlInput" type="hidden" value="https://cpjeurssrvknacgikdyh.supabase.co">
     <input id="supabaseAnonInput" type="hidden" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwamV1cnNzcnZrbmFjZ2lrZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Mjk0MDIsImV4cCI6MjA5NzAwNTQwMn0.8eikmE_u_KPfVqAtgndQyZhsqYlyjRH3ameiAFUdUwM">
-    <input id="nicknameInput" type="hidden" value="테스터">
+
+    <label for="nicknameInput">닉네임</label>
+    <input id="nicknameInput" type="text" value="" maxlength="12" placeholder="닉네임을 입력하세요" autocomplete="nickname" inputmode="text">
 
     <div class="loginBtns simpleLoginBtns">
       <button class="primary" onclick="loginWithKakao()">카카오 로그인</button>
-      <button onclick="enterTesterLogin()">테스터 로그인</button>
     </div>
-    <p id="loginMsg">카카오 로그인 또는 테스터 로그인으로 입장하세요.</p>
+    <p id="loginMsg">닉네임을 작성한 뒤 카카오 로그인으로 시작하세요.</p>
   </div>
 </div>
 <div id="app">
   <div class="topbar">
-    <div class="brand" id="charInfo">Lv.1 나<small>모험가</small></div>
+    <div class="brand" id="charInfo">Lv.1 나<small>방랑자</small></div>
     <div class="stats">
       <div class="meter"><span id="hpbar" style="background:#d84b43"></span><small id="hptxt">HP</small></div>
       <div class="meter"><span id="mpbar" style="background:var(--blue)"></span><small id="mptxt">MP</small></div>
@@ -1283,7 +1298,7 @@
           <button onclick="openPop('popJournal')">저널</button>
           <button onclick="openFenceOrSell()">암시장/판매</button>
           <button onclick="openPop('popSettings')">설정</button>
-          <button onclick="openPop('popAccount')">계정</button>
+          <button onclick="openPop('popPatchNotes')">패치노트</button>
         </div>
       </div>
     </section>
@@ -1350,6 +1365,14 @@
       </div>
     </section>
 
+    <section class="pop" id="popPatchNotes">
+      <div class="popHead"><b>패치노트</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">패치 기록은 바로 전 단계부터 최대 5단계까지만 표시합니다.</div>
+        <div id="patchNotesList" class="wideList"></div>
+      </div>
+    </section>
+
     <section class="pop" id="popAccount">
       <div class="popHead"><b>계정</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
@@ -1363,7 +1386,7 @@
         </div>
         <div class="card">
           <h3>계정탈퇴 처리</h3>
-          <p class="accountDangerText">현재 구현에서는 인증 계정을 삭제하지 않고, 캐릭터·저장 데이터·온라인 위치 데이터를 초기화합니다.</p>
+          <p class="accountDangerText">계정탈퇴 시 캐릭터·저장 데이터·온라인 위치·프로필 데이터를 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다.</p>
         </div>
       </div>
     </section>
@@ -1669,7 +1692,7 @@ const player = {
   x: 30, y: 22, dir: [0,-1],
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
   exp: 0, nextExp: 100,
-  nickname:'나', job:'모험가', level:1, userId:'guest', isOnline:false,
+  nickname:'나', job:'방랑자', level:1, userId:'guest', isOnline:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, criminalUntil: 0, restReadyTick: 0,
   auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
@@ -1677,26 +1700,26 @@ const player = {
   discoveredRegions: {},
   crimeRecord: {steals:0, arrests:0},
   skills: {
-    sword: {name:'검술', v: 22.0},
-    archery:{name:'궁술', v: 8.0},
-    mining:{name:'채광', v: 18.0},
-    lumber:{name:'벌목', v: 16.0},
-    fishing:{name:'낚시', v: 15.0},
-    herb:{name:'약초학', v: 12.0},
-    tactics:{name:'전술', v: 20.0},
-    healing:{name:'회복', v: 10.0},
-    trading:{name:'거래', v: 14.0},
-    stealing:{name:'소매치기', v: 8.0},
-    blacksmith:{name:'대장기술', v: 12.0},
-    carpentry:{name:'목공', v: 11.0},
-    tailoring:{name:'재봉', v: 10.0},
-    magery:{name:'마법', v: 6.0},
-    meditation:{name:'명상', v: 6.0},
-    virtue:{name:'덕성', v: 8.0},
-    musicianship:{name:'음악', v: 6.0},
-    tracking:{name:'추적', v: 6.0},
-    lockpicking:{name:'자물쇠', v: 6.0},
-    resistance:{name:'저항', v: 6.0}
+    sword: {name:'검술', v: 1.0},
+    archery:{name:'궁술', v: 1.0},
+    mining:{name:'채광', v: 1.0},
+    lumber:{name:'벌목', v: 1.0},
+    fishing:{name:'낚시', v: 1.0},
+    herb:{name:'약초학', v: 1.0},
+    tactics:{name:'전술', v: 1.0},
+    healing:{name:'회복', v: 1.0},
+    trading:{name:'거래', v: 1.0},
+    stealing:{name:'소매치기', v: 1.0},
+    blacksmith:{name:'대장기술', v: 1.0},
+    carpentry:{name:'목공', v: 1.0},
+    tailoring:{name:'재봉', v: 1.0},
+    magery:{name:'마법', v: 1.0},
+    meditation:{name:'명상', v: 1.0},
+    virtue:{name:'덕성', v: 1.0},
+    musicianship:{name:'음악', v: 1.0},
+    tracking:{name:'추적', v: 1.0},
+    lockpicking:{name:'자물쇠', v: 1.0},
+    resistance:{name:'저항', v: 1.0}
   },
   inv: {rustySword:1, herb:2},
   bank: {},
@@ -1706,6 +1729,63 @@ const player = {
   questDone: {},
   journal: []
 };
+
+
+function starterSkillSet(){
+  return {
+    sword:{name:'검술', v:1.0},
+    archery:{name:'궁술', v:1.0},
+    mining:{name:'채광', v:1.0},
+    lumber:{name:'벌목', v:1.0},
+    fishing:{name:'낚시', v:1.0},
+    herb:{name:'약초학', v:1.0},
+    tactics:{name:'전술', v:1.0},
+    healing:{name:'회복', v:1.0},
+    trading:{name:'거래', v:1.0},
+    stealing:{name:'소매치기', v:1.0},
+    blacksmith:{name:'대장기술', v:1.0},
+    carpentry:{name:'목공', v:1.0},
+    tailoring:{name:'재봉', v:1.0},
+    magery:{name:'마법', v:1.0},
+    meditation:{name:'명상', v:1.0},
+    virtue:{name:'덕성', v:1.0},
+    musicianship:{name:'음악', v:1.0},
+    tracking:{name:'추적', v:1.0},
+    lockpicking:{name:'자물쇠', v:1.0},
+    resistance:{name:'저항', v:1.0}
+  };
+}
+
+function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=false){
+  Object.assign(player, {
+    x:30, y:22, dir:[0,-1],
+    hp:100, maxHp:100, mana:50, maxMana:50, sta:100, maxSta:100,
+    exp:0, nextExp:100,
+    nickname:(nick || '나').slice(0,12),
+    job:'방랑자',
+    level:1,
+    userId:userId || 'guest',
+    isOnline:!!isOnline,
+    gold:30, bankGold:0, fame:0, wanted:0, karma:0,
+    jailUntilTick:0, criminalUntil:0, restReadyTick:0,
+    auto:defaultAutoSettings(),
+    weapon:'rustySword',
+    armor:null,
+    durability:{},
+    discoveredRegions:{},
+    crimeRecord:{steals:0, arrests:0},
+    skills:starterSkillSet(),
+    inv:{rustySword:1, herb:2},
+    bank:{},
+    shopStock:{},
+    merchantStock:{},
+    questKills:{},
+    questDone:{},
+    journal:[]
+  });
+  normalizePlayer();
+  return player;
+}
 
 const npcs = [
   {x:29,y:21,homeX:29,homeY:21,name:'상인 마로', role:'상인', hp:70, maxHp:70, atk:3, loot:['stolenPouch','gold'], talk:'잡화와 재료를 매입한다. [판매] 버튼으로 잡템을 팔 수 있다.'},
@@ -4023,7 +4103,7 @@ function normalizePlayer(){
   if(!player.nickname) player.nickname = '나';
   if(!player.userId) player.userId = 'guest';
   if(typeof player.isOnline !== 'boolean') player.isOnline = false;
-  if(!player.job) player.job = '모험가';
+  if(!player.job || player.job === '모험가') player.job = '방랑자';
   if(typeof player.level !== 'number') player.level = 1;
   if(typeof player.wanted !== 'number') player.wanted = 0;
   if(typeof player.karma !== 'number') player.karma = 0;
@@ -4347,7 +4427,7 @@ function loginSettings(){
   return {
     url: localStorage.getItem('legacySupabaseUrl') || DEFAULT_SUPABASE_URL,
     anon: localStorage.getItem('legacySupabaseAnon') || DEFAULT_SUPABASE_ANON_KEY,
-    nick: localStorage.getItem('legacyNickname') || '나'
+    nick: localStorage.getItem('legacyNickname') || ''
   };
 }
 
@@ -4369,11 +4449,12 @@ function fillLoginDefaults(){
 function saveLoginSettings(){
   const url = normalizeSupabaseUrl(document.getElementById('supabaseUrlInput')?.value || DEFAULT_SUPABASE_URL);
   const anon = document.getElementById('supabaseAnonInput')?.value.trim() || '';
-  const nick = (document.getElementById('nicknameInput')?.value.trim() || '나').slice(0,12);
+  const nick = (document.getElementById('nicknameInput')?.value.trim() || '').slice(0,12);
   localStorage.setItem('legacySupabaseUrl', url);
   localStorage.setItem('legacySupabaseAnon', anon);
-  localStorage.setItem('legacyNickname', nick);
-  player.nickname = nick;
+  if(nick) localStorage.setItem('legacyNickname', nick);
+  else localStorage.removeItem('legacyNickname');
+  if(nick) player.nickname = nick;
   return {url, anon, nick};
 }
 
@@ -4385,7 +4466,7 @@ function setLoginMsg(msg){
 function createSupabaseClient(){
   const {url, anon} = saveLoginSettings();
   if(!url || !anon){
-    setLoginMsg('Supabase URL과 Anon Key를 입력하세요.');
+    setLoginMsg('로그인 설정을 확인하세요.');
     return null;
   }
   if(!window.supabase || !window.supabase.createClient){
@@ -4428,6 +4509,14 @@ async function finishOAuthRedirect(client){
 }
 
 async function loginWithKakao(){
+  const nick = (document.getElementById('nicknameInput')?.value.trim() || '').slice(0,12);
+  if(!nick){
+    setLoginMsg('닉네임을 먼저 입력하세요.');
+    document.getElementById('nicknameInput')?.focus();
+    return;
+  }
+  localStorage.setItem('legacyNickname', nick);
+  player.nickname = nick;
   const client = createSupabaseClient();
   if(!client) return;
   const redirectTo = getKakaoRedirectUrl();
@@ -4444,7 +4533,7 @@ async function enterOnlineGame(){
   const { data } = await client.auth.getSession();
   onlineSession = data?.session || null;
   if(!onlineSession){
-    setLoginMsg('먼저 카카오 로그인을 완료하세요. 개발 중이면 게스트 테스트를 누르세요.');
+    setLoginMsg('먼저 닉네임을 입력하고 카카오 로그인을 완료하세요.');
     return;
   }
   player.userId = onlineSession.user.id;
@@ -4455,13 +4544,6 @@ async function enterOnlineGame(){
   setupRealtimeOnline();
   await saveCloudCharacter(true);
   await recordGameEvent('login', { nickname: player.nickname });
-}
-
-function enterTesterLogin(){
-  const nick = '테스터' + Math.floor(1000 + Math.random()*9000);
-  const input = document.getElementById('nicknameInput');
-  if(input) input.value = nick;
-  enterGuestMode();
 }
 
 function enterGuestMode(){
@@ -4588,7 +4670,7 @@ function onlinePayload(){
   return {
     id: player.userId,
     nick: player.nickname || '나',
-    job: player.job || '모험가',
+    job: player.job || '방랑자',
     level: player.level || 1,
     x: player.x,
     y: player.y,
@@ -4752,7 +4834,7 @@ function characterRow(user){
   return {
     user_id: user.id,
     nickname: player.nickname || '나',
-    job: player.job || '모험가',
+    job: player.job || '방랑자',
     level: player.level || 1,
     gold: player.gold || 0,
     x: player.x,
@@ -4807,8 +4889,9 @@ async function loadCloudCharacter(silent=false){
   }
 
   if(!data){
+    resetPlayerForNewKakaoAccount(localStorage.getItem('legacyNickname') || player.nickname || '나', user.id, true);
     await saveCloudCharacter(true);
-    if(!silent) toast('새 캐릭터 생성');
+    if(!silent) toast('방랑자 Lv.1 새 캐릭터 생성');
     return true;
   }
 
@@ -4843,26 +4926,64 @@ async function logoutAccount(){
 }
 
 async function deleteAccountData(){
-  if(!confirm('계정탈퇴는 캐릭터와 저장 데이터를 초기화합니다. 계속할까요?')) return;
+  if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다. 계속할까요?')) return;
   try{
-    localStorage.removeItem('legacyRealmsSave');
     const user = await currentAuthUser();
+    localStorage.removeItem('legacyRealmsSave');
+    localStorage.removeItem('legacyNickname');
+
     if(supabaseClient && user){
-      await supabaseClient.from('characters').delete().eq('user_id', user.id);
-      await supabaseClient.from('player_presence').delete().eq('user_id', user.id);
+      const jobs = [
+        supabaseClient.from('player_presence').delete().eq('user_id', user.id),
+        supabaseClient.from('characters').delete().eq('user_id', user.id),
+        supabaseClient.from('game_events').delete().eq('user_id', user.id),
+        supabaseClient.from('profiles').delete().eq('id', user.id)
+      ];
+      const results = await Promise.allSettled(jobs);
+      for(const r of results){
+        if(r.status === 'fulfilled' && r.value?.error){
+          addLog('계정 데이터 삭제 일부 실패: ' + r.value.error.message);
+        }
+      }
     }
-    addLog('계정 데이터 초기화 완료.');
+
+    addLog('계정 데이터 삭제 완료. 카카오 재인증 필요.');
   }catch(e){
-    addLog('계정 데이터 초기화 오류: ' + e.message);
+    addLog('계정 데이터 삭제 오류: ' + e.message);
   }
-  await logoutAccount();
-  location.reload();
+
+  try{
+    if(onlineChannel && supabaseClient){
+      try{ await onlineChannel.untrack(); }catch(e){}
+      try{ supabaseClient.removeChannel(onlineChannel); }catch(e){}
+      onlineChannel = null;
+    }
+    if(supabaseClient) await supabaseClient.auth.signOut({ scope:'global' });
+  }catch(e){
+    addLog('로그아웃 처리 중 오류: ' + e.message);
+  }
+
+  Object.keys(localStorage).forEach(k=>{
+    if(k.startsWith('sb-') || k.includes('supabase.auth.token')) localStorage.removeItem(k);
+  });
+
+  onlineSession = null;
+  remotePlayers = {};
+  resetPlayerForNewKakaoAccount('', 'guest', false);
+  updateOnlineBadge();
+  closePop();
+  const loginPage = document.getElementById('loginPage');
+  loginPage?.classList.remove('hidden');
+  const nickInput = document.getElementById('nicknameInput');
+  if(nickInput) nickInput.value = '';
+  setLoginMsg('데이터가 삭제되었습니다. 닉네임을 다시 작성하고 카카오로 재인증하세요.');
+  toast('계정 데이터 삭제');
 }
 
 function renderAccountStatus(){
   const el = document.getElementById('accountStatusText');
   if(!el) return;
-  el.textContent = player.isOnline ? `온라인 · ${player.nickname || '나'} · Lv.${player.level || 1}` : '오프라인 / 게스트 상태';
+  el.textContent = player.isOnline ? `온라인 · ${player.nickname || '나'} · Lv.${player.level || 1}` : '오프라인 / 카카오 인증 필요';
 }
 
 async function savePresenceRow(force=false){
@@ -4879,7 +5000,7 @@ async function savePresenceRow(force=false){
     .upsert({
       user_id: user.id,
       nickname: player.nickname || '나',
-      job: player.job || '모험가',
+      job: player.job || '방랑자',
       level: player.level || 1,
       x: player.x,
       y: player.y,
@@ -4951,7 +5072,7 @@ function updateHud(){
   document.getElementById('xptxt').textContent = `XP ${(player.exp||0) % player.nextExp}/${player.nextExp}`;
   const charInfo = document.getElementById('charInfo');
   if(charInfo){
-    charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(player.nickname || '나')}<small>${escapeHtml(player.job || '모험가')}</small>`;
+    charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(player.nickname || '나')}<small>${escapeHtml(player.job || '방랑자')}</small>`;
   }
   document.getElementById('gold').textContent = `골드 ${player.gold}g · 수배 ${player.wanted || 0}`;
 }
@@ -5520,6 +5641,52 @@ function gameLoop(){
   draw();
 }
 
+
+const PATCH_NOTES = [
+  {
+    version:'현재 단계',
+    title:'통합 메뉴 정리',
+    items:['통합 메뉴에서 계정 버튼 제거', '통합 메뉴에 패치노트 버튼 추가', '패치 기록은 최근 5단계만 표시']
+  },
+  {
+    version:'전 단계 1',
+    title:'계정 시작 규칙',
+    items:['테스터 로그인 제거', '닉네임 입력 후 카카오 로그인', '첫 로그인 시 방랑자 Lv.1로 시작', '계정탈퇴 시 데이터 삭제 후 재인증 필요']
+  },
+  {
+    version:'전 단계 2',
+    title:'하단 조작 UI',
+    items:['로그창 터치 채팅 입력 활성화', '아날로그와 액션 버튼 반투명 처리', '아날로그 위치와 비율 조정']
+  },
+  {
+    version:'전 단계 3',
+    title:'카카오 로그인 루프 수정',
+    items:['OAuth code 유지 브릿지 적용', 'index7.html에서 세션 교환 처리', '로그인 복귀 흐름 안정화']
+  },
+  {
+    version:'전 단계 4',
+    title:'월드/전직/스킬 확장',
+    items:['물고기 물 타일 제한', '필드 보스 배치', '몬스터 Lv/이름 표시', '울티마식 직업·스킬 추가']
+  },
+  {
+    version:'전 단계 5',
+    title:'링크 미리보기',
+    items:['legacy_realsm 링크 제목 적용', '공유 미리보기 이미지 추가', '앱 아이콘 추가']
+  }
+];
+
+function renderPatchNotes(){
+  const el = document.getElementById('patchNotesList');
+  if(!el) return;
+  const list = PATCH_NOTES.slice(0,5);
+  el.innerHTML = list.map(p=>`
+    <div class="card">
+      <h3>${escapeHtml(p.version)} · ${escapeHtml(p.title)}</h3>
+      <ul>${p.items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+}
+
 function openPop(id){
   closeMiniNpcMenu();
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
@@ -5532,6 +5699,7 @@ function openPop(id){
   if(id==='popStatus') renderStatus();
   if(id==='popSettings') renderSettings();
   if(id==='popAccount') renderAccountStatus();
+  if(id==='popPatchNotes') renderPatchNotes();
   if(id==='popShop') renderShop();
   if(id==='popQuest') renderQuests();
   if(id==='popFence') renderFence();
