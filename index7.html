@@ -1771,6 +1771,49 @@
     border-style:solid !important;
   }
 
+
+
+  /* trade panels must stop above the bottom control area */
+  :root{
+    --bottomControlClearance:calc(132px + env(safe-area-inset-bottom));
+  }
+  #popShop.pop{
+    bottom:var(--bottomControlClearance) !important;
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--bottomControlClearance) - 12px) !important;
+  }
+  #popShop .popBody{
+    height:100% !important;
+    max-height:100% !important;
+    overflow:hidden !important;
+  }
+  #popShop .tradeWrap{
+    height:100% !important;
+    max-height:100% !important;
+    min-height:0 !important;
+  }
+  #popShop .tradePanel{
+    height:100% !important;
+    max-height:100% !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+  #popShop .itemGrid{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+    padding-bottom:10px;
+  }
+  @media(max-width:560px){
+    :root{
+      --bottomControlClearance:calc(124px + env(safe-area-inset-bottom));
+    }
+    #popShop.pop{
+      bottom:var(--bottomControlClearance) !important;
+      max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--bottomControlClearance) - 8px) !important;
+    }
+    #popShop .popBody{padding:8px !important;}
+  }
 </style>
 
 
