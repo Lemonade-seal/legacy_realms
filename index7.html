@@ -1711,6 +1711,19 @@
     border-style:solid !important;
   }
 
+
+
+  /* trade UI: NPC item list only, no embedded player bag list */
+  #popShop .tradeWrap{
+    grid-template-columns:1fr !important;
+  }
+  #popShop #tradeBagGrid,
+  #popShop #bagDropZone,
+  #miniTrade #miniBagZone,
+  #miniTrade #miniBagGrid{
+    display:none !important;
+  }
+
 </style>
 
 
@@ -1789,10 +1802,6 @@
       <div class="miniTradeBody">
         <div class="slotLabel">NPC 소지품</div>
         <div id="miniMerchantGrid" class="miniSlotGrid"></div>
-        <div class="miniBagZone" id="miniBagZone">
-          <div class="slotLabel">내 가방</div>
-          <div id="miniBagGrid" class="miniSlotGrid"></div>
-        </div>
         <div id="miniItemInfo" class="miniInfo">아이템 칸을 누르면 정보가 표시됩니다.</div>
       </div>
     </div>
@@ -1840,7 +1849,7 @@
         </div>
         <div class="card">
           <h3>현재 구현</h3>
-          <p>이동, 전투, NPC 가방 아이템 설명창 훔치기, 수배도, 경비병 반응, 암시장, 몬스터 리젠, 채집, 인벤토리, 제작, 은행, 상점, 의뢰, 평판, 판매, 저장.</p>
+          <p>이동, 전투, NPC 가방 드래그 훔치기, 수배도, 경비병 반응, 암시장, 몬스터 리젠, 채집, 인벤토리, 제작, 은행, 상점, 의뢰, 평판, 판매, 저장.</p>
         </div>
         <div id="journalRows"></div>
       </div>
@@ -1974,13 +1983,6 @@
           <div class="tradePanel">
             <h3 id="merchantPanelTitle">NPC 아이템</h3>
             <div id="merchantGrid" class="itemGrid"></div>
-          </div>
-          <div class="tradePanel">
-            <h3>내 가방</h3>
-            <div id="bagDropZone" class="bagDropZone">
-              내 가방 아이템 목록
-            </div>
-            <div id="tradeBagGrid" class="itemGrid"></div>
           </div>
         </div>
       </div>
@@ -5080,13 +5082,11 @@ function renderMiniTrade(){
   const box = document.getElementById('miniTrade');
   const title = document.getElementById('miniTradeTitle');
   const merchantGrid = document.getElementById('miniMerchantGrid');
-  const bagGrid = document.getElementById('miniBagGrid');
-  if(!box || !merchantGrid || !bagGrid) return;
+  if(!box || !merchantGrid) return;
 
   const npc = activeTradeNpc;
   if(!npc){
     merchantGrid.innerHTML = '';
-    bagGrid.innerHTML = renderMiniBagSlots();
     return;
   }
 
@@ -5104,13 +5104,12 @@ function renderMiniTrade(){
     </div>`;
   }).join('');
 
-  bagGrid.innerHTML = renderMiniBagSlots();
   const info = document.getElementById('miniItemInfo');
   if(info){
     const w = inventoryWeight();
     const max = maxCarryWeight();
     const cls = w > max * 0.9 ? 'weightBad' : 'weightGood';
-    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.`;
+    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 물품</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.<br>판매는 가방에서 내 아이템을 눌러 처리한다.`;
   }
 }
 
@@ -5133,10 +5132,9 @@ function renderMiniBagSlots(){
 function renderShop(){
   normalizePlayer();
   const merchantGrid = document.getElementById('merchantGrid');
-  const bagGrid = document.getElementById('tradeBagGrid');
   const title = document.getElementById('shopTitle');
   const panelTitle = document.getElementById('merchantPanelTitle');
-  if(!merchantGrid || !bagGrid) return;
+  if(!merchantGrid) return;
 
   if(!activeTradeNpc){
     const near = npcs.filter(n=>isMerchantNpc(n) && dist(n,player)<=2.0).sort((a,b)=>dist(a,player)-dist(b,player))[0];
@@ -5145,7 +5143,6 @@ function renderShop(){
 
   if(!activeTradeNpc){
     merchantGrid.innerHTML = '<div class="notice">가까운 NPC를 터치하세요.</div>';
-    bagGrid.innerHTML = renderTradeBagSlots();
     return;
   }
 
@@ -5164,8 +5161,6 @@ function renderShop(){
       <div class="itemMeta">재고 ${qty}<br>${row.price||def.price||0}g</div>
     </div>`;
   }).join('');
-
-  bagGrid.innerHTML = renderTradeBagSlots();
 }
 
 function renderTradeBagSlots(){
@@ -5506,12 +5501,17 @@ function renderLog(){
   el.innerHTML = player.journal.slice(0,2).map(x=>`<div>${escapeHtml(x)}</div>`).join('');
 }
 
+function isTradeUiOpen(){
+  return !!(document.getElementById('popShop')?.classList.contains('open') || document.getElementById('miniTrade')?.classList.contains('open'));
+}
+
 function inventoryItemActionButtons(id, ctx={}){
   const def = itemDefs[id] || {};
   const actions = [];
   const mode = ctx.mode || 'inventory';
-  const origin = ctx.origin || 'inventory';
-  const inTrade = mode === 'trade' && !!activeTradeNpc;
+  let origin = ctx.origin || 'inventory';
+  const inTrade = !!activeTradeNpc && (mode === 'trade' || isTradeUiOpen());
+  if(inTrade && origin === 'inventory') origin = 'player';
 
   if(inTrade){
     const npc = activeTradeNpc || currentNpc;
@@ -5565,7 +5565,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
 
   const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
   const mode = ctx.mode || 'inventory';
-  const origin = ctx.origin || 'inventory';
+  let origin = ctx.origin || 'inventory';
+  if(activeTradeNpc && isTradeUiOpen() && origin === 'inventory') origin = 'player';
   const npc = activeTradeNpc || currentNpc;
   const qty = origin === 'merchant'
     ? (npc ? (ensureMerchantStock(npc)[id] || 0) : 0)
@@ -8162,6 +8163,7 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {title:'거래창 내 가방 목록 제거·판매 동선 정리', items:['거래 팝업과 미니 거래창에서 내 가방 아이템 목록 박스를 제거','거래 중 판매는 가방 아이템 설명창의 판매 버튼으로 처리','상점 거래창은 NPC 아이템 목록만 표시하도록 단일 패널 구성']},
   {
     title:'퀘스트 HUD 텍스트화·드래그 훔치기 제거',
     items:[
@@ -8179,7 +8181,7 @@ const PATCH_NOTES = [
       '거래 중 NPC 아이템 설명창에는 구매 버튼과 훔치기 버튼을 표시',
       '거래 중 내 가방 아이템 설명창에는 판매 버튼을 표시',
       '아이템 설명창에 수량·무게·기본가·구매가·판매가·장비 능력치를 함께 표시',
-      '상점 거래는 정상 구매/판매, 훔치기는 설명창 버튼으로만 실행되도록 분리'
+      '상점 거래는 정상 구매/판매, 드래그는 기존 훔치기 판정을 유지하도록 분리'
     ]
   },
   {
