@@ -1320,7 +1320,72 @@
   #stbar{background:linear-gradient(90deg,#1e6128 0%,#52bc63 54%,#cbf8bd 100%) !important;}
   #xpbar{background:linear-gradient(90deg,#705018 0%,#ddba5c 54%,#fff4b0 100%) !important;}
 
+
+  /* remove black backgrounds from top HUD and log window */
+  .topbar,
+  header.topbar,
+  #topbar{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  .topbar *,
+  .brand,
+  .charInfo,
+  .charBox,
+  .statBox,
+  .topQuick,
+  .gold,
+  .onlineBadge{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+  }
+  .log,
+  #log,
+  .logBox,
+  .logPanel,
+  .logWindow{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  .log *,
+  #log *,
+  .logBox *,
+  .logPanel *,
+  .logWindow *{
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+
 </style>
+
+<script>
+(function(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const isAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
+    const isLoginRoute = params.has('login') || params.has('deleted');
+    const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    const isReload = nav ? nav.type === 'reload' : performance.navigation && performance.navigation.type === 1;
+
+    if(isReload && !isAuthReturn && !isLoginRoute){
+      const u = new URL('./index7.html', location.href);
+      u.searchParams.set('login', String(Date.now()));
+      location.replace(u.href);
+    }
+  }catch(e){}
+})();
+</script>
+
 </head>
 <body>
 <div id="loginPage" class="loginPage">
@@ -5199,6 +5264,26 @@ async function logoutAccount(){
   toast('로그아웃');
 }
 
+
+function hardRedirectToLogin(reason='login'){
+  try{
+    const keys = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(!k) continue;
+      if(k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token')){
+        keys.push(k);
+      }
+    }
+    keys.forEach(k=>localStorage.removeItem(k));
+    try{ sessionStorage.clear(); }catch(e){}
+  }catch(e){}
+
+  const u = new URL('./index7.html', window.location.href);
+  u.searchParams.set(reason === 'deleted' ? 'deleted' : 'login', String(Date.now()));
+  window.location.replace(u.href);
+}
+
 async function deleteAccountData(){
   if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다. 계속할까요?')) return;
 
@@ -5254,7 +5339,7 @@ async function deleteAccountData(){
     if(nickInput) nickInput.value = '';
 
     const loginPage = document.getElementById('loginPage');
-    loginPage?.classList.remove('hidden');
+  loginPage?.classList.remove('hidden');
     updateOnlineBadge();
     setLoginMsg('데이터가 삭제되었습니다. 닉네임을 다시 작성하고 카카오로 재인증하세요.');
     toast('계정 데이터 삭제 완료');
@@ -5935,12 +6020,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'투명 UI·탈퇴 리다이렉트·닉네임 표시 원인 수정',
+    title:'상단/로그 배경 제거 · 새로고침/탈퇴 로그인 리다이렉트',
     items:[
-      '플레이어 이름표가 나로 고정되던 drawPerson 하드코딩 제거',
-      '계정탈퇴 후 index7.html?deleted 로 강제 이동해 로그인 페이지 정지',
-      '상단 박스와 팝업창을 마지막 CSS에서 다시 강제 투명화',
-      '로그인 닉네임이 클라우드 저장값보다 우선 적용되게 수정'
+      '상단 박스와 로그창의 검은 배경을 완전 투명 처리',
+      '새로고침 시 index7.html?login 으로 이동해 로그인 페이지에서 정지',
+      '계정탈퇴 후 index7.html?deleted 로 강제 이동',
+      '계정탈퇴 시 Supabase 세션 토큰과 로컬 저장값을 같이 제거'
     ]
   },
   {
