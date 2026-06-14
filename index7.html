@@ -139,16 +139,17 @@
     grid-row:1;
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:5px;
+    grid-template-rows:1fr 1fr;
+    gap:3px 5px;
     min-width:0;
     align-items:stretch;
   }
   .meter{
-    height:24px;
+    height:11px;
     min-width:66px;
     background:#080908;
     border:1px solid #50593b;
-    border-radius:5px;
+    border-radius:4px;
     overflow:hidden;
     position:relative;
     width:100%;
@@ -160,13 +161,13 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:11px;
+    font-size:8.5px;
     line-height:1;
     color:#fff;
     text-shadow:0 1px 2px #000;
     white-space:nowrap;
     overflow:visible;
-    padding:0 4px;
+    padding:0 2px;
   }
   .gold{
     grid-column:1 / span 2;
@@ -703,9 +704,9 @@
     }
     .brand{font-size:10px; max-width:86px; white-space:normal; line-height:1.03;}
     .brand small{font-size:8.5px;}
-    .stats{grid-column:2 / span 2; grid-row:1; grid-template-columns:1fr 1fr; gap:3px;}
-    .meter{height:22px; min-width:48px;}
-    .meter small{font-size:9.5px; padding:0 2px;}
+    .stats{grid-column:2 / span 2; grid-row:1; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:2px 3px;}
+    .meter{height:10px; min-width:48px;}
+    .meter small{font-size:7.5px; padding:0 1px;}
     .gold{grid-column:1 / span 2; grid-row:2; font-size:9px; max-width:100%;}
     .topQuick{grid-column:3; grid-row:2; width:min(126px, 37vw); gap:2px;}
     .topQuick button{--btnH:22px; min-height:22px; font-size:9px; padding:0 2px;}
@@ -747,6 +748,11 @@
     .coolHint{display:none;}
     .minimap{width:88px; height:70px;}
   }
+
+  #hpbar{background:#d84b43 !important;}
+  #stbar{background:#4fb15f !important;}
+  #xpbar{background:#d7b45a !important;}
+
 </style>
 </head>
 <body>
@@ -764,16 +770,19 @@
       <button class="primary" onclick="loginWithKakao()">카카오 로그인</button>
       <button onclick="enterOnlineGame()">온라인 입장</button>
       <button onclick="enterGuestMode()">게스트 테스트</button>
+      <button onclick="showDbSetupHelp()">DB 세팅 안내</button>
     </div>
-    <p id="loginMsg">Cloudflare 배포 후 Supabase Redirect URL에 배포 주소를 등록해야 합니다.</p>
+    <p id="loginMsg">1) Supabase SQL Editor에서 DB 세팅 SQL 실행 → 2) Kakao Auth 설정 → 3) Cloudflare 배포 주소를 Redirect URL에 등록.</p>
   </div>
 </div>
 <div id="app">
   <div class="topbar">
     <div class="brand" id="charInfo">Lv.1 나<small>모험가</small></div>
     <div class="stats">
-      <div class="meter"><span id="hpbar"></span><small id="hptxt">HP</small></div>
-      <div class="meter"><span id="stbar" style="background:var(--blue)"></span><small id="sttxt">STA</small></div>
+      <div class="meter"><span id="hpbar" style="background:#d84b43"></span><small id="hptxt">체력</small></div>
+      <div class="meter"><span id="mpbar" style="background:var(--blue)"></span><small id="mptxt">마나</small></div>
+      <div class="meter"><span id="stbar" style="background:#4fb15f"></span><small id="sttxt">스태미너</small></div>
+      <div class="meter"><span id="xpbar" style="background:#d7b45a"></span><small id="xptxt">경험치</small></div>
     </div>
     <div class="gold" id="gold">0g</div>
     <div class="topQuick">
@@ -955,6 +964,8 @@
           <button onclick="openPop('popMap')">지도</button>
           <button onclick="openPop('popJournal')">저널</button>
           <button onclick="openFenceOrSell()">암시장/판매</button>
+          <button onclick="saveCloudCharacter(false)">클라우드 저장</button>
+          <button onclick="loadCloudCharacter(false)">클라우드 불러오기</button>
           <button onclick="openPop('popSettings')">설정</button>
         </div>
       </div>
@@ -1152,7 +1163,8 @@ questDefs.push(
 
 const player = {
   x: 30, y: 22, dir: [0,-1],
-  hp: 100, maxHp: 100, sta: 100, maxSta: 100,
+  hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
+  exp: 0, nextExp: 100,
   nickname:'나', job:'모험가', level:1, userId:'guest', isOnline:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, criminalUntil: 0, restReadyTick: 0,
   weapon: 'rustySword', armor: null,
@@ -1204,7 +1216,10 @@ let onlineChannel = null;
 let onlineSession = null;
 let remotePlayers = {};
 let lastNetSend = 0;
+let lastCloudSave = 0;
+let lastPresenceSave = 0;
 const ONLINE_ROOM = 'legacy-realms-town';
+const DB_SCHEMA_VERSION = 1;
 const combatEffects = [];
 let lastAutoSaveTick = 0;
 const chests = [];
@@ -1394,6 +1409,7 @@ function gainSkill(key, base=0.12){
   if(Math.random() < chance){
     const inc = +(base * (0.8 + Math.random()*0.5)).toFixed(2);
     s.v = Math.min(100, +(s.v + inc).toFixed(2));
+    gainExp(Math.max(1, Math.round(inc * 10)));
     toast(`${s.name} +${inc}`);
   }
 }
@@ -1768,6 +1784,7 @@ function killMob(mob){
   if(Math.random()<0.72 && canCarryItem(mob.drop,1)) addItem(mob.drop,1);
   if(mob.rareDrop && Math.random()<0.07 && canCarryItem(mob.rareDrop,1)) addItem(mob.rareDrop,1);
   if(Math.random()<0.05 && canCarryItem('gem',1)) addItem('gem',1);
+  gainExp(18 + Math.floor((mob.maxHp||20)/4));
   addLog(`${mob.name} 처치. ${g}g 획득.`);
   toast(`${mob.name} 처치`);
 }
@@ -1872,6 +1889,7 @@ function arrestPlayer(){
   player.wanted = Math.max(0, (player.wanted||0) - 6);
   player.jailUntilTick = tick + 55;
   player.hp = Math.max(40, Math.floor(player.maxHp*0.55));
+  player.mana = Math.max(15, Math.floor(player.maxMana*0.35));
   player.sta = Math.max(25, Math.floor(player.maxSta*0.35));
   player.x = 24;
   player.y = 24;
@@ -1883,6 +1901,7 @@ function arrestPlayer(){
 
 function death(){
   player.hp = player.maxHp;
+  player.mana = player.maxMana;
   player.sta = player.maxSta;
   player.x = 30; player.y = 22;
   const loss = Math.floor(player.gold*0.12);
@@ -3144,6 +3163,10 @@ function renderBank(){
 function normalizePlayer(){
   if(typeof player.bankGold !== 'number') player.bankGold = 0;
   if(typeof player.fame !== 'number') player.fame = 0;
+  if(typeof player.mana !== 'number') player.mana = 50;
+  if(typeof player.maxMana !== 'number') player.maxMana = 50;
+  if(typeof player.exp !== 'number') player.exp = 0;
+  if(typeof player.nextExp !== 'number') player.nextExp = 100;
   if(!player.nickname) player.nickname = '나';
   if(!player.userId) player.userId = 'guest';
   if(typeof player.isOnline !== 'boolean') player.isOnline = false;
@@ -3296,8 +3319,12 @@ async function enterOnlineGame(){
   }
   player.userId = onlineSession.user.id;
   player.isOnline = true;
+  await ensureSupabaseProfile(onlineSession.user);
+  await loadCloudCharacter(true);
   hideLoginPage();
   setupRealtimeOnline();
+  await saveCloudCharacter(true);
+  await recordGameEvent('login', { nickname: player.nickname });
 }
 
 function enterGuestMode(){
@@ -3329,6 +3356,8 @@ async function bootAuth(){
       onlineSession = data.session;
       player.userId = data.session.user.id;
       player.isOnline = true;
+      await ensureSupabaseProfile(data.session.user);
+      await loadCloudCharacter(true);
       hideLoginPage();
       setupRealtimeOnline();
       return;
@@ -3405,6 +3434,7 @@ function sendOnlineState(force=false){
   const payload = onlinePayload();
   onlineChannel.track(payload);
   onlineChannel.send({ type:'broadcast', event:'pos', payload });
+  savePresenceRow(false);
 }
 
 function drawRemotePlayers(camPxX, camPxY, vw, vh){
@@ -3421,18 +3451,238 @@ function drawRemotePlayers(camPxX, camPxY, vw, vh){
   }
 }
 
+function showDbSetupHelp(){
+  setLoginMsg('DB SQL 파일을 Supabase SQL Editor에 붙여넣고 실행하세요. 실행 후 Kakao Auth Redirect URL도 Cloudflare 주소로 등록해야 합니다.');
+  alert('DB 세팅 SQL 파일을 같이 생성했습니다. Supabase Dashboard > SQL Editor에서 실행하세요.\n\n필수 테이블: profiles, characters, player_presence, game_events\n보안: RLS 정책 포함');
+}
+
+function buildSaveState(){
+  return {
+    schemaVersion: DB_SCHEMA_VERSION,
+    savedAt: new Date().toISOString(),
+    player,
+    mobs,
+    resources,
+    chests,
+    worldMinutes,
+    worldWeather
+  };
+}
+
+function applySaveState(data){
+  if(!data) return false;
+  const state = data.state || data;
+  if(state.player) Object.assign(player, state.player);
+  if(Array.isArray(state.mobs)) mobs = state.mobs;
+  if(Array.isArray(state.resources)){
+    resources.length = 0;
+    resources.push(...state.resources);
+  }
+  if(Array.isArray(state.chests)){
+    chests.length = 0;
+    chests.push(...state.chests);
+  }
+  if(typeof state.worldMinutes === 'number') worldMinutes = state.worldMinutes;
+  if(typeof state.worldWeather === 'string') worldWeather = state.worldWeather;
+  for(const m of mobs){ m.prevX = m.x; m.prevY = m.y; }
+  for(const n of npcs){ n.prevX = n.x; n.prevY = n.y; }
+  normalizePlayer();
+  updateHud();
+  draw();
+  return true;
+}
+
+async function currentAuthUser(){
+  if(!supabaseClient) return null;
+  const { data, error } = await supabaseClient.auth.getUser();
+  if(error){
+    addLog('Supabase 유저 확인 실패: ' + error.message);
+    return onlineSession?.user || null;
+  }
+  return data?.user || onlineSession?.user || null;
+}
+
+async function ensureSupabaseProfile(user=null){
+  if(!supabaseClient) return false;
+  user = user || await currentAuthUser();
+  if(!user) return false;
+
+  const profile = {
+    id: user.id,
+    nickname: player.nickname || '나',
+    provider: 'kakao',
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabaseClient
+    .from('profiles')
+    .upsert(profile, { onConflict:'id' });
+
+  if(error){
+    addLog('프로필 저장 실패: ' + error.message);
+    setLoginMsg('프로필 저장 실패: ' + error.message);
+    return false;
+  }
+  return true;
+}
+
+function characterRow(user){
+  const state = buildSaveState();
+  return {
+    user_id: user.id,
+    nickname: player.nickname || '나',
+    job: player.job || '모험가',
+    level: player.level || 1,
+    gold: player.gold || 0,
+    x: player.x,
+    y: player.y,
+    hp: Math.ceil(player.hp || 0),
+    mana: Math.ceil(player.mana || 0),
+    stamina: Math.ceil(player.sta || 0),
+    state,
+    updated_at: new Date().toISOString()
+  };
+}
+
+async function saveCloudCharacter(silent=false){
+  if(!supabaseClient || !player.isOnline) return false;
+  const user = await currentAuthUser();
+  if(!user) return false;
+
+  await ensureSupabaseProfile(user);
+
+  const { error } = await supabaseClient
+    .from('characters')
+    .upsert(characterRow(user), { onConflict:'user_id' });
+
+  if(error){
+    if(!silent) toast('클라우드 저장 실패');
+    addLog('클라우드 저장 실패: ' + error.message);
+    return false;
+  }
+
+  if(!silent){
+    toast('클라우드 저장 완료');
+    addLog('Supabase 캐릭터 저장 완료.');
+  }
+  return true;
+}
+
+async function loadCloudCharacter(silent=false){
+  if(!supabaseClient || !player.isOnline) return false;
+  const user = await currentAuthUser();
+  if(!user) return false;
+
+  const { data, error } = await supabaseClient
+    .from('characters')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if(error){
+    if(!silent) toast('클라우드 불러오기 실패');
+    addLog('클라우드 불러오기 실패: ' + error.message);
+    return false;
+  }
+
+  if(!data){
+    await saveCloudCharacter(true);
+    if(!silent) toast('새 캐릭터 생성');
+    return true;
+  }
+
+  applySaveState(data.state);
+  if(!silent){
+    toast('클라우드 불러오기 완료');
+    addLog('Supabase 캐릭터 불러오기 완료.');
+  }
+  return true;
+}
+
+async function savePresenceRow(force=false){
+  if(!supabaseClient || !player.isOnline) return false;
+  const now = performance.now ? performance.now() : Date.now();
+  if(!force && now - lastPresenceSave < 2400) return false;
+  lastPresenceSave = now;
+
+  const user = await currentAuthUser();
+  if(!user) return false;
+
+  const { error } = await supabaseClient
+    .from('player_presence')
+    .upsert({
+      user_id: user.id,
+      nickname: player.nickname || '나',
+      job: player.job || '모험가',
+      level: player.level || 1,
+      x: player.x,
+      y: player.y,
+      hp: Math.ceil(player.hp || 0),
+      max_hp: player.maxHp || 100,
+      wanted: player.wanted || 0,
+      last_seen: new Date().toISOString()
+    }, { onConflict:'user_id' });
+
+  if(error) addLog('위치 DB 저장 실패: ' + error.message);
+  return !error;
+}
+
+async function recordGameEvent(type, payload={}){
+  if(!supabaseClient || !player.isOnline) return false;
+  const user = await currentAuthUser();
+  if(!user) return false;
+  const { error } = await supabaseClient
+    .from('game_events')
+    .insert({
+      user_id: user.id,
+      event_type: type,
+      payload
+    });
+  if(error) addLog('이벤트 저장 실패: ' + error.message);
+  return !error;
+}
+
+async function cloudAutoSave(force=false){
+  if(!player.isOnline || !supabaseClient) return;
+  const now = performance.now ? performance.now() : Date.now();
+  if(!force && now - lastCloudSave < 28000) return;
+  lastCloudSave = now;
+  await saveCloudCharacter(true);
+}
+
 function calcPlayerLevel(){
   const vals = Object.values(player.skills||{}).map(s=>s.v||0);
   const avg = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 1;
-  return Math.max(1, Math.floor(avg / 3) + 1);
+  const skillLevel = Math.max(1, Math.floor(avg / 3) + 1);
+  const expLevel = Math.max(1, Math.floor((player.exp || 0) / 100) + 1);
+  return Math.max(skillLevel, expLevel);
+}
+
+function calcNextExp(){
+  return Math.max(100, (player.level || 1) * 100);
+}
+
+function gainExp(amount=1){
+  normalizePlayer();
+  player.exp = Math.max(0, (player.exp || 0) + Math.max(0, Math.floor(amount)));
+  player.nextExp = calcNextExp();
 }
 
 function updateHud(){
   player.level = calcPlayerLevel();
-  document.getElementById('hpbar').style.width = `${100*player.hp/player.maxHp}%`;
-  document.getElementById('stbar').style.width = `${100*player.sta/player.maxSta}%`;
-  document.getElementById('hptxt').textContent = `HP ${Math.ceil(player.hp)}/${player.maxHp}`;
-  document.getElementById('sttxt').textContent = `STA ${Math.ceil(player.sta)}/${player.maxSta}`;
+  player.nextExp = calcNextExp();
+  const hpPct = clamp(100*player.hp/player.maxHp,0,100);
+  const mpPct = clamp(100*player.mana/player.maxMana,0,100);
+  const stPct = clamp(100*player.sta/player.maxSta,0,100);
+  const xpPct = clamp(100*((player.exp||0) % player.nextExp)/player.nextExp,0,100);
+  document.getElementById('hpbar').style.width = `${hpPct}%`;
+  document.getElementById('mpbar').style.width = `${mpPct}%`;
+  document.getElementById('stbar').style.width = `${stPct}%`;
+  document.getElementById('xpbar').style.width = `${xpPct}%`;
+  document.getElementById('hptxt').textContent = `체력 ${Math.ceil(player.hp)}/${player.maxHp}`;
+  document.getElementById('mptxt').textContent = `마나 ${Math.ceil(player.mana)}/${player.maxMana}`;
+  document.getElementById('sttxt').textContent = `스태미너 ${Math.ceil(player.sta)}/${player.maxSta}`;
+  document.getElementById('xptxt').textContent = `경험치 ${(player.exp||0) % player.nextExp}/${player.nextExp}`;
   const charInfo = document.getElementById('charInfo');
   if(charInfo){
     charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(player.nickname || '나')}<small>${escapeHtml(player.job || '모험가')}</small>`;
@@ -3773,8 +4023,12 @@ function gameLoop(){
   worldMinutes += 2;
   if(tick % 7 === 0){
     player.sta = clamp(player.sta + 2.0, 0, player.maxSta);
+    player.mana = clamp(player.mana + 1.2, 0, player.maxMana);
     const here = tileAt(player.x, player.y);
-    if(here==='town' || here==='road') player.hp = clamp(player.hp+0.8,0,player.maxHp);
+    if(here==='town' || here==='road'){
+      player.hp = clamp(player.hp+0.8,0,player.maxHp);
+      player.mana = clamp(player.mana+0.8,0,player.maxMana);
+    }
   }
   // 이동 AI는 frameWorldAI에서 매 프레임 처리한다.
   if(tick % 10 === 0){
@@ -3829,6 +4083,7 @@ function toggleGrid(){ showGrid=!showGrid; draw(); }
 
 function saveGame(){
   localStorage.setItem('legacyRealmsSave', JSON.stringify({player, mobs, resources, chests, worldMinutes, worldWeather}));
+  if(player.isOnline) saveCloudCharacter(false);
   toast('저장 완료');
   addLog('게임 저장 완료.');
 }
@@ -3836,6 +4091,7 @@ function saveGame(){
 function autoSaveGame(){
   try{
     localStorage.setItem('legacyRealmsSave', JSON.stringify({player, mobs, resources, chests, worldMinutes, worldWeather}));
+    cloudAutoSave(false);
     addLog('자동 저장 완료.');
   }catch(e){}
 }
@@ -4120,6 +4376,9 @@ addLog('지형 그래픽을 선명한 비격자 방식으로 다시 수정했다
 addLog('몬스터, 경비병, 물고기 표시와 이동을 프레임 단위로 부드럽게 보정했다.');
 addLog('NPC와 몬스터 이동 속도를 낮추고 온라인 로그인/닉네임/Supabase Realtime 뼈대를 추가했다.');
 addLog('NPC 메뉴를 역할별 기능만 표시하도록 필터링하고 전투 이펙트를 추가했다.');
+addLog('상단 게이지를 체력/마나/스태미너/경험치 4개 얇은 막대로 재배치했다.');
+addLog('Supabase DB 저장/불러오기, 프로필, 캐릭터, 온라인 위치 테이블 연동 코드를 추가했다.');
+addLog('체력 빨강, 스태미너 초록, 경험치 노랑으로 색상을 정리했다.');
 addLog('상단 정보 정렬과 아날로그 패드 중심/경계선 맞춤을 수정했습니다.');
 loadGame(false);
 setupAnalogPad();
