@@ -1814,6 +1814,45 @@
     }
     #popShop .popBody{padding:8px !important;}
   }
+
+
+  /* adaptive dark tone for top HUD only - no full-screen overlay */
+  .topbar.adaptiveToneHud,
+  header.topbar.adaptiveToneHud,
+  #topbar.adaptiveToneHud{
+    background:linear-gradient(180deg,
+      rgba(6,9,14,calc(.42 + var(--hudToneAlpha, 0))),
+      rgba(4,7,11,calc(.30 + var(--hudToneAlpha, 0)))
+    ) !important;
+    border-bottom-color:rgba(120,155,185,calc(.22 + var(--hudToneAlpha, 0))) !important;
+    box-shadow:0 2px 12px rgba(0,0,0,calc(.18 + var(--hudToneAlpha, 0))) !important;
+    backdrop-filter:blur(5px) saturate(.72) brightness(.82) !important;
+    -webkit-backdrop-filter:blur(5px) saturate(.72) brightness(.82) !important;
+  }
+  .topbar.adaptiveToneHud .meter{
+    background:rgba(2,5,9,calc(.24 + var(--hudToneAlpha, 0))) !important;
+    border-color:rgba(140,176,205,calc(.14 + var(--hudToneAlpha, 0))) !important;
+  }
+  .topbar.adaptiveToneHud .meter span{
+    filter:saturate(.78) brightness(.82) !important;
+    opacity:calc(.54 + var(--hudToneAlpha, 0)) !important;
+  }
+  .topbar.adaptiveToneHud .brand,
+  .topbar.adaptiveToneHud .gold,
+  .topbar.adaptiveToneHud .onlineBadge,
+  .topbar.adaptiveToneHud .meter small{
+    color:#d8e1e7 !important;
+    text-shadow:0 1px 3px rgba(0,0,0,.95) !important;
+  }
+  .topbar.adaptiveToneHud .brand small{
+    color:#bfcbd0 !important;
+  }
+  .topbar.adaptiveToneHud .topQuick button{
+    background:rgba(4,8,13,calc(.30 + var(--hudToneAlpha, 0))) !important;
+    border-color:rgba(150,182,210,calc(.20 + var(--hudToneAlpha, 0))) !important;
+    color:#e5edf0 !important;
+  }
+
 </style>
 
 
@@ -2958,6 +2997,20 @@ function applyAdaptiveDisplayTone(vw, vh){
     ctx.fillRect(0,0,vw,vh);
   }
   ctx.restore();
+}
+
+
+function applyTopHudAdaptiveTone(){
+  const bar = document.querySelector('.topbar');
+  if(!bar || !player || !map.length) return;
+  const tone = adaptiveDisplayTone();
+
+  // 화면 전체가 아니라 상단 HUD 디스플레이만 보정한다.
+  // 밝은 지형/밤/비/안개 조건에서만 다크 계열 UI로 전환된다.
+  const active = tone.alpha > .025;
+  bar.classList.toggle('adaptiveToneHud', active);
+  bar.style.setProperty('--hudToneAlpha', active ? tone.alpha.toFixed(3) : '0');
+  bar.dataset.terrainBrightness = tone.brightness.toFixed(2);
 }
 
 function ensureDurability(id){
@@ -7760,6 +7813,7 @@ function updateHud(){
     charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(displayGameNickname())}<small>${escapeHtml(player.job || '방랑자')}</small>`;
   }
   document.getElementById('gold').textContent = `골드 ${player.gold}g · 수배 ${player.wanted || 0}`;
+  applyTopHudAdaptiveTone();
 }
 
 function rememberPrev(obj){
@@ -8262,7 +8316,7 @@ function draw(){
 
   drawCombatEffects(camPxX, camPxY);
 
-  applyAdaptiveDisplayTone(vw, vh);
+  // Adaptive dark tone now applies only to the top HUD, not the whole canvas.
 
   drawMini();
 }
@@ -8354,12 +8408,12 @@ function gameLoop(){
 
 const PATCH_NOTES = [
   {
-    title:'밝은 지형 자동 다크톤 보정',
+    title:'상단 HUD 디스플레이 자동 다크톤 보정',
     items:[
-      '사막·모래·빙원·유적·밝은 마을 바닥처럼 눈부신 타일에 올라가면 화면 톤을 자동으로 어둡게 보정',
-      '주변 3x3 타일 밝기를 평균 내어 급격한 깜빡임 없이 자연스럽게 다크 계열 오버레이 적용',
-      '기존 야간 어둡게 처리를 자동 디스플레이 톤 시스템 안으로 통합',
-      '맑은 날 밝은 지형은 청회색 저채도 보정을 추가해 모바일 화면 눈부심을 완화'
+      '밝은 타일에 올라가면 화면 전체가 아니라 상단 상태 박스/HUD 디스플레이만 다크 계열로 전환',
+      '주변 3x3 타일 밝기를 평균 내어 사막·모래·빙원·유적 지역에서 상단 게이지 가독성 보정',
+      '기존 전체 캔버스 오버레이 적용을 중단하고 상단 박스 CSS 톤 보정 방식으로 변경',
+      '밤·안개·비 상태에서도 상단 HUD만 낮은 채도와 어두운 배경으로 자동 보정'
     ]
   },
   {
