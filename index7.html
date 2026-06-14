@@ -1532,7 +1532,6 @@
     <p>울티마식 샌드박스 웹 RPG입니다.</p>
 
     <input id="supabaseUrlInput" type="hidden" value="https://cpjeurssrvknacgikdyh.supabase.co">
-    <input id="kakaoRestKeyInput" type="hidden" value="">
     <input id="supabaseAnonInput" type="hidden" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwamV1cnNzcnZrbmFjZ2lrZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Mjk0MDIsImV4cCI6MjA5NzAwNTQwMn0.8eikmE_u_KPfVqAtgndQyZhsqYlyjRH3ameiAFUdUwM">
 
     <label for="nicknameInput">닉네임</label>
@@ -4987,31 +4986,33 @@ function getKakaoRedirectUrl(){
 
 
 
-const KAKAO_REST_API_KEY = localStorage.getItem('legacyKakaoRestKey') || '';
 
-function getKakaoRestApiKey(){
-  const fromInput = document.getElementById('kakaoRestKeyInput')?.value?.trim();
-  const fromStorage = localStorage.getItem('legacyKakaoRestKey') || '';
-  const fromGlobal = window.KAKAO_REST_API_KEY || KAKAO_REST_API_KEY || '';
-  return (fromInput || fromStorage || fromGlobal || '').trim();
-}
 
-function markKakaoReauthRequired(){
+
+function markKakaoReauthRequired(reason='reauth'){
   localStorage.setItem('legacyForceKakaoReauth', '1');
+  localStorage.setItem('legacyReauthReason', reason);
 }
 
 function clearKakaoReauthRequired(){
   localStorage.removeItem('legacyForceKakaoReauth');
+  localStorage.removeItem('legacyReauthReason');
 }
 
 function shouldForceKakaoReauth(){
   const params = new URLSearchParams(window.location.search);
-  return localStorage.getItem('legacyForceKakaoReauth') === '1' || params.has('deleted') || params.has('reauth');
+  return localStorage.getItem('legacyForceKakaoReauth') === '1'
+    || params.has('deleted')
+    || params.has('logout')
+    || params.has('reauth');
 }
 
-function clearLocalAuthStateForAccountDelete(keepReauth=true){
+function clearLocalAuthStateForReauth(keepGameNick=true){
+  const keepNick = keepGameNick
+    ? (localStorage.getItem('legacyGameNickname') || localStorage.getItem('legacyNickname') || '')
+    : '';
+
   try{
-    const keepNick = localStorage.getItem('legacyNickname') || '';
     const keys = [];
     for(let i=0;i<localStorage.length;i++){
       const k = localStorage.key(i);
@@ -5019,6 +5020,7 @@ function clearLocalAuthStateForAccountDelete(keepReauth=true){
       if(
         k === 'legacyRealmsSave' ||
         k === 'legacyNickname' ||
+        k === 'legacyPendingGameNickname' ||
         k.startsWith('sb-') ||
         k.includes('supabase') ||
         k.includes('auth-token')
@@ -5027,39 +5029,19 @@ function clearLocalAuthStateForAccountDelete(keepReauth=true){
       }
     }
     keys.forEach(k=>localStorage.removeItem(k));
-    if(keepNick) localStorage.setItem('legacyNickname', keepNick);
-    if(keepReauth) markKakaoReauthRequired();
     try{ sessionStorage.clear(); }catch(e){}
   }catch(e){}
-}
 
-function kakaoLogoutRedirect(reason='deleted'){
-  markKakaoReauthRequired();
-  localStorage.setItem('legacyPostLogoutReason', reason);
-
-  const restKey = getKakaoRestApiKey();
-
-  // 카카오 Developers의 Logout Redirect URI에는 이 주소를 정확히 등록해야 함:
-  // https://lemonade-seal.github.io/legacy_realms/index7.html
-  // 쿼리스트링을 붙이면 등록값과 달라져 실패할 수 있으므로 고정 URL만 사용.
-  const back = new URL('./index7.html', window.location.href);
-  back.search = '';
-  back.hash = '';
-
-  if(!restKey){
-    setLoginMsg('카카오 REST API 키가 코드에 없어서 카카오 로그아웃 URL은 생략합니다. 다음 로그인은 재인증 모드로 진행됩니다.');
-    window.location.replace(back.href);
-    return;
+  if(keepNick){
+    localStorage.setItem('legacyGameNickname', keepNick);
+    localStorage.setItem('legacyNickname', keepNick);
   }
-
-  const u = new URL('https://kauth.kakao.com/oauth/logout');
-  u.searchParams.set('client_id', restKey);
-  u.searchParams.set('logout_redirect_uri', back.href);
-  window.location.replace(u.href);
 }
 
-function forceLoginPageAfterLogout(reason='deleted'){
-  markKakaoReauthRequired();
+function gotoLoginPageForReauth(reason='reauth'){
+  markKakaoReauthRequired(reason);
+  clearLocalAuthStateForReauth(false);
+
   onlineSession = null;
   remotePlayers = {};
   try{
@@ -5069,14 +5051,9 @@ function forceLoginPageAfterLogout(reason='deleted'){
     player.isOnline = false;
   }catch(e){}
 
-  document.getElementById('loginPage')?.classList.remove('hidden');
-  const nick = document.getElementById('nicknameInput');
-  if(nick) nick.value = '';
-  setLoginMsg(reason === 'deleted'
-    ? '계정 데이터가 삭제되었습니다. 카카오 재인증을 다시 진행하세요.'
-    : '로그아웃되었습니다. 카카오 재인증을 다시 진행하세요.'
-  );
-  updateOnlineBadge?.();
+  const u = new URL('./index7.html', window.location.href);
+  u.searchParams.set(reason === 'deleted' ? 'deleted' : reason === 'logout' ? 'logout' : 'reauth', String(Date.now()));
+  window.location.replace(u.href);
 }
 
 
@@ -5104,14 +5081,22 @@ async function finishOAuthRedirect(client){
 
 async function loginWithKakao(){
   const nickInput = document.getElementById('nicknameInput');
-  const nick = typedGameNickname();
+  const nick = typeof typedGameNickname === 'function'
+    ? typedGameNickname()
+    : (nickInput?.value.trim() || '').slice(0,12);
+
   if(!nick){
-    setLoginMsg('게임 닉네임을 먼저 입력하세요. 카카오 프로필 이름은 게임 안에서 쓰지 않습니다.');
+    setLoginMsg('게임 닉네임을 먼저 입력하세요.');
     nickInput?.focus();
     return;
   }
 
-  saveGameNickname(nick);
+  if(typeof saveGameNickname === 'function'){
+    saveGameNickname(nick);
+  }else{
+    localStorage.setItem('legacyNickname', nick);
+    player.nickname = nick;
+  }
 
   const client = createSupabaseClient();
   if(!client) return;
@@ -5121,9 +5106,13 @@ async function loginWithKakao(){
   if(forceReauth){
     try{ await client.auth.signOut({ scope:'global' }); }
     catch(e){ try{ await client.auth.signOut(); }catch(e2){} }
-    clearLocalAuthStateForAccountDelete(true);
-    saveGameNickname(nick);
-    markKakaoReauthRequired();
+
+    clearLocalAuthStateForReauth(true);
+
+    if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+    else localStorage.setItem('legacyNickname', nick);
+
+    markKakaoReauthRequired(localStorage.getItem('legacyReauthReason') || 'reauth');
   }else{
     const { data } = await client.auth.getSession();
     if(data?.session){
@@ -5134,8 +5123,10 @@ async function loginWithKakao(){
   }
 
   setLoginMsg(forceReauth ? '카카오 재인증 화면으로 이동합니다.' : '카카오 인증 화면으로 이동합니다.');
-  const redirectTo = getKakaoRedirectUrl();
-  const options = { redirectTo };
+
+  const options = {
+    redirectTo: getKakaoRedirectUrl()
+  };
 
   if(forceReauth){
     options.queryParams = {
@@ -5224,9 +5215,9 @@ async function bootAuth(){
   const mustReauth = shouldForceKakaoReauth();
 
   if(params.has('login') || params.has('deleted') || params.has('logout') || params.has('reauth') || (mustReauth && !hasOAuthReturn)){
-    if(params.has('deleted') || params.has('logout') || params.has('reauth') || mustReauth){
-      markKakaoReauthRequired();
-    }
+    if(params.has('deleted')) markKakaoReauthRequired('deleted');
+    else if(params.has('logout')) markKakaoReauthRequired('logout');
+    else if(params.has('reauth') || mustReauth) markKakaoReauthRequired('reauth');
 
     onlineSession = null;
     remotePlayers = {};
@@ -5238,9 +5229,9 @@ async function bootAuth(){
     if(document.getElementById('nicknameInput')) document.getElementById('nicknameInput').value = '';
     document.getElementById('loginPage')?.classList.remove('hidden');
 
-    const reason = localStorage.getItem('legacyPostLogoutReason') || '';
-    setLoginMsg(reason === 'deleted' || params.has('deleted')
-      ? '계정 데이터가 삭제되었습니다. 게임 닉네임을 다시 작성하면 카카오 재인증 화면으로 이동합니다.'
+    const reason = localStorage.getItem('legacyReauthReason') || '';
+    setLoginMsg(reason === 'deleted'
+      ? '계정 데이터가 삭제되었습니다. 게임 닉네임을 작성하면 카카오 재인증 화면으로 이동합니다.'
       : '로그아웃되었습니다. 게임 닉네임을 작성하면 카카오 재인증 화면으로 이동합니다.'
     );
 
@@ -5260,7 +5251,10 @@ async function bootAuth(){
       const { data } = await supabaseClient.auth.getSession();
 
       if(data?.session){
-        const nick = storedGameNickname();
+        const nick = typeof storedGameNickname === 'function'
+          ? storedGameNickname()
+          : (localStorage.getItem('legacyNickname') || '').slice(0,12);
+
         if(!nick){
           setLoginMsg('카카오 인증은 완료되었습니다. 게임 닉네임을 입력하고 카카오 로그인 버튼을 다시 누르세요.');
           document.getElementById('nicknameInput')?.focus();
@@ -5268,7 +5262,9 @@ async function bootAuth(){
           return true;
         }
 
-        saveGameNickname(nick);
+        if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+        else localStorage.setItem('legacyNickname', nick);
+
         onlineSession = data.session;
         player.userId = data.session.user.id;
         player.isOnline = true;
@@ -5283,7 +5279,6 @@ async function bootAuth(){
 
         await ensureSupabaseProfile(data.session.user);
         clearKakaoReauthRequired();
-        localStorage.removeItem('legacyPostLogoutReason');
         hideLoginPage();
         setupRealtimeOnline();
         await saveCloudCharacter(true);
@@ -5661,15 +5656,11 @@ async function logoutAccount(){
       try{ await supabaseClient.auth.signOut({ scope:'global' }); }
       catch(e){ try{ await supabaseClient.auth.signOut(); }catch(e2){} }
     }
-
-    clearLocalAuthStateForAccountDelete(true);
-    forceLoginPageAfterLogout('logout');
-    kakaoLogoutRedirect('logout');
   }catch(e){
-    console.error(e);
-    document.getElementById('loginPage')?.classList.remove('hidden');
-    setLoginMsg('로그아웃 처리 오류: ' + e.message);
+    console.warn('logout warning', e);
   }
+
+  gotoLoginPageForReauth('logout');
 }
 
 
@@ -5694,8 +5685,6 @@ function hardRedirectToLogin(reason='login'){
 
 async function deleteAccountData(){
   if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다. 계속할까요?')) return;
-
-  forceLoginPageAfterLogout('deleted');
 
   try{
     const user = await currentAuthUser();
@@ -5730,15 +5719,11 @@ async function deleteAccountData(){
       try{ await supabaseClient.auth.signOut({ scope:'global' }); }
       catch(e){ try{ await supabaseClient.auth.signOut(); }catch(e2){} }
     }
-
-    clearLocalAuthStateForAccountDelete(true);
-    kakaoLogoutRedirect('deleted');
   }catch(e){
-    console.error(e);
-    clearLocalAuthStateForAccountDelete(true);
-    setLoginMsg('계정탈퇴 처리 일부 실패. 로컬 세션은 삭제했습니다. 카카오 재인증을 다시 진행하세요.');
-    kakaoLogoutRedirect('deleted');
+    console.warn('delete warning', e);
   }
+
+  gotoLoginPageForReauth('deleted');
 }
 
 
@@ -6408,12 +6393,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카카오 재인증 미이동 원인 수정',
+    title:'카카오 로그아웃 리다이렉트 메뉴 없는 구조로 수정',
     items:[
-      '카카오 로그아웃 redirect_uri에서 동적 쿼리 제거',
-      '카카오 Logout Redirect URI는 index7.html 고정 주소만 사용',
-      'reauth 플래그가 있으면 bootAuth가 기존 세션 자동 입장을 차단',
-      '다음 카카오 로그인 버튼에서 prompt=login/auth_type=reauthenticate 적용'
+      '카카오 Logout Redirect URI 메뉴가 없어도 동작하게 kauth 로그아웃 URL 제거',
+      '회원탈퇴/로그아웃 후 reauth 플래그로 로그인 페이지 정지',
+      '다음 카카오 로그인 버튼에서 Supabase OAuth에 prompt=login 적용',
+      '카카오 REST API 키 입력 의존성 제거'
     ]
   },
   {
