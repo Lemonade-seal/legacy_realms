@@ -3,7 +3,23 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>고전 샌드박스 웹 RPG - 프로토타입</title>
+<title>legacy_realsm</title>
+<meta name="theme-color" content="#10130f" />
+<meta name="apple-mobile-web-app-title" content="legacy_realsm" />
+<meta name="application-name" content="legacy_realsm" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="legacy_realsm" />
+<meta property="og:site_name" content="legacy_realsm" />
+<meta property="og:description" content="울티마식 샌드박스 웹 RPG. 전투, 생활, 던전, 전직, 온라인 플레이." />
+<meta property="og:image" content="./legacy_realsm_preview.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="legacy_realsm" />
+<meta name="twitter:description" content="울티마식 샌드박스 웹 RPG. 전투, 생활, 던전, 전직, 온라인 플레이." />
+<meta name="twitter:image" content="./legacy_realsm_preview.png" />
+<link rel="icon" type="image/png" href="./legacy_realsm_icon.png" />
+<link rel="apple-touch-icon" href="./legacy_realsm_icon.png" />
 <style>
   :root{
     --topbar-offset:72px;
@@ -1042,8 +1058,8 @@
 <body>
 <div id="loginPage" class="loginPage">
   <div class="loginCard simpleLoginCard">
-    <h1>레거시 렐름즈</h1>
-    <p>자유 이동, 생활, 전투, NPC 상호작용이 있는 온라인 웹 RPG입니다.</p>
+    <h1>legacy_realsm</h1>
+    <p>울티마식 샌드박스 웹 RPG입니다.</p>
 
     <input id="supabaseUrlInput" type="hidden" value="https://cpjeurssrvknacgikdyh.supabase.co">
     <input id="supabaseAnonInput" type="hidden" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwamV1cnNzcnZrbmFjZ2lrZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Mjk0MDIsImV4cCI6MjA5NzAwNTQwMn0.8eikmE_u_KPfVqAtgndQyZhsqYlyjRH3ameiAFUdUwM">
@@ -1498,6 +1514,137 @@ questDefs.push(
   {id:'backpack1', title:'원정용 가방 제작', type:'collect', target:'backpack', targetName:'여행 가방', need:1, rewardGold:175, rewardFame:6, rewardItems:{gem:1}}
 );
 
+const ULTIMA_JOB_DEFS = [
+  {id:'wanderer', name:'방랑자', req:{}, desc:'브리타니아를 떠도는 기본 모험가. 모든 행동을 자유롭게 익힌다.', bonuses:{hp:0,mana:0,sta:0}},
+  {id:'fighter', name:'전사', req:{sword:20,tactics:15}, desc:'검술과 전술을 중시하는 전열 직업.', bonuses:{hp:15,mana:0,sta:10}},
+  {id:'ranger', name:'레인저', req:{archery:18,lumber:12}, desc:'야외 추적과 원거리 사냥에 강한 숲의 직업.', bonuses:{hp:5,mana:0,sta:18}},
+  {id:'mage', name:'마법사', req:{magery:15,meditation:10}, desc:'마력과 명상으로 원거리 주문을 다루는 직업.', bonuses:{hp:-5,mana:28,sta:0}},
+  {id:'paladin', name:'팔라딘', req:{sword:25,healing:18,virtue:10}, desc:'검술과 치유, 덕성을 함께 쓰는 성기사 계열.', bonuses:{hp:20,mana:12,sta:8}},
+  {id:'bard', name:'바드', req:{musicianship:15,trading:12}, desc:'음악과 말재주로 전투를 보조하는 직업.', bonuses:{hp:0,mana:14,sta:8}},
+  {id:'rogue', name:'그림자 도적', req:{stealing:20,lockpicking:12}, desc:'은밀한 접근, 자물쇠, 도주에 특화된 직업.', bonuses:{hp:0,mana:4,sta:22}},
+  {id:'druid', name:'드루이드', req:{herb:18,fishing:12}, desc:'약초와 자연의 힘으로 생존하는 자연술사.', bonuses:{hp:8,mana:18,sta:8}},
+  {id:'artisan', name:'장인', req:{blacksmith:18,carpentry:18}, desc:'대장기술과 목공으로 장비 경제를 책임지는 직업.', bonuses:{hp:6,mana:0,sta:12}}
+];
+
+const ACTIVE_SKILL_DEFS = [
+  {id:'heavyStrike', name:'강타', req:{sword:15}, mana:0, sta:8, desc:'가까운 대상에게 검술 기반 큰 피해를 준다.'},
+  {id:'mend', name:'응급치료', req:{healing:12}, mana:6, sta:3, desc:'HP를 회복한다. 회복 스킬이 높을수록 효과 증가.'},
+  {id:'firebolt', name:'화염구', req:{magery:10}, mana:12, sta:0, desc:'가까운 몬스터에게 마법 피해를 준다.'},
+  {id:'powerShot', name:'정조준', req:{archery:15}, mana:0, sta:7, desc:'원거리 대상에게 궁술 기반 피해를 준다.'},
+  {id:'track', name:'추적', req:{tracking:8}, mana:0, sta:4, desc:'근처 강한 몬스터와 보스 위치를 로그에 표시한다.'},
+  {id:'guardStance', name:'방어태세', req:{tactics:18}, mana:0, sta:6, desc:'짧은 시간 방어력을 올린다.'},
+  {id:'soothingSong', name:'평온의 노래', req:{musicianship:12}, mana:10, sta:4, desc:'주변 몬스터 하나의 공격 간격을 늦춘다.'},
+  {id:'shadowStep', name:'그림자 걸음', req:{stealing:18}, mana:8, sta:8, desc:'짧게 뒤로 빠지며 수배 전투에서 도주한다.'},
+  {id:'natureGift', name:'자연의 선물', req:{herb:15}, mana:8, sta:5, desc:'현재 지형에 맞는 약초나 식재료를 얻는다.'}
+];
+
+function skillValue(key){ return player.skills?.[key]?.v || 0; }
+function reqText(req){
+  const names = Object.entries(req||{}).map(([k,v])=>`${player.skills?.[k]?.name || k} ${v}`);
+  return names.length ? names.join(' · ') : '조건 없음';
+}
+function meetsReq(req){
+  return Object.entries(req||{}).every(([k,v])=>skillValue(k) >= v);
+}
+function jobByName(name){
+  return ULTIMA_JOB_DEFS.find(j=>j.name === name || j.id === name) || ULTIMA_JOB_DEFS[0];
+}
+function changeJob(id){
+  normalizePlayer();
+  const job = ULTIMA_JOB_DEFS.find(j=>j.id === id);
+  if(!job){ toast('직업 없음'); return; }
+  if(!meetsReq(job.req)){ toast(`전직 조건 부족: ${reqText(job.req)}`); return; }
+  player.job = job.name;
+  applyJobBonuses();
+  addLog(`${job.name}으로 전직.`);
+  toast(`${job.name} 전직`);
+  renderSkills(); renderStatus(); updateHud();
+}
+function applyJobBonuses(){
+  const job = jobByName(player.job);
+  const b = job.bonuses || {};
+  player.maxHp = Math.max(50, 100 + (b.hp||0) + Math.floor((player.level-1)*6));
+  player.maxMana = Math.max(20, 50 + (b.mana||0) + Math.floor(skillValue('magery')/4));
+  player.maxSta = Math.max(50, 100 + (b.sta||0) + Math.floor(skillValue('tactics')/5));
+  player.hp = clamp(player.hp, 0, player.maxHp);
+  player.mana = clamp(player.mana, 0, player.maxMana);
+  player.sta = clamp(player.sta, 0, player.maxSta);
+}
+function learnedActiveSkills(){
+  return ACTIVE_SKILL_DEFS.filter(s=>meetsReq(s.req));
+}
+function nearestHostile(range=5.5){
+  return mobs.filter(m=>!m.animal && dist(m, player)<=range).sort((a,b)=>dist(a,player)-dist(b,player))[0] || null;
+}
+function useActiveSkill(id){
+  normalizePlayer();
+  const skill = ACTIVE_SKILL_DEFS.find(s=>s.id===id);
+  if(!skill){ toast('스킬 없음'); return; }
+  if(!meetsReq(skill.req)){ toast(`조건 부족: ${reqText(skill.req)}`); return; }
+  if((skill.mana||0) > player.mana){ toast('마나 부족'); return; }
+  if((skill.sta||0) > player.sta){ toast('기력 부족'); return; }
+  player.mana -= skill.mana || 0;
+  player.sta -= skill.sta || 0;
+
+  if(id === 'mend'){
+    const heal = Math.floor(18 + skillValue('healing')*0.75);
+    player.hp = clamp(player.hp + heal, 0, player.maxHp);
+    gainSkill('healing',0.14);
+    addCombatEffect(player.x, player.y, `+${heal}`, 'down');
+    addLog(`응급치료로 HP ${heal} 회복.`);
+  }else if(id === 'heavyStrike'){
+    const t = nearestHostile(1.8);
+    if(!t){ toast('가까운 적 없음'); return; }
+    const dmg = Math.floor(12 + skillValue('sword')/3 + skillValue('tactics')/4);
+    t.hp -= dmg; gainSkill('sword',0.12); gainSkill('tactics',0.08);
+    addCombatEffect(t.x,t.y,`-${dmg}`,'crit');
+    addLog(`강타: ${t.name}에게 ${dmg} 피해.`);
+    if(t.hp<=0) killMob(t);
+  }else if(id === 'firebolt'){
+    const t = nearestHostile(5.5);
+    if(!t){ toast('마법 대상 없음'); return; }
+    const dmg = Math.floor(16 + skillValue('magery')/2 + Math.random()*8);
+    t.hp -= dmg; gainSkill('magery',0.18); gainSkill('meditation',0.05);
+    addCombatEffect(t.x,t.y,`-${dmg}`,'crit');
+    addLog(`화염구: ${t.name}에게 ${dmg} 피해.`);
+    if(t.hp<=0) killMob(t);
+  }else if(id === 'powerShot'){
+    const t = nearestHostile(6.5);
+    if(!t){ toast('사격 대상 없음'); return; }
+    const dmg = Math.floor(10 + skillValue('archery')/2.6 + Math.random()*6);
+    t.hp -= dmg; gainSkill('archery',0.16); gainSkill('tracking',0.05);
+    addCombatEffect(t.x,t.y,`-${dmg}`,'crit');
+    addLog(`정조준: ${t.name}에게 ${dmg} 피해.`);
+    if(t.hp<=0) killMob(t);
+  }else if(id === 'track'){
+    const target = mobs.filter(m=>!m.animal).sort((a,b)=>(b.boss?1000:0)+monsterLevel(b)-((a.boss?1000:0)+monsterLevel(a)))[0];
+    if(target) addLog(`추적: ${target.name} Lv.${monsterLevel(target)} 위치 ${gridX(target.x)}, ${gridY(target.y)}.`);
+    gainSkill('tracking',0.12);
+  }else if(id === 'guardStance'){
+    player.guardUntilTick = tick + 80;
+    gainSkill('tactics',0.12);
+    addLog('방어태세: 잠시 방어력 증가.');
+  }else if(id === 'soothingSong'){
+    const t = nearestHostile(5);
+    if(t){ t.attackCd = Math.max(t.attackCd||0, 4.5); addLog(`평온의 노래: ${t.name}의 공격을 늦춤.`); }
+    gainSkill('musicianship',0.16);
+  }else if(id === 'shadowStep'){
+    const dx = -player.dir[0] || 0, dy = -player.dir[1] || 1;
+    const nx = player.x + dx*1.25, ny = player.y + dy*1.25;
+    if(!isBlocked(nx,ny)){ player.x = clamp(nx,0,W-1); player.y = clamp(ny,0,H-1); }
+    player.criminalUntil = Math.max(0, (player.criminalUntil||0)-40);
+    gainSkill('stealing',0.11);
+    addLog('그림자 걸음으로 거리를 벌림.');
+  }else if(id === 'natureGift'){
+    const here = tileAt(player.x, player.y);
+    const id2 = here==='water' ? 'fish' : here==='forest' ? 'herb' : here==='swamp' ? 'slimeGel' : 'herb';
+    if(canCarryItem(id2,1)) addItem(id2,1);
+    gainSkill('herb',0.12);
+    addLog(`자연의 선물: ${itemDefs[id2]?.name || id2} 획득.`);
+  }
+  renderInventory(); renderSkills(); renderStatus(); draw();
+}
+
 const player = {
   x: 30, y: 22, dir: [0,-1],
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
@@ -1522,7 +1669,14 @@ const player = {
     stealing:{name:'소매치기', v: 8.0},
     blacksmith:{name:'대장기술', v: 12.0},
     carpentry:{name:'목공', v: 11.0},
-    tailoring:{name:'재봉', v: 10.0}
+    tailoring:{name:'재봉', v: 10.0},
+    magery:{name:'마법', v: 6.0},
+    meditation:{name:'명상', v: 6.0},
+    virtue:{name:'덕성', v: 8.0},
+    musicianship:{name:'음악', v: 6.0},
+    tracking:{name:'추적', v: 6.0},
+    lockpicking:{name:'자물쇠', v: 6.0},
+    resistance:{name:'저항', v: 6.0}
   },
   inv: {rustySword:1, herb:2},
   bank: {},
@@ -1706,7 +1860,7 @@ function initMap(){
     const x = rand(W), y = rand(H);
     const t = map[y][x];
     if(['forest','mountain','water','grass','darkGrass','swamp','desert'].includes(t)){
-      let kind = t==='mountain' ? 'ore' : t==='forest' ? 'tree' : t==='water' ? 'fish' : t==='swamp' ? (rand(2)?'herb':'fish') : t==='desert' ? 'ore' : 'herb';
+      let kind = t==='mountain' ? 'ore' : t==='forest' ? 'tree' : t==='water' ? 'fish' : t==='swamp' ? 'herb' : t==='desert' ? 'ore' : 'herb';
       if(t==='grass' || t==='darkGrass') kind = rand(2) ? 'herb' : 'tree';
       resources.push({x,y,kind,amount: 2+rand(5), respawn:0});
     }
@@ -1727,6 +1881,17 @@ function initMap(){
         });
         placed = true;
       }
+    }
+  }
+  normalizeFishResources();
+}
+
+function normalizeFishResources(){
+  // 물고기 리소스는 반드시 물 타일에만 존재한다.
+  for(const r of resources){
+    if(r.kind === 'fish' && tileAt(r.x, r.y) !== 'water'){
+      r.kind = 'herb';
+      r.amount = Math.max(1, r.amount || 1);
     }
   }
 }
@@ -1755,10 +1920,10 @@ function isBlocked(x,y){
 
 function townAnimalDefs(){
   return {
-    chicken:{name:'닭', hp:8, atk:0, gold:0, drop:'meat', color:'#f1e0b5', animal:true, hostile:false},
-    sheep:{name:'양', hp:18, atk:0, gold:0, drop:'hide', color:'#d8d0bd', animal:true, hostile:false},
-    cow:{name:'소', hp:34, atk:1, gold:0, drop:'meat', rareDrop:'hide', color:'#b28a62', animal:true, hostile:false},
-    cat:{name:'고양이', hp:10, atk:0, gold:0, drop:'fish', color:'#77736b', animal:true, hostile:false}
+    chicken:{name:'닭', level:1, hp:8, atk:0, gold:0, drop:'meat', color:'#f1e0b5', animal:true, hostile:false},
+    sheep:{name:'양', level:1, hp:18, atk:0, gold:0, drop:'hide', color:'#d8d0bd', animal:true, hostile:false},
+    cow:{name:'소', level:2, hp:34, atk:1, gold:0, drop:'meat', rareDrop:'hide', color:'#b28a62', animal:true, hostile:false},
+    cat:{name:'고양이', level:1, hp:10, atk:0, gold:0, drop:'fish', color:'#77736b', animal:true, hostile:false}
   };
 }
 
@@ -1784,28 +1949,87 @@ function spawnTownAnimals(){
   }
 }
 
+const FIELD_BOSS_DEFS = [
+  {id:'boss_forest', type:'ancientTreant', name:'고목의 군주', level:18, x:14, y:10, hp:260, atk:22, gold:160, drop:'oakLog', rareDrop:'ancientRelic', color:'#6f8e45', boss:true, hostile:true},
+  {id:'boss_mine', type:'ironOgre', name:'철광 오거', level:24, x:78, y:14, hp:340, atk:28, gold:230, drop:'silverOre', rareDrop:'steelSword', color:'#6e6f68', boss:true, hostile:true},
+  {id:'boss_swamp', type:'bogWitch', name:'늪지 마녀', level:22, x:63, y:30, hp:300, atk:25, gold:210, drop:'slimeGel', rareDrop:'manaPotion', color:'#47775e', boss:true, hostile:true},
+  {id:'boss_desert', type:'sandWraith', name:'모래 망령', level:28, x:86, y:54, hp:380, atk:32, gold:270, drop:'silverCoin', rareDrop:'ancientRelic', color:'#b79c62', boss:true, hostile:true},
+  {id:'boss_dungeon', type:'abyssKnight', name:'검은동굴 기사', level:35, x:87, y:36, hp:520, atk:42, gold:420, drop:'dungeonKey', rareDrop:'ancientRelic', color:'#2b2738', boss:true, hostile:true}
+];
+
+function findOpenBossPoint(boss){
+  const base = {x:boss.x, y:boss.y};
+  for(let radius=0; radius<=6; radius++){
+    for(let i=0; i<48; i++){
+      const a = (Math.PI*2) * (i/48);
+      const x = clamp(base.x + Math.cos(a)*radius, 1, W-2);
+      const y = clamp(base.y + Math.sin(a)*radius, 1, H-2);
+      if(!isBlocked(x,y) && !isTownArea(x,y) && tileAt(x,y) !== 'water' && !mobs.some(m=>dist(m,{x,y})<1.4)){
+        return {x,y};
+      }
+    }
+  }
+  return base;
+}
+
+function ensureFieldBosses(){
+  for(const b of FIELD_BOSS_DEFS){
+    if(mobs.some(m=>m.bossId === b.id)) continue;
+    const pos = findOpenBossPoint(b);
+    mobs.push({
+      ...b,
+      bossId:b.id,
+      x:pos.x, y:pos.y, prevX:pos.x, prevY:pos.y,
+      maxHp:b.hp,
+      attackCd:0,
+      wanderDir:null
+    });
+  }
+}
+
+function monsterLevel(m){
+  if(typeof m.level === 'number') return m.level;
+  if(m.animal) return 1;
+  return Math.max(1, Math.round(((m.maxHp||m.hp||20) / 8) + ((m.atk||0) / 2)));
+}
+
+function drawMobLabel(m, x, y){
+  const text = `Lv.${monsterLevel(m)} ${m.name || '몬스터'}`;
+  ctx.save();
+  ctx.font = m.boss ? 'bold 11px system-ui' : '10px system-ui';
+  ctx.textAlign = 'center';
+  const w = Math.min(122, Math.max(34, ctx.measureText(text).width + 8));
+  const labelY = y + (m.boss ? -15 : -11);
+  ctx.fillStyle = m.boss ? 'rgba(56,16,16,.78)' : 'rgba(0,0,0,.62)';
+  ctx.fillRect(x+16-w/2, labelY, w, 12);
+  ctx.fillStyle = m.boss ? '#ffd36a' : '#fff3cf';
+  ctx.fillText(text, x+16, labelY+9);
+  ctx.restore();
+}
+
 function spawnMobs(){
   spawnTownAnimals();
+  ensureFieldBosses();
 
   const targetCount = 58;
   const defs = {
-    wolf:{name:'회색 늑대', hp:24, atk:5, gold:5, drop:'hide', color:'#9a9a8a', hostile:true},
-    direwolf:{name:'검은 늑대', hp:38, atk:9, gold:14, drop:'fang', color:'#4d4b46', rareDrop:'hide', hostile:true},
-    boar:{name:'멧돼지', hp:34, atk:7, gold:9, drop:'hide', color:'#8d5c3a', hostile:true},
-    bear:{name:'숲 곰', hp:70, atk:14, gold:26, drop:'meat', color:'#6d4b31', rareDrop:'hide', hostile:true},
-    goblin:{name:'광산 고블린', hp:32, atk:7, gold:9, drop:'ore', color:'#7fad5d', hostile:true},
-    orc:{name:'광산 오크', hp:48, atk:10, gold:20, drop:'fang', color:'#65864d', rareDrop:'backpack', hostile:true},
-    golem:{name:'돌 골렘', hp:88, atk:16, gold:34, drop:'silverOre', color:'#7b7d73', rareDrop:'gem', hostile:true},
-    bandit:{name:'강도', hp:42, atk:9, gold:18, drop:'shortBow', color:'#b77855', hostile:true},
-    skeleton:{name:'해골 병사', hp:38, atk:8, gold:12, drop:'fang', color:'#ddd7bd', hostile:true},
-    slime:{name:'늪지 슬라임', hp:26, atk:5, gold:8, drop:'slimeGel', color:'#69b37b', hostile:true},
-    spider:{name:'동굴 거미', hp:36, atk:8, gold:11, drop:'batWing', color:'#37343a', hostile:true},
-    bat:{name:'동굴 박쥐', hp:22, atk:6, gold:7, drop:'batWing', color:'#4a4155', hostile:true},
-    cultist:{name:'던전 광신도', hp:54, atk:13, gold:30, drop:'dungeonKey', color:'#5d3f71', rareDrop:'ancientRelic', hostile:true},
-    mummy:{name:'사막 미라', hp:58, atk:12, gold:28, drop:'silverCoin', color:'#c3ad78', rareDrop:'ancientRelic', hostile:true}
+    wolf:{name:'회색 늑대', level:5, hp:24, atk:5, gold:5, drop:'hide', color:'#9a9a8a', hostile:true},
+    direwolf:{name:'검은 늑대', level:9, hp:38, atk:9, gold:14, drop:'fang', color:'#4d4b46', rareDrop:'hide', hostile:true},
+    boar:{name:'멧돼지', level:6, hp:34, atk:7, gold:9, drop:'hide', color:'#8d5c3a', hostile:true},
+    bear:{name:'숲 곰', level:13, hp:70, atk:14, gold:26, drop:'meat', color:'#6d4b31', rareDrop:'hide', hostile:true},
+    goblin:{name:'광산 고블린', level:7, hp:32, atk:7, gold:9, drop:'ore', color:'#7fad5d', hostile:true},
+    orc:{name:'광산 오크', level:11, hp:48, atk:10, gold:20, drop:'fang', color:'#65864d', rareDrop:'backpack', hostile:true},
+    golem:{name:'돌 골렘', level:17, hp:88, atk:16, gold:34, drop:'silverOre', color:'#7b7d73', rareDrop:'gem', hostile:true},
+    bandit:{name:'강도', level:10, hp:42, atk:9, gold:18, drop:'shortBow', color:'#b77855', hostile:true},
+    skeleton:{name:'해골 병사', level:9, hp:38, atk:8, gold:12, drop:'fang', color:'#ddd7bd', hostile:true},
+    slime:{name:'늪지 슬라임', level:6, hp:26, atk:5, gold:8, drop:'slimeGel', color:'#69b37b', hostile:true},
+    spider:{name:'동굴 거미', level:10, hp:36, atk:8, gold:11, drop:'batWing', color:'#37343a', hostile:true},
+    bat:{name:'동굴 박쥐', level:7, hp:22, atk:6, gold:7, drop:'batWing', color:'#4a4155', hostile:true},
+    cultist:{name:'던전 광신도', level:15, hp:54, atk:13, gold:30, drop:'dungeonKey', color:'#5d3f71', rareDrop:'ancientRelic', hostile:true},
+    mummy:{name:'사막 미라', level:16, hp:58, atk:12, gold:28, drop:'silverCoin', color:'#c3ad78', rareDrop:'ancientRelic', hostile:true}
   };
 
-  while(mobs.filter(m=>!m.animal).length < targetCount){
+  while(mobs.filter(m=>!m.animal && !m.boss).length < targetCount){
     let x=rand(W), y=rand(H);
     let t=map[y][x];
     if(isTownArea(x,y) || isBlocked(x,y) || dist({x,y}, player)<8) continue;
@@ -2137,7 +2361,7 @@ function npcAttackPlayer(npc, label='반격'){
   if(npc.attackCd > 0) return;
   npc.attackCd = (npc.guard ? 0.65 : 0.9) + Math.random()*0.25;
   const armorDefRaw = player.armor && itemDefs[player.armor] ? (itemDefs[player.armor].def || 0) : 0;
-  const armorDef = Math.floor(armorDefRaw * durabilityFactor(player.armor));
+  const armorDef = Math.floor(armorDefRaw * durabilityFactor(player.armor)) + (tick < (player.guardUntilTick||0) ? 8 : 0);
   const dmg = Math.max(1, (npc.atk||3) + rand(npc.guard ? 6 : 4) - armorDef);
   if(player.armor) damageDurability(player.armor, npc.guard ? 0.36 : 0.22);
   player.hp -= dmg;
@@ -2300,12 +2524,12 @@ function killMob(mob){
   normalizePlayer();
   mobs = mobs.filter(m=>m!==mob);
   player.questKills[mob.type] = (player.questKills[mob.type]||0) + 1;
-  const g = (mob.gold||0) + (mob.animal ? 0 : rand(8));
+  const g = (mob.gold||0) + (mob.animal ? 0 : rand(mob.boss ? 80 : 8));
   player.gold += g;
   if(Math.random()<0.82 && mob.drop && canCarryItem(mob.drop,1)) addItem(mob.drop,1);
-  if(mob.rareDrop && Math.random()<0.12 && canCarryItem(mob.rareDrop,1)) addItem(mob.rareDrop,1);
-  if(!mob.animal && Math.random()<0.05 && canCarryItem('gem',1)) addItem('gem',1);
-  gainExp((mob.animal ? 4 : 18) + Math.floor((mob.maxHp||20)/4));
+  if(mob.rareDrop && (mob.boss || Math.random()<0.12) && canCarryItem(mob.rareDrop,1)) addItem(mob.rareDrop,1);
+  if(!mob.animal && Math.random()<(mob.boss ? 0.35 : 0.05) && canCarryItem('gem',1)) addItem('gem',1);
+  gainExp((mob.animal ? 4 : mob.boss ? 160 : 18) + Math.floor((mob.maxHp||20)/4));
   addLog(`${mob.name} 처치.${g ? ` ${g}g 획득.` : ''}${mob.drop ? ` ${itemDefs[mob.drop]?.name||mob.drop} 획득 가능.` : ''}`);
   toast(`${mob.name} 처치`);
 }
@@ -2401,7 +2625,7 @@ function mobAI(){
       if(m.attackCd <= 0 && Math.random()<0.55){
         m.attackCd = 0.85 + Math.random()*0.35;
         const armorDefRaw = player.armor && itemDefs[player.armor] ? (itemDefs[player.armor].def || 0) : 0;
-        const armorDef = Math.floor(armorDefRaw * durabilityFactor(player.armor));
+        const armorDef = Math.floor(armorDefRaw * durabilityFactor(player.armor)) + (tick < (player.guardUntilTick||0) ? 8 : 0);
         const dmg = Math.max(1, m.atk + rand(5) - Math.floor(player.skills.tactics.v/25) - armorDef);
         if(player.armor) damageDurability(player.armor, 0.28);
         player.hp -= dmg;
@@ -2474,7 +2698,7 @@ function nearbyNpc(range=1.55){
 
 function nearbyResourceKind(range=1.35){
   const candidates = resources
-    .filter(r=>r.amount>0 && dist(r, player)<=range)
+    .filter(r=>r.amount>0 && dist(r, player)<=range && (r.kind !== 'fish' || tileAt(r.x, r.y) === 'water'))
     .sort((a,b)=>dist(a,player)-dist(b,player));
   const r = candidates[0];
   if(!r) return null;
@@ -2820,6 +3044,11 @@ function gather(kind, forced=null){
     toast(`${verb[kind]} 대상 없음`);
     return;
   }
+  if(kind === 'fish' && tileAt(res.x, res.y) !== 'water'){
+    res.kind = 'herb';
+    toast('낚시는 물가에서만 가능');
+    return;
+  }
   if(player.sta < 4){ toast('기력이 부족하다'); return; }
   const resultItem = kind === 'fish' ? pickFishCatch() : kind === 'mine' && regionNameAt(player.x,player.y)==='검은동굴 던전' && Math.random()<0.28 ? 'silverOre' : kind === 'wood' && Math.random()<0.24 ? 'oakLog' : itemMap[kind];
   if(!canCarryItem(resultItem,1)){ toast('가방 무게 초과'); return; }
@@ -3024,7 +3253,7 @@ function combatPower(){
   const armorDef = player.armor && itemDefs[player.armor] ? (itemDefs[player.armor].def || 0) : 0;
   return {
     atk: Math.round(weaponAtk * durabilityFactor(player.weapon) + player.skills.sword.v/8 + player.skills.tactics.v/12),
-    def: Math.round(armorDef * durabilityFactor(player.armor)),
+    def: Math.round(armorDef * durabilityFactor(player.armor) + (tick < (player.guardUntilTick||0) ? 8 : 0)),
     weaponAtk,
     armorDef
   };
@@ -3051,6 +3280,7 @@ function renderStatus(){
   el.innerHTML = `
     <div class="statusCompact">
       <div class="statusGrid">
+        ${tile('직업', escapeHtml(player.job || '방랑자'))}
         ${tile('소지금', `${player.gold}g`)}
         ${tile('은행금', `${player.bankGold}g`)}
         ${tile('평판/카르마', `${player.fame} / ${player.karma}`)}
@@ -3795,13 +4025,20 @@ function normalizePlayer(){
     stealing:{name:'소매치기', v:8.0},
     blacksmith:{name:'대장기술', v:12.0},
     carpentry:{name:'목공', v:11.0},
-    tailoring:{name:'재봉', v:10.0}
+    tailoring:{name:'재봉', v:10.0},
+    magery:{name:'마법', v:6.0},
+    meditation:{name:'명상', v:6.0},
+    virtue:{name:'덕성', v:8.0},
+    musicianship:{name:'음악', v:6.0},
+    tracking:{name:'추적', v:6.0},
+    lockpicking:{name:'자물쇠', v:6.0},
+    resistance:{name:'저항', v:6.0}
   };
   for(const [k,v] of Object.entries(defaults)){
     if(!player.skills[k]) player.skills[k] = {...v};
-    ensureAutoSettings();
-}
+  }
   ensureAutoSettings();
+  applyJobBonuses();
 }
 
 function defaultAutoSettings(){
@@ -3882,6 +4119,11 @@ function runAutoMode(){
 
   if(a.rest && player.hp <= player.maxHp * (a.hpPercent/100) && tick >= (player.restReadyTick||0)){
     rest();
+    return;
+  }
+
+  if(a.skill && player.hp <= player.maxHp * ((a.hpPercent + 10)/100) && meetsReq({healing:12}) && player.mana >= 6){
+    useActiveSkill('mend');
     return;
   }
 
@@ -4032,14 +4274,44 @@ function renderInventory(){
 }
 
 function renderSkills(){
+  normalizePlayer();
   const el = document.getElementById('skillList');
-  el.innerHTML = Object.entries(player.skills).map(([k,s])=>{
+  const current = jobByName(player.job);
+  const jobCards = ULTIMA_JOB_DEFS.map(j=>{
+    const ok = meetsReq(j.req);
+    const active = current.id === j.id;
+    return `<div class="card">
+      <h3>${escapeHtml(j.name)} ${active ? '· 현재' : ''}</h3>
+      <p>${escapeHtml(j.desc)}</p>
+      <p>조건: ${escapeHtml(reqText(j.req))}</p>
+      <button class="${ok?'primary':''}" ${active?'disabled':''} onclick="changeJob('${j.id}')">${ok ? '전직' : '조건 부족'}</button>
+    </div>`;
+  }).join('');
+  const activeSkills = ACTIVE_SKILL_DEFS.map(s=>{
+    const ok = meetsReq(s.req);
+    return `<div class="card">
+      <h3>${escapeHtml(s.name)}</h3>
+      <p>${escapeHtml(s.desc)}</p>
+      <p>조건: ${escapeHtml(reqText(s.req))} · MP ${s.mana||0} · SP ${s.sta||0}</p>
+      <button class="${ok?'primary':''}" onclick="useActiveSkill('${s.id}')">${ok?'사용':'미습득'}</button>
+    </div>`;
+  }).join('');
+  const skillRows = Object.entries(player.skills).map(([k,s])=>{
     const pct = clamp(s.v,0,100);
     return `<div class="card">
-      <div class="row"><b>${s.name}</b><span>${s.v.toFixed(2)}</span></div>
+      <div class="row"><b>${escapeHtml(s.name)}</b><span>${s.v.toFixed(2)}</span></div>
       <div class="meter" style="height:12px"><span style="width:${pct}%; background:var(--accent)"></span></div>
     </div>`;
   }).join('');
+  el.innerHTML = `
+    <div class="card"><h3>울티마식 전직</h3><p>고정 클래스보다 스킬 숙련 조건으로 직업을 고른다. 전직하면 HP/MP/SP 보정이 붙는다.</p></div>
+    <div class="wideList">${jobCards}</div>
+    <br>
+    <div class="card"><h3>액티브 스킬</h3><p>조건을 만족한 스킬은 바로 사용할 수 있다.</p></div>
+    <div class="wideList">${activeSkills}</div>
+    <br>
+    <div class="card"><h3>숙련도</h3></div>
+    ${skillRows}`;
 }
 
 function renderJournal(){
@@ -4900,6 +5172,7 @@ function draw(){
 
   for(const r of resources){
     if(r.amount<=0) continue;
+    if(r.kind === 'fish' && tileAt(r.x, r.y) !== 'water') continue;
     const x=r.x*TILE - camPxX, y=r.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
     if(r.kind==='tree'){
@@ -4965,6 +5238,7 @@ function draw(){
     const x=renderX(m)*TILE - camPxX, y=renderY(m)*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
     drawMobSprite(m, x, y);
+    drawMobLabel(m, x, y);
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(x+5,y+3,22,4);
     ctx.fillStyle= m.hp/m.maxHp > .4 ? '#81d36c' : '#d86b5f';
@@ -5185,7 +5459,7 @@ function gameLoop(){
       advanceWeather();
     }
   }
-  if(tick % 30 === 0) spawnMobs();
+  if(tick % 30 === 0){ normalizeFishResources(); spawnMobs(); }
   if(tick % 4 === 0) updateContextButtons();
   if(tick % 8 === 0) runAutoMode();
   if(tick % 20 === 0) updateWorldHud();
