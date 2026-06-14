@@ -1816,27 +1816,37 @@
   }
 
 
-  /* adaptive dark tone for top HUD only - no full-screen overlay */
+  /* fixed dark tone for top HUD display - no terrain switching */
+  .topbar,
+  header.topbar,
+  #topbar,
   .topbar.adaptiveToneHud,
   header.topbar.adaptiveToneHud,
   #topbar.adaptiveToneHud{
+    --hudToneAlpha:.22;
     background:linear-gradient(180deg,
-      rgba(6,9,14,calc(.42 + var(--hudToneAlpha, 0))),
-      rgba(4,7,11,calc(.30 + var(--hudToneAlpha, 0)))
+      rgba(5,8,13,.76),
+      rgba(3,6,10,.64)
     ) !important;
-    border-bottom-color:rgba(120,155,185,calc(.22 + var(--hudToneAlpha, 0))) !important;
-    box-shadow:0 2px 12px rgba(0,0,0,calc(.18 + var(--hudToneAlpha, 0))) !important;
-    backdrop-filter:blur(5px) saturate(.72) brightness(.82) !important;
-    -webkit-backdrop-filter:blur(5px) saturate(.72) brightness(.82) !important;
+    border-bottom-color:rgba(130,160,190,.36) !important;
+    box-shadow:0 2px 14px rgba(0,0,0,.42) !important;
+    backdrop-filter:blur(5px) saturate(.72) brightness(.78) !important;
+    -webkit-backdrop-filter:blur(5px) saturate(.72) brightness(.78) !important;
   }
+  .topbar .meter,
   .topbar.adaptiveToneHud .meter{
-    background:rgba(2,5,9,calc(.24 + var(--hudToneAlpha, 0))) !important;
-    border-color:rgba(140,176,205,calc(.14 + var(--hudToneAlpha, 0))) !important;
+    background:rgba(2,5,9,.46) !important;
+    border-color:rgba(140,176,205,.30) !important;
   }
+  .topbar .meter span,
   .topbar.adaptiveToneHud .meter span{
     filter:saturate(.78) brightness(.82) !important;
-    opacity:calc(.54 + var(--hudToneAlpha, 0)) !important;
+    opacity:.76 !important;
   }
+  .topbar .brand,
+  .topbar .gold,
+  .topbar .onlineBadge,
+  .topbar .meter small,
   .topbar.adaptiveToneHud .brand,
   .topbar.adaptiveToneHud .gold,
   .topbar.adaptiveToneHud .onlineBadge,
@@ -1844,12 +1854,14 @@
     color:#d8e1e7 !important;
     text-shadow:0 1px 3px rgba(0,0,0,.95) !important;
   }
+  .topbar .brand small,
   .topbar.adaptiveToneHud .brand small{
     color:#bfcbd0 !important;
   }
+  .topbar .topQuick button,
   .topbar.adaptiveToneHud .topQuick button{
-    background:rgba(4,8,13,calc(.30 + var(--hudToneAlpha, 0))) !important;
-    border-color:rgba(150,182,210,calc(.20 + var(--hudToneAlpha, 0))) !important;
+    background:rgba(4,8,13,.52) !important;
+    border-color:rgba(150,182,210,.34) !important;
     color:#e5edf0 !important;
   }
 
@@ -2965,26 +2977,15 @@ function localTerrainBrightness(){
 }
 
 function adaptiveDisplayTone(){
-  const b = localTerrainBrightness();
-  let alpha = 0;
-
-  // 밝은 지형(사막, 모래, 빙원, 유적, 밝은 마을 바닥)에서는 디스플레이 야간모드처럼 자동으로 어둡게 보정한다.
-  if(b > .55) alpha = clamp((b - .55) * .62, 0, .22);
-
-  // 맑은 날 밝은 지역은 조금 더 눈부시므로 보정을 추가한다.
-  if(worldWeather === 'clear' && b > .68 && !isNight()) alpha += .025;
-
-  // 기존 야간 어둡게 처리는 자동 톤 시스템 안으로 통합한다.
-  if(isNight()) alpha = Math.max(alpha, .24);
-
-  // 안개/비는 화면 대비를 낮추는 느낌만 약하게 더한다.
-  if(worldWeather === 'mist') alpha += .025;
-  if(worldWeather === 'rain') alpha += .015;
-
-  return {brightness:b, alpha:clamp(alpha, 0, .30)};
+  // 상단 HUD 디스플레이는 지형/날씨/밤낮 조건과 무관하게 항상 다크톤으로 고정한다.
+  // brightness 값은 디버그 표기용으로만 남긴다.
+  let b = .72;
+  try{ b = localTerrainBrightness(); }catch(e){}
+  return {brightness:b, alpha:.22, fixed:true};
 }
 
 function applyAdaptiveDisplayTone(vw, vh){
+  // 사용 안 함: 다크톤은 상단 HUD에만 고정 적용한다.
   const tone = adaptiveDisplayTone();
   if(tone.alpha <= .005) return;
   ctx.save();
@@ -3002,15 +3003,14 @@ function applyAdaptiveDisplayTone(vw, vh){
 
 function applyTopHudAdaptiveTone(){
   const bar = document.querySelector('.topbar');
-  if(!bar || !player || !map.length) return;
+  if(!bar) return;
   const tone = adaptiveDisplayTone();
 
-  // 화면 전체가 아니라 상단 HUD 디스플레이만 보정한다.
-  // 밝은 지형/밤/비/안개 조건에서만 다크 계열 UI로 전환된다.
-  const active = tone.alpha > .025;
-  bar.classList.toggle('adaptiveToneHud', active);
-  bar.style.setProperty('--hudToneAlpha', active ? tone.alpha.toFixed(3) : '0');
+  // 자동 전환 없이 상단 HUD 디스플레이를 항상 다크톤으로 유지한다.
+  bar.classList.add('adaptiveToneHud');
+  bar.style.setProperty('--hudToneAlpha', tone.alpha.toFixed(3));
   bar.dataset.terrainBrightness = tone.brightness.toFixed(2);
+  bar.dataset.toneMode = 'fixed-dark';
 }
 
 function ensureDurability(id){
@@ -8407,6 +8407,14 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {
+    title:'상단 HUD 디스플레이 다크톤 고정',
+    items:[
+      '상단 상태 박스/HUD 디스플레이를 지형 밝기와 무관하게 항상 다크 계열로 고정',
+      'HP·MP·SP·XP 게이지와 상단 버튼의 배경·테두리·텍스트 톤을 고정 다크 UI로 정리',
+      '밝은 타일 감지에 따른 자동 전환을 중단하고 깜빡임 없는 고정 표시 방식으로 변경'
+    ]
+  },
   {
     title:'상단 HUD 디스플레이 자동 다크톤 보정',
     items:[
