@@ -5332,6 +5332,34 @@ function showCloudLoadingPage(msg='서버 데이터 확인 중...'){
 
 
 
+
+function forceClearDeleteFlags(){
+  localStorage.removeItem('legacyAccountDeleted');
+  localStorage.removeItem('legacyPostDelete');
+  localStorage.removeItem('legacyReauthReason');
+}
+
+function markAccountDeletedMode(){
+  localStorage.setItem('legacyAccountDeleted', '1');
+}
+
+function isAccountDeletedMode(){
+  const params = new URLSearchParams(window.location.search);
+  return localStorage.getItem('legacyAccountDeleted') === '1' || params.has('deleted');
+}
+
+function ensureGameNicknameOrUser(){
+  const nick = (typeof storedGameNickname === 'function' ? storedGameNickname() : localStorage.getItem('legacyNickname') || '').trim().slice(0,12);
+  if(nick){
+    if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+    player.nickname = nick;
+    return nick;
+  }
+  player.nickname = '유저';
+  return '유저';
+}
+
+
 function setServerDiag(msg){
   const el = document.getElementById('serverDiagText');
   if(el) el.textContent = String(msg || '');
@@ -5528,9 +5556,7 @@ async function startKakaoLogin(ev=null){
       player.nickname = nick;
     }
 
-    const deletedFlow = typeof isDeletedLoginRequired === 'function' && isDeletedLoginRequired();
-
-    if(deletedFlow){
+    if(isAccountDeletedMode()){
       clearOnlyAuthTokens();
       supabaseClient = null;
       if(typeof saveGameNickname === 'function') saveGameNickname(nick);
@@ -5546,7 +5572,7 @@ async function startKakaoLogin(ev=null){
       return;
     }
 
-    setLoginMsg(deletedFlow ? '탈퇴 후 재로그인: 카카오 인증 주소 생성 중...' : '카카오 인증 주소 생성 중...');
+    setLoginMsg(isAccountDeletedMode() ? '탈퇴 후 새 접속: 카카오 인증 주소 생성 중...' : '카카오 인증 주소 생성 중...');
     setServerDiag?.('OAuth URL 생성 요청...');
 
     const { data, error } = await client.auth.signInWithOAuth({
@@ -5613,39 +5639,56 @@ async function loadCloudStateAndEnter(){
       return false;
     }
 
+    const gameNick = (typeof storedGameNickname === 'function'
+      ? storedGameNickname()
+      : localStorage.getItem('legacyNickname') || ''
+    ).trim().slice(0,12) || '유저';
+
+    if(typeof saveGameNickname === 'function') saveGameNickname(gameNick);
+    else localStorage.setItem('legacyNickname', gameNick);
+
     cloudState.session = session;
     cloudState.user = session.user;
     onlineSession = session;
+    supabaseClient = client;
+
     player.userId = session.user.id;
     player.isOnline = true;
+    player.nickname = gameNick;
     cloudState.status = '서버 데이터 불러오는 중';
 
-    const gameNick = (typeof storedGameNickname === 'function' ? storedGameNickname() : localStorage.getItem('legacyNickname') || '').slice(0,12);
-    if(gameNick){
-      if(typeof saveGameNickname === 'function') saveGameNickname(gameNick);
-      player.nickname = gameNick;
+    const profileOk = await ensureSupabaseProfile(session.user);
+    if(!profileOk){
+      throw new Error('profiles upsert failed');
     }
 
-    await ensureSupabaseProfile(session.user);
-    await loadCloudCharacter(true);
+    const charOk = await loadCloudCharacter(true);
+    if(!charOk){
+      throw new Error('characters load/create failed');
+    }
 
-    if(gameNick) player.nickname = gameNick;
+    player.nickname = gameNick;
     player.userId = session.user.id;
     player.isOnline = true;
     if(!player.job || player.job === '모험가') player.job = '방랑자';
+
+    const finalSave = await saveCloudCharacter(true);
+    if(!finalSave){
+      throw new Error('characters final save failed');
+    }
+
+    forceClearDeleteFlags();
 
     cloudState.ready = true;
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    clearDeletedLoginRequired();
-
     hideLoginPage();
     setupRealtimeOnline();
-    await saveCloudCharacter(true);
     await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
 
-    toast('서버 데이터 로드 완료');
+    toast('서버 접속 완료');
+    setServerDiag?.('SERVER ENTER OK');
     return true;
   }catch(e){
     console.error(e);
@@ -5653,7 +5696,8 @@ async function loadCloudStateAndEnter(){
     cloudState.ready = false;
     cloudState.status = '서버 오류';
     document.getElementById('loginPage')?.classList.remove('hidden');
-    setLoginMsg('서버 로드 실패: ' + (e.message || String(e)));
+    setLoginMsg('서버 접속 실패: ' + (e.message || String(e)));
+    setServerDiag?.('SERVER ENTER ERROR: ' + (e.message || String(e)));
     return false;
   }
 }
@@ -5690,13 +5734,23 @@ async function bootAuth(){
 
   const loginPage = document.getElementById('loginPage');
   loginPage?.classList.remove('hidden');
+  setTimeout(attachKakaoLoginButton, 50);
 
   const s = loginSettings();
   if(s.nick) player.nickname = s.nick;
 
+  const client = await ensureSupabaseClient(false);
+
+  if(client && hasOAuthReturn){
+    await finishOAuthRedirect(client);
+    await loadCloudStateAndEnter();
+    return true;
+  }
+
   if(isDeletedRoute){
-    markDeletedLoginRequired();
+    markAccountDeletedMode();
     clearOnlyAuthTokens();
+    supabaseClient = null;
     forceShowLoginAfterSignOut('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.', true);
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
     return true;
@@ -5704,16 +5758,9 @@ async function bootAuth(){
 
   if(isLogoutRoute){
     clearOnlyAuthTokens();
+    supabaseClient = null;
     forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.', false);
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-    return true;
-  }
-
-  const client = await ensureSupabaseClient(false);
-
-  if(client && hasOAuthReturn){
-    await finishOAuthRedirect(client);
-    await loadCloudStateAndEnter();
     return true;
   }
 
@@ -5945,9 +5992,9 @@ async function ensureSupabaseProfile(user=null){
   user = user || await currentAuthUser();
   if(!user) return false;
 
-  // 카카오 프로필명은 게임 닉네임으로 쓰지 않는다.
-  // 로그인창에서 작성한 legacyGameNickname/displayGameNickname 값만 저장한다.
-  const gameNick = displayGameNickname();
+  const gameNick = typeof displayGameNickname === 'function'
+    ? displayGameNickname()
+    : ensureGameNicknameOrUser();
 
   const profile = {
     id: user.id,
@@ -5961,10 +6008,13 @@ async function ensureSupabaseProfile(user=null){
     .upsert(profile, { onConflict:'id' });
 
   if(error){
-    addLog('프로필 저장 실패: ' + error.message);
-    setLoginMsg('프로필 저장 실패: ' + error.message);
+    addLog('프로필 재생성 실패: ' + error.message);
+    setLoginMsg('프로필 재생성 실패: ' + error.message);
+    setServerDiag?.('profiles upsert ERROR: ' + error.message);
     return false;
   }
+
+  setServerDiag?.('profiles upsert OK');
   return true;
 }
 
@@ -6001,18 +6051,29 @@ async function saveCloudCharacter(silent=false){
   const user = await currentAuthUser();
   if(!user) return false;
 
-  applyGameNickname(false);
+  const gameNick = ensureGameNicknameOrUser();
+  player.nickname = gameNick;
+  player.userId = user.id;
+  player.isOnline = true;
+
   await ensureSupabaseProfile(user);
+
+  const row = characterRow(user);
+  row.nickname = gameNick;
+  row.user_id = user.id;
 
   const { error } = await supabaseClient
     .from('characters')
-    .upsert(characterRow(user), { onConflict:'user_id' });
+    .upsert(row, { onConflict:'user_id' });
 
   if(error){
     if(!silent) toast('클라우드 저장 실패');
     addLog('클라우드 저장 실패: ' + error.message);
+    setServerDiag?.('characters upsert ERROR: ' + error.message);
     return false;
   }
+
+  setServerDiag?.('characters upsert OK');
 
   if(!silent){
     toast('클라우드 저장 완료');
@@ -6026,7 +6087,10 @@ async function loadCloudCharacter(silent=false){
   const user = await currentAuthUser();
   if(!user) return false;
 
-  const gameNick = storedGameNickname() || typedGameNickname();
+  const gameNick = (typeof storedGameNickname === 'function'
+    ? storedGameNickname()
+    : localStorage.getItem('legacyNickname') || ''
+  ).trim().slice(0,12) || '유저';
 
   const { data, error } = await supabaseClient
     .from('characters')
@@ -6037,25 +6101,46 @@ async function loadCloudCharacter(silent=false){
   if(error){
     if(!silent) toast('클라우드 불러오기 실패');
     addLog('클라우드 불러오기 실패: ' + error.message);
+    setServerDiag?.('characters select ERROR: ' + error.message);
     return false;
   }
 
   if(!data){
-    resetPlayerForNewKakaoAccount(gameNick || '유저', user.id, true);
-    if(gameNick) saveGameNickname(gameNick);
-    await saveCloudCharacter(true);
+    // 탈퇴 후 같은 auth.users 계정으로 다시 들어오는 경우:
+    // auth.users는 새로 생성되지 않으므로 트리거가 다시 안 돈다.
+    // 여기서 새 방랑자 캐릭터를 강제로 만든다.
+    resetPlayerForNewKakaoAccount(gameNick, user.id, true);
+    player.nickname = gameNick;
+    player.job = '방랑자';
+    player.level = 1;
+    player.userId = user.id;
+    player.isOnline = true;
+
+    const saved = await saveCloudCharacter(true);
+    if(!saved){
+      setServerDiag?.('characters insert ERROR: saveCloudCharacter failed');
+      setLoginMsg('새 캐릭터 생성 실패. characters RLS/policy를 확인하세요.');
+      return false;
+    }
+
+    setServerDiag?.('characters new starter created');
     if(!silent) toast('방랑자 Lv.1 새 캐릭터 생성');
     return true;
   }
 
-  applySaveState(data.state);
-
-  // 저장 데이터에 카카오 프로필명 '나'가 들어 있어도 게임 닉네임으로 덮는다.
-  if(gameNick){
-    saveGameNickname(gameNick);
-  }else if(isProfileDefaultName(player.nickname)){
-    player.nickname = '유저';
+  try{
+    applySaveState(data.state);
+  }catch(e){
+    console.warn('applySaveState failed', e);
+    setServerDiag?.('applySaveState warning: ' + (e.message || String(e)));
   }
+
+  player.nickname = gameNick;
+  player.userId = user.id;
+  player.isOnline = true;
+  if(!player.job || player.job === '모험가') player.job = '방랑자';
+
+  setServerDiag?.('characters load OK');
 
   if(!silent){
     toast('클라우드 불러오기 완료');
@@ -6246,13 +6331,18 @@ async function deleteAccountData(){
     }
 
     clearOnlyAuthTokens();
-    markDeletedLoginRequired();
+    supabaseClient = null;
+    markAccountDeletedMode();
+
     setLoginMsg('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
+    setServerDiag?.('account deleted locally/cloud data removed');
   }catch(e){
     console.error(e);
-    markDeletedLoginRequired();
+    markAccountDeletedMode();
     clearOnlyAuthTokens();
-    setLoginMsg('계정탈퇴 처리 일부 실패. 로컬 로그인 상태는 초기화했습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
+    supabaseClient = null;
+    setLoginMsg('계정탈퇴 처리 일부 실패. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
+    setServerDiag?.('delete warning: ' + (e.message || String(e)));
   }
 
   setTimeout(()=>{
@@ -6934,12 +7024,13 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카톡 브라우저 OAuth 직접 이동 보강',
+    title:'탈퇴 후 새 접속 차단 원인 수정',
     items:[
-      '카카오 로그인 버튼에 touchend/pointerup/click 이벤트 직접 바인딩',
-      'Supabase OAuth URL을 받은 뒤 anchor click/location assign/href 순서로 직접 이동',
-      '자동 이동 실패 시 카카오 인증 직접 열기 링크 표시',
-      'SDK가 URL을 못 주면 Supabase authorize URL fallback 표시'
+      '탈퇴는 auth.users를 삭제하지 않으므로 같은 auth 계정 재로그인 흐름으로 처리',
+      '재로그인 시 profiles가 없으면 다시 upsert',
+      'characters가 없으면 방랑자 Lv.1 새 캐릭터를 강제 생성',
+      'OAuth 성공 후에만 legacyAccountDeleted 플래그 제거',
+      '서버 접속 실패 지점을 서버 상태 박스에 표시'
     ]
   },
   {
