@@ -1366,7 +1366,114 @@
     background-image:none !important;
   }
 
+
+  /* real map-through overlay layout */
+  #app{
+    position:fixed !important;
+    inset:0 !important;
+    width:100vw !important;
+    height:100dvh !important;
+    display:block !important;
+    overflow:hidden !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+  #gameWrap{
+    position:fixed !important;
+    inset:0 !important;
+    width:100vw !important;
+    height:100dvh !important;
+    min-height:100dvh !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    z-index:1 !important;
+  }
+  #game,
+  canvas#game{
+    position:absolute !important;
+    inset:0 !important;
+    width:100vw !important;
+    height:100dvh !important;
+    background:#16200f !important;
+    z-index:1 !important;
+  }
+  .topbar{
+    position:fixed !important;
+    left:0 !important;
+    right:0 !important;
+    top:0 !important;
+    z-index:80 !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  .topbar::before,
+  .topbar::after{
+    content:none !important;
+    display:none !important;
+    background:none !important;
+  }
+  .topbar *,
+  .brand,
+  #charInfo,
+  .stats,
+  .gold,
+  .topQuick,
+  .onlineBadge{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+  }
+  .log,
+  #log{
+    position:fixed !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+    z-index:85 !important;
+    width:100vw !important;
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  .log::before,
+  .log::after,
+  #log::before,
+  #log::after{
+    content:none !important;
+    display:none !important;
+    background:none !important;
+  }
+  .log *,
+  #log *{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+    box-shadow:none !important;
+  }
+  body{
+    background:transparent !important;
+    background-color:transparent !important;
+    background-image:none !important;
+  }
+  .toolbar{
+    z-index:82 !important;
+  }
+  .chatPanel{
+    z-index:10060 !important;
+  }
+
 </style>
+
 
 <script>
 (function(){
@@ -1374,8 +1481,9 @@
     const params = new URLSearchParams(location.search);
     const isAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
     const isLoginRoute = params.has('login') || params.has('deleted');
+
     const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-    const isReload = nav ? nav.type === 'reload' : performance.navigation && performance.navigation.type === 1;
+    const isReload = nav ? nav.type === 'reload' : (performance.navigation && performance.navigation.type === 1);
 
     if(isReload && !isAuthReturn && !isLoginRoute){
       const u = new URL('./index7.html', location.href);
@@ -6020,12 +6128,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'상단/로그 배경 제거 · 새로고침/탈퇴 로그인 리다이렉트',
+    title:'상단/로그창을 맵 위 오버레이로 변경',
     items:[
-      '상단 박스와 로그창의 검은 배경을 완전 투명 처리',
-      '새로고침 시 index7.html?login 으로 이동해 로그인 페이지에서 정지',
-      '계정탈퇴 후 index7.html?deleted 로 강제 이동',
-      '계정탈퇴 시 Supabase 세션 토큰과 로컬 저장값을 같이 제거'
+      '상단박스와 로그창을 캔버스 밖 행에서 맵 위 고정 오버레이로 변경',
+      '검은 배경이 보이던 #app/body 배경 노출 문제 해결',
+      '새로고침 시 로그인 페이지로 강제 이동 유지',
+      '계정탈퇴 후 로그인 페이지로 강제 이동 유지'
     ]
   },
   {
