@@ -3034,18 +3034,55 @@ function drawCombatEffects(camPxX, camPxY){
   ctx.restore();
 }
 
+function manualAttackCandidateScore(entity, kind){
+  const dx = (entity.x || 0) - player.x;
+  const dy = (entity.y || 0) - player.y;
+  const d = Math.hypot(dx, dy);
+  const range = kind === 'npc' ? 1.85 : 2.35;
+  if(d > range) return null;
+
+  const dirX = player.dir?.[0] || 0;
+  const dirY = player.dir?.[1] || 1;
+  const dot = d > 0.001 ? (dx * dirX + dy * dirY) / d : 1;
+
+  // 수동 공격은 터치 조작 오차를 감안해 전방 부채꼴 + 근접 원형 판정을 같이 쓴다.
+  // 가까이 붙은 대상은 방향이 조금 어긋나도 맞고, 앞쪽 대상은 살짝 멀어도 잡힌다.
+  const veryClose = d <= 1.25;
+  const inFrontArc = dot >= -0.15 && d <= range;
+  const sideGrace = d <= 1.65 && dot >= -0.45;
+  if(!veryClose && !inFrontArc && !sideGrace) return null;
+
+  const frontBonus = Math.max(0, dot) * 0.55;
+  const mobPriority = kind === 'mob' ? -0.22 : 0.18;
+  return d - frontBonus + mobPriority;
+}
+
+function pickManualAttackTarget(){
+  const candidates = [];
+  for(const m of mobs){
+    if(!m || m.hp <= 0) continue;
+    const score = manualAttackCandidateScore(m, 'mob');
+    if(score !== null) candidates.push({kind:'mob', ref:m, score});
+  }
+  for(const n of npcs){
+    if(!n || n.down) continue;
+    const score = manualAttackCandidateScore(n, 'npc');
+    if(score !== null) candidates.push({kind:'npc', ref:n, score});
+  }
+  candidates.sort((a,b)=>a.score-b.score);
+  return candidates[0] || null;
+}
+
 function attack(target=null){
   if(tick < (player.jailUntilTick||0)){
     toast(`체포 대기 ${Math.ceil(((player.jailUntilTick||0)-tick)*0.45)}초`);
     return;
   }
   closeMiniTrade();
-  if(!target){
-    const candidates = [
-      ...mobs.map(m=>({kind:'mob', ref:m, d:dist(m,player)})),
-      ...npcs.filter(n=>!n.down).map(n=>({kind:'npc', ref:n, d:dist(n,player)}))
-    ].filter(o=>o.d<=1.7).sort((a,b)=>a.d-b.d);
-    const picked = candidates[0];
+
+  const isManualAttack = !target;
+  if(isManualAttack){
+    const picked = pickManualAttackTarget();
     if(picked?.kind === 'npc'){ attackNpc(picked.ref); return; }
     if(picked?.kind === 'mob') target = picked.ref;
   }
@@ -3058,7 +3095,9 @@ function attack(target=null){
   ensureDurability(player.weapon);
   const sword = player.skills.sword.v;
   const tactics = player.skills.tactics.v;
-  const hit = 0.62 + sword/220;
+  const hit = isManualAttack
+    ? clamp(0.88 + sword/360, 0.88, 0.97)
+    : clamp(0.66 + sword/240, 0.66, 0.94);
   if(Math.random() < hit){
     const dmg = Math.max(1, Math.floor((weapon.atk||1) * durabilityFactor(player.weapon) + tactics/12 + Math.random()*8));
     damageDurability(player.weapon, 0.35);
@@ -3069,8 +3108,8 @@ function attack(target=null){
     gainSkill('sword',0.18); gainSkill('tactics',0.13);
     if(target.hp <= 0){ addCombatEffect(target.x, target.y, '처치', 'down'); killMob(target); }
   }else{
-    addCombatEffect(target.x, target.y, '실패', 'miss');
-    addLog(`${target.name} 공격 실패.`);
+    addCombatEffect(target.x, target.y, '빗나감', 'miss');
+    addLog(`${target.name} 공격 빗나감.`);
     gainSkill('sword',0.06);
   }
   draw();
