@@ -9,16 +9,16 @@
   <meta property="og:title" content="legacy_realsm">
   <meta property="og:description" content="울티마식 샌드박스 웹 RPG. 방랑자로 시작해 전투, 채집, 낚시, 던전과 성장을 즐기세요.">
   <meta property="og:url" content="https://lemonade-seal.github.io/legacy_realms/index7.html">
-  <meta property="og:image" content="https://lemonade-seal.github.io/legacy_realms/game-scene-portrait.png">
-  <meta property="og:image:secure_url" content="https://lemonade-seal.github.io/legacy_realms/game-scene-portrait.png">
+  <meta property="og:image" content="https://lemonade-seal.github.io/legacy_realms/legacy-realms-start.png">
+  <meta property="og:image:secure_url" content="https://lemonade-seal.github.io/legacy_realms/legacy-realms-start.png">
   <meta property="og:image:type" content="image/png">
-  H24">
-  O92">
+  <meta property="og:image:width" content="1792">
+  <meta property="og:image:height" content="1024">
   <meta property="og:image:alt" content="legacy_realsm 시작 화면 이미지">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="legacy_realsm">
   <meta name="twitter:description" content="울티마식 샌드박스 웹 RPG legacy_realsm">
-  <meta name="twitter:image" content="https://lemonade-seal.github.io/legacy_realms/game-scene-portrait.png">
+  <meta name="twitter:image" content="https://lemonade-seal.github.io/legacy_realms/legacy-realms-start.png">
   <link rel="canonical" href="https://lemonade-seal.github.io/legacy_realms/index7.html">
 
 <meta charset="utf-8" />
@@ -1613,49 +1613,6 @@
     -webkit-backdrop-filter:blur(3px) !important;
   }
 
-
-  /* generated portrait game scene background */
-  body,
-  #app,
-  #gameWrap{
-    background:
-      linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.18)),
-      url('./game-scene-portrait.png') center top / cover no-repeat !important;
-  }
-
-  /* canvas를 반투명 처리해서 생성 배경이 실제 화면 뒤로 보이게 함 */
-  #game,
-  canvas#game{
-    background:transparent !important;
-  }
-
-  /* generated scene mode: UI를 이미지와 어울리게 반투명 처리 */
-  .topbar,
-  .log,
-  .toolbar,
-  .minimap,
-  .worldHud,
-  .questBox{
-    background:rgba(5,8,4,.18) !important;
-    backdrop-filter:blur(2px) !important;
-    -webkit-backdrop-filter:blur(2px) !important;
-  }
-
-  .pop,
-  .card,
-  .loginCard{
-    background:rgba(5,8,4,.42) !important;
-    backdrop-filter:blur(3px) !important;
-    -webkit-backdrop-filter:blur(3px) !important;
-  }
-
-
-  /* force generated game scene visibility */
-  #game,
-  canvas#game{
-    background:transparent !important;
-  }
-
 </style>
 
 
@@ -1940,8 +1897,6 @@
     <section class="pop" id="popSettings">
       <div class="popHead"><b>설정</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <button onclick="toggleGeneratedSceneBg()">생성 게임화면 전환</button>
-        <button onclick="toggleGeneratedSceneBg()">생성 배경 전환</button>
         <div class="grid2">
           <button onclick="toggleGrid()">격자 ON/OFF</button>
           <button onclick="openPop('popAccount')">계정</button>
@@ -2013,54 +1968,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 'use strict';
-
-
-
-function softenGeneratedSceneOverlay(){
-  if(!useGeneratedSceneBg || !ctx || !canvas) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(255,255,255,.92)';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.restore();
-}
-
-
-
-const GENERATED_SCENE_BG_SRC = './game-scene-portrait.png';
-const GENERATED_SCENE_BG = new Image();
-GENERATED_SCENE_BG.src = GENERATED_SCENE_BG_SRC;
-GENERATED_SCENE_BG.onload = ()=>{ try{ draw(); }catch(e){} };
-let useGeneratedSceneBg = localStorage.getItem('legacyUseGeneratedSceneBg') !== '0';
-
-function drawGeneratedSceneBackground(){
-  if(!useGeneratedSceneBg || !ctx || !canvas) return false;
-  if(!GENERATED_SCENE_BG.complete || GENERATED_SCENE_BG.naturalWidth <= 0) return false;
-
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const iw = GENERATED_SCENE_BG.naturalWidth;
-  const ih = GENERATED_SCENE_BG.naturalHeight;
-
-  const scale = Math.max(cw / iw, ch / ih);
-  const dw = iw * scale;
-  const dh = ih * scale;
-  const dx = (cw - dw) / 2;
-  const dy = (ch - dh) / 2;
-
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.drawImage(GENERATED_SCENE_BG, dx, dy, dw, dh);
-  ctx.restore();
-  return true;
-}
-
-function toggleGeneratedSceneBg(){
-  useGeneratedSceneBg = !useGeneratedSceneBg;
-  localStorage.setItem('legacyUseGeneratedSceneBg', useGeneratedSceneBg ? '1' : '0');
-  toast(useGeneratedSceneBg ? '생성 게임화면 켜짐' : '생성 게임화면 꺼짐');
-  draw();
-}
 
 const TILE = 32;
 const W = 100, H = 70;
@@ -6852,8 +6759,6 @@ function draw(){
   updateHud();
   const vw = canvas.width, vh = canvas.height;
   ctx.clearRect(0,0,vw,vh);
-  const __generatedBgActive = drawGeneratedSceneBackground();
-  if(__generatedBgActive){ ctx.save(); ctx.globalAlpha = 0.24; }
 
   const worldPxW = W * TILE;
   const worldPxH = H * TILE;
@@ -6865,7 +6770,6 @@ function draw(){
   const endY = Math.min(H - 1, Math.ceil((camPxY + vh) / TILE));
 
   drawOrganicTerrain(startX, startY, endX, endY, camPxX, camPxY, vw, vh);
-  if(__generatedBgActive){ ctx.restore(); }
 
   for(const r of resources){
     if(r.amount<=0) continue;
@@ -7172,12 +7076,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'생성 게임화면 캔버스 직접 적용',
+    title:'계정탈퇴 시 Supabase 프로필 삭제 고정',
     items:[
-      '기존 타일맵이 배경 이미지를 덮던 문제 수정',
-      'game-scene-portrait.png를 canvas draw() 안에서 직접 그림',
-      '타일 배경을 반투명 처리하고 캐릭터/NPC/몹은 위에 표시',
-      '설정 메뉴에 생성 게임화면 전환 버튼 유지'
+      '계정탈퇴 시 profiles를 명시적으로 삭제',
+      'characters/player_presence/game_events도 같은 유저 id로 삭제',
+      '삭제 실패 시 서버 상태 박스에 RLS 오류 표시',
+      'auth.users는 클라이언트에서 삭제하지 않고 게임 데이터만 삭제'
     ]
   },
   {
