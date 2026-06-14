@@ -4685,13 +4685,82 @@ function notorietyTitle(){
   return '일반 시민';
 }
 
-function showMiniItemInfo(id, owner=''){
+function showMiniItemInfo(id, owner='', ev=null){
   const el = document.getElementById('miniItemInfo');
-  if(!el) return;
   const def = itemDefs[id] || {name:id, type:'기타', desc:''};
   const weight = itemWeight(id);
   const price = def.price || 0;
-  el.innerHTML = `<b>${escapeHtml(def.name)}</b><br>종류 ${escapeHtml(def.type||'기타')} · 무게 ${weight}<br>가치 ${price}g<br>${escapeHtml(def.desc||owner||'')}`;
+  if(el){
+    el.innerHTML = `<b>${escapeHtml(def.name)}</b><br>종류 ${escapeHtml(def.type||'기타')} · 무게 ${weight}<br>가치 ${price}g<br>${escapeHtml(def.desc||owner||'')}`;
+  }
+  if(ev){
+    const origin = owner === 'NPC 소지품' ? 'merchant' : owner === '내 가방' ? 'player' : 'inventory';
+    showInventoryItemPopup(ev, id, {mode:'trade', origin});
+  }
+}
+
+function showTradeItemPopup(ev, id, origin='merchant'){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  showInventoryItemPopup(ev, id, {mode:'trade', origin});
+}
+
+function merchantRowForItem(npc, id){
+  return merchantCatalog(npc).find(row=>row.id === id) || {id, price:itemDefs[id]?.price || 1, stock:0};
+}
+function tradeBuyPrice(npc, id){
+  const row = merchantRowForItem(npc, id);
+  return Math.max(1, Math.floor(row.price || itemDefs[id]?.price || 1));
+}
+function tradeSellPrice(id, npc=null){
+  const def = itemDefs[id] || {};
+  const base = def.price || 1;
+  const tradingBonus = 1 + (player.skills?.trading?.v || 0) / 450;
+  let rate = 0.48;
+  if(def.type === 'mat' || def.type === 'food' || def.type === 'potion') rate = 0.55;
+  if(def.type === 'weapon' || def.type === 'armor') rate = 0.42;
+  if(def.type === 'stolen') rate = (npc?.fence || npc?.role === '암시장') ? 0.66 : 0.10;
+  return Math.max(1, Math.floor(base * rate * tradingBonus));
+}
+function canNormalTradeWith(npc){
+  return !!npc && !npc.down && isVendorNpc(npc) && dist(npc, player) <= 2.2;
+}
+function purchaseTradeItem(id){
+  normalizePlayer();
+  const npc = activeTradeNpc || currentNpc;
+  if(!canNormalTradeWith(npc)){ toast('거래 가능한 상인이 아니다'); return; }
+  const stock = ensureMerchantStock(npc);
+  if((stock[id]||0) <= 0){ toast('재고 없음'); renderShop(); renderMiniTrade(); return; }
+  if(!canCarryItem(id,1)){ toast('가방 무게 초과'); return; }
+  const price = tradeBuyPrice(npc, id);
+  if(player.gold < price){ toast('골드 부족'); return; }
+  player.gold -= price;
+  stock[id]--;
+  addItem(id,1);
+  gainSkill('trading',0.08);
+  addLog(`${npc.name}에게서 ${itemDefs[id]?.name || id} 구매. -${price}g`);
+  closeInventoryItemPopup();
+  renderShop(); renderMiniTrade(); renderInventory(); renderStatus(); updateHud(); draw();
+}
+function sellTradeItem(id){
+  normalizePlayer();
+  const npc = activeTradeNpc || currentNpc;
+  if(!canNormalTradeWith(npc)){ toast('거래 가능한 상인이 아니다'); return; }
+  if(!player.inv[id]){ toast('가방에 없음'); return; }
+  if(id === player.weapon || id === player.armor){ toast('장착 중인 장비는 먼저 해제해야 한다'); return; }
+  const def = itemDefs[id] || {};
+  if(def.type === 'stolen' && !(npc.fence || npc.role === '암시장')){
+    toast('장물은 암시장에만 팔 수 있다');
+    return;
+  }
+  const price = tradeSellPrice(id, npc);
+  removeItem(id,1);
+  player.gold += price;
+  const stock = ensureMerchantStock(npc);
+  stock[id] = (stock[id] || 0) + 1;
+  gainSkill('trading',0.10);
+  addLog(`${npc.name}에게 ${def.name || id} 판매. +${price}g`);
+  closeInventoryItemPopup();
+  renderShop(); renderMiniTrade(); renderInventory(); renderStatus(); updateHud(); draw();
 }
 
 function isMerchantNpc(npc){
@@ -4968,9 +5037,7 @@ function attemptStealTradeItem(npc, id){
 }
 
 function buyItem(id){
-  // 기존 메뉴 호환용. 새 거래창에서는 드래그 훔치기를 기본으로 쓴다.
-  if(!activeTradeNpc){ toast('상인을 먼저 터치'); return; }
-  attemptStealTradeItem(activeTradeNpc, id);
+  purchaseTradeItem(id);
 }
 
 function openMiniTrade(npc){
@@ -5028,7 +5095,7 @@ function renderMiniTrade(){
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
     const qty = stock[row.id] || 0;
     return `<div class="miniSlot ${qty<=0?'empty':''}"
-      onpointerdown="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}" onclick="showMiniItemInfo('${row.id}','NPC 소지품')">
+      onpointerdown="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}" onclick="showMiniItemInfo('${row.id}','NPC 소지품',event)">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">${qty}</div>
@@ -5049,7 +5116,7 @@ function renderMiniBagSlots(){
   const ids = Object.keys(player.inv||{}).slice(0, 15);
   const slots = ids.map(id=>{
     const def = itemDefs[id] || {name:id, type:'기타'};
-    return `<div class="miniSlot" onclick="showMiniItemInfo('${id}','내 가방')">
+    return `<div class="miniSlot" onclick="showMiniItemInfo('${id}','내 가방',event)">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">${player.inv[id]}</div>
@@ -5089,6 +5156,7 @@ function renderShop(){
     const qty = stock[row.id] || 0;
     const disabled = qty<=0 ? 'opacity:.42; cursor:not-allowed;' : '';
     return `<div class="itemSlot" style="${disabled}" draggable="${qty>0?'true':'false'}"
+      onclick="showTradeItemPopup(event,'${row.id}','merchant')"
       onpointerdown="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}"
       ondragstart="${qty>0?`startMerchantDrag(event,'${row.id}')`:''}"
       ondragend="clearMerchantDrag()">
@@ -5106,7 +5174,7 @@ function renderTradeBagSlots(){
   if(!ids.length) return '<div class="notice">가방이 비어 있다.</div>';
   return ids.map(id=>{
     const def = itemDefs[id] || {name:id, type:'기타'};
-    return `<div class="itemSlot">
+    return `<div class="itemSlot" onclick="showTradeItemPopup(event,'${id}','player')">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">수량 ${player.inv[id]}</div>
@@ -5268,14 +5336,14 @@ function renderBank(){
     const ids = Object.keys(player.inv);
     invEl.innerHTML = ids.length ? ids.map(id=>{
       const def = itemDefs[id] || {name:id};
-      return `<div class="invItem"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.inv[id]}</small></div></div><button onclick="depositItem('${id}')">입금</button></div>`;
+      return `<div class="invItem" onclick="showInventoryItemPopup(event,'${id}',{origin:'inventory'})"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.inv[id]}</small></div></div><button onclick="event.stopPropagation(); depositItem('${id}')">입금</button></div>`;
     }).join('') : '<p class="notice">가방이 비어 있다.</p>';
   }
   if(bankEl){
     const ids = Object.keys(player.bank);
     bankEl.innerHTML = ids.length ? ids.map(id=>{
       const def = itemDefs[id] || {name:id};
-      return `<div class="invItem"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.bank[id]}</small></div></div><button onclick="withdrawItem('${id}')">출금</button></div>`;
+      return `<div class="invItem" onclick="showInventoryItemPopup(event,'${id}',{origin:'bank'})"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.bank[id]}</small></div></div><button onclick="event.stopPropagation(); withdrawItem('${id}')">출금</button></div>`;
     }).join('') : '<p class="notice">보관함이 비어 있다.</p>';
   }
 }
@@ -5439,23 +5507,44 @@ function renderLog(){
   el.innerHTML = player.journal.slice(0,2).map(x=>`<div>${escapeHtml(x)}</div>`).join('');
 }
 
-function inventoryItemActionButtons(id){
+function inventoryItemActionButtons(id, ctx={}){
   const def = itemDefs[id] || {};
   const actions = [];
-  if(def.type === 'weapon'){
-    actions.push(`<button onclick="equip('${id}'); closeInventoryItemPopup()">${player.weapon===id?'착용중':'착용'}</button>`);
+  const mode = ctx.mode || 'inventory';
+  const origin = ctx.origin || 'inventory';
+  const inTrade = mode === 'trade' && !!activeTradeNpc;
+
+  if(inTrade){
+    const npc = activeTradeNpc || currentNpc;
+    if(origin === 'merchant'){
+      const stock = npc ? ensureMerchantStock(npc) : {};
+      const price = npc ? tradeBuyPrice(npc, id) : (def.price || 0);
+      const canBuy = canNormalTradeWith(npc) && (stock[id] || 0) > 0 && player.gold >= price;
+      actions.push(`<button class="${canBuy?'primary':'danger'}" onclick="purchaseTradeItem('${id}')">구매 ${price}g</button>`);
+      actions.push(`<button onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
+    }else if(origin === 'player'){
+      const price = tradeSellPrice(id, npc);
+      const canSell = canNormalTradeWith(npc) && player.inv[id] > 0 && id !== player.weapon && id !== player.armor;
+      actions.push(`<button class="${canSell?'primary':'danger'}" onclick="sellTradeItem('${id}')">판매 ${price}g</button>`);
+    }
   }
-  if(def.type === 'armor'){
-    actions.push(`<button onclick="equipArmor('${id}'); closeInventoryItemPopup()">${player.armor===id?'착용중':'착용'}</button>`);
-  }
-  if(def.type === 'food'){
-    actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">먹기</button>`);
-  }
-  if(id === 'repairKit'){
-    actions.push(`<button onclick="useRepairKit(); closeInventoryItemPopup()">수리</button>`);
-  }
-  if(id === 'smokeBomb'){
-    actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
+
+  if(origin !== 'merchant'){
+    if(def.type === 'weapon'){
+      actions.push(`<button onclick="equip('${id}'); closeInventoryItemPopup()">${player.weapon===id?'착용중':'착용'}</button>`);
+    }
+    if(def.type === 'armor'){
+      actions.push(`<button onclick="equipArmor('${id}'); closeInventoryItemPopup()">${player.armor===id?'착용중':'착용'}</button>`);
+    }
+    if(def.type === 'food' || def.type === 'potion'){
+      actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">사용</button>`);
+    }
+    if(id === 'repairKit'){
+      actions.push(`<button onclick="useRepairKit(); closeInventoryItemPopup()">수리</button>`);
+    }
+    if(id === 'smokeBomb'){
+      actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
+    }
   }
   return actions.join('');
 }
@@ -5465,7 +5554,7 @@ function closeInventoryItemPopup(){
   if(box) box.classList.remove('open');
 }
 
-function showInventoryItemPopup(ev, id){
+function showInventoryItemPopup(ev, id, ctx={}){
   normalizePlayer();
   if(ev){
     ev.preventDefault();
@@ -5476,21 +5565,33 @@ function showInventoryItemPopup(ev, id){
   if(!box) return;
 
   const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
-  const qty = player.inv[id] || 0;
+  const mode = ctx.mode || 'inventory';
+  const origin = ctx.origin || 'inventory';
+  const npc = activeTradeNpc || currentNpc;
+  const qty = origin === 'merchant'
+    ? (npc ? (ensureMerchantStock(npc)[id] || 0) : 0)
+    : (origin === 'bank' ? (player.bank?.[id] || 0) : (player.inv?.[id] || 0));
   const weight = itemWeight(id);
-  const dur = (def.type==='weapon' || def.type==='armor')
+  const dur = (def.type==='weapon' || def.type==='armor') && origin !== 'merchant'
     ? `<span>내구도 ${Math.round(player.durability?.[id] ?? 100)}%</span>`
     : '';
-  const equip = player.weapon===id || player.armor===id ? '<span>장착중</span>' : '';
+  const equip = (player.weapon===id || player.armor===id) && origin !== 'merchant' ? '<span>장착중</span>' : '';
   const statMeta = [
     def.type === 'weapon' ? `<span>공격력 +${def.atk || 0}</span>` : '',
     def.type === 'armor' ? `<span>방어력 +${def.def || 0}</span>` : '',
-    def.heal ? `<span>회복량 +${def.heal}</span>` : ''
+    def.heal ? `<span>HP 회복 +${def.heal}</span>` : '',
+    def.mana ? `<span>MP 회복 +${def.mana}</span>` : ''
   ].filter(Boolean).join('');
+  const tradeMeta = mode === 'trade' && npc
+    ? (origin === 'merchant'
+      ? `<span>구매가 ${tradeBuyPrice(npc,id)}g</span>`
+      : `<span>판매가 ${tradeSellPrice(id,npc)}g</span>`)
+    : '';
+  const ownerText = origin === 'merchant' ? `${npc?.name || 'NPC'} 소지품` : origin === 'bank' ? '은행 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
     ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}.`
     : (def.desc || '설명 없음');
-  const actions = inventoryItemActionButtons(id);
+  const actions = inventoryItemActionButtons(id, {mode, origin});
 
   box.innerHTML = `<div class="invDetailHead">
       <b>${escapeHtml(def.name)}</b>
@@ -5499,13 +5600,14 @@ function showInventoryItemPopup(ev, id){
     <div class="invDetailBody">
       <div style="display:flex; gap:8px; align-items:flex-start;">
         <div class="itemIcon">${itemIcon(id)}</div>
-        <div>${escapeHtml(descText)}</div>
+        <div><b>${escapeHtml(ownerText)}</b><br>${escapeHtml(descText)}</div>
       </div>
       <div class="invDetailMeta">
         <span>종류 ${escapeHtml(def.type || '기타')}</span>
         <span>수량 ${qty}</span>
-        <span>가치 ${def.price || 0}g</span>
+        <span>기본가 ${def.price || 0}g</span>
         <span>무게 ${weight}</span>
+        ${tradeMeta}
         ${statMeta}
         ${dur}
         ${equip}
@@ -8063,6 +8165,17 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
+    title:'전체 아이템 설명창·거래 구매/판매 버튼 추가',
+    items:[
+      '가방·은행·거래창의 아이템을 누르면 공통 설명창이 열리도록 수정',
+      '거래 중 NPC 아이템 설명창에는 구매 버튼과 훔치기 버튼을 표시',
+      '거래 중 내 가방 아이템 설명창에는 판매 버튼을 표시',
+      '아이템 설명창에 수량·무게·기본가·구매가·판매가·장비 능력치를 함께 표시',
+      '상점 거래는 정상 구매/판매, 드래그는 기존 훔치기 판정을 유지하도록 분리'
+    ]
+  },
+  {
+    version:'전 단계 1',
     title:'상단 HUD 투명화·길드 의뢰 수락식 퀘스트 전환',
     items:[
       '상단 HP/MP/SP/XP 게이지 배경과 테두리를 더 투명하게 조정',
