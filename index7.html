@@ -3034,43 +3034,78 @@ function drawCombatEffects(camPxX, camPxY){
   ctx.restore();
 }
 
+let manualAttackLock = {ref:null, kind:null, until:0};
+
 function manualAttackCandidateScore(entity, kind){
-  const dx = (entity.x || 0) - player.x;
-  const dy = (entity.y || 0) - player.y;
+  if(!entity) return null;
+  if(kind === 'mob' && entity.hp <= 0) return null;
+  if(kind === 'npc' && entity.down) return null;
+
+  const ex = renderX ? renderX(entity) : (entity.x || 0);
+  const ey = renderY ? renderY(entity) : (entity.y || 0);
+  const dx = ex - player.x;
+  const dy = ey - player.y;
   const d = Math.hypot(dx, dy);
-  const range = kind === 'npc' ? 1.85 : 2.35;
-  if(d > range) return null;
+
+  // 수동 공격은 조작감 우선: 몬스터는 넓게, NPC는 실수 방지를 위해 짧게.
+  const maxRange = kind === 'npc' ? 1.55 : 3.05;
+  if(d > maxRange) return null;
 
   const dirX = player.dir?.[0] || 0;
   const dirY = player.dir?.[1] || 1;
-  const dot = d > 0.001 ? (dx * dirX + dy * dirY) / d : 1;
+  const dotDist = dx * dirX + dy * dirY;
+  const sideDist = Math.abs(dx * dirY - dy * dirX);
 
-  // 수동 공격은 터치 조작 오차를 감안해 전방 부채꼴 + 근접 원형 판정을 같이 쓴다.
-  // 가까이 붙은 대상은 방향이 조금 어긋나도 맞고, 앞쪽 대상은 살짝 멀어도 잡힌다.
-  const veryClose = d <= 1.25;
-  const inFrontArc = dot >= -0.15 && d <= range;
-  const sideGrace = d <= 1.65 && dot >= -0.45;
-  if(!veryClose && !inFrontArc && !sideGrace) return null;
+  // 캡슐형 공격 범위: 앞쪽 긴 판정 + 주변 원형 판정.
+  const closeCircle = kind === 'mob' ? d <= 2.15 : d <= 1.15;
+  const frontCapsule = dotDist >= -0.45 && dotDist <= maxRange && sideDist <= (kind === 'mob' ? 1.35 : 0.75);
+  const forgivingSideHit = kind === 'mob' && d <= 2.55 && sideDist <= 1.75;
+  if(!closeCircle && !frontCapsule && !forgivingSideHit) return null;
 
-  const frontBonus = Math.max(0, dot) * 0.55;
-  const mobPriority = kind === 'mob' ? -0.22 : 0.18;
-  return d - frontBonus + mobPriority;
+  const frontBonus = Math.max(0, dotDist) * 0.25;
+  const sidePenalty = sideDist * 0.28;
+  const npcPenalty = kind === 'npc' ? 2.0 : 0;
+  const hostileBonus = kind === 'mob' && !entity.animal ? -0.35 : 0;
+  return d + sidePenalty - frontBonus + npcPenalty + hostileBonus;
+}
+
+function isManualAttackLockedTargetValid(){
+  const lock = manualAttackLock;
+  if(!lock || !lock.ref || tick > (lock.until||0)) return false;
+  if(lock.kind === 'mob' && lock.ref.hp <= 0) return false;
+  if(lock.kind === 'npc' && lock.ref.down) return false;
+  const maxKeepRange = lock.kind === 'npc' ? 1.8 : 3.35;
+  return dist(lock.ref, player) <= maxKeepRange;
 }
 
 function pickManualAttackTarget(){
+  // 연타 중에는 직전 대상 잠금. 프레임 보간/좌표 흔들림 때문에 공격이 끊기는 문제 방지.
+  if(isManualAttackLockedTargetValid()){
+    return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
+  }
+
   const candidates = [];
+
+  // 1순위: 몬스터. 수동 공격에서 NPC 오타격을 최대한 줄인다.
   for(const m of mobs){
-    if(!m || m.hp <= 0) continue;
     const score = manualAttackCandidateScore(m, 'mob');
     if(score !== null) candidates.push({kind:'mob', ref:m, score});
   }
-  for(const n of npcs){
-    if(!n || n.down) continue;
-    const score = manualAttackCandidateScore(n, 'npc');
-    if(score !== null) candidates.push({kind:'npc', ref:n, score});
+
+  // 몬스터가 주변에 없을 때만 NPC 후보를 허용한다.
+  if(!candidates.length){
+    for(const n of npcs){
+      const score = manualAttackCandidateScore(n, 'npc');
+      if(score !== null) candidates.push({kind:'npc', ref:n, score});
+    }
   }
+
   candidates.sort((a,b)=>a.score-b.score);
-  return candidates[0] || null;
+  const picked = candidates[0] || null;
+  if(picked){
+    manualAttackLock = {ref:picked.ref, kind:picked.kind, until:tick + 28};
+  }
+  return picked;
 }
 
 function attack(target=null){
@@ -3096,7 +3131,7 @@ function attack(target=null){
   const sword = player.skills.sword.v;
   const tactics = player.skills.tactics.v;
   const hit = isManualAttack
-    ? clamp(0.88 + sword/360, 0.88, 0.97)
+    ? 1
     : clamp(0.66 + sword/240, 0.66, 0.94);
   if(Math.random() < hit){
     const dmg = Math.max(1, Math.floor((weapon.atk||1) * durabilityFactor(player.weapon) + tactics/12 + Math.random()*8));
