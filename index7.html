@@ -76,6 +76,19 @@
       linear-gradient(180deg,#17200f,#070807);
   }
   .loginPage.hidden{display:none;}
+
+  #loginPage,
+  #loginPage *{
+    pointer-events:auto;
+  }
+  #nicknameInput{
+    -webkit-user-select:text !important;
+    user-select:text !important;
+    touch-action:manipulation !important;
+    position:relative;
+    z-index:2;
+  }
+
   .loginCard{
     width:min(390px, 100%);
     border:1px solid #817546;
@@ -1104,7 +1117,7 @@
     <div class="loginBtns simpleLoginBtns">
       <button class="primary" onclick="loginWithKakao()">카카오 로그인</button>
     </div>
-    <p id="loginMsg">닉네임을 작성한 뒤 카카오 로그인으로 시작하세요.</p>
+    <p id="loginMsg">닉네임을 작성한 뒤 카카오 로그인 버튼을 누르세요.</p>
   </div>
 </div>
 <div id="app">
@@ -4509,16 +4522,28 @@ async function finishOAuthRedirect(client){
 }
 
 async function loginWithKakao(){
-  const nick = (document.getElementById('nicknameInput')?.value.trim() || '').slice(0,12);
+  const nickInput = document.getElementById('nicknameInput');
+  const nick = (nickInput?.value.trim() || '').slice(0,12);
   if(!nick){
     setLoginMsg('닉네임을 먼저 입력하세요.');
-    document.getElementById('nicknameInput')?.focus();
+    nickInput?.focus();
     return;
   }
+
   localStorage.setItem('legacyNickname', nick);
   player.nickname = nick;
+
   const client = createSupabaseClient();
   if(!client) return;
+
+  const { data } = await client.auth.getSession();
+  if(data?.session){
+    setLoginMsg('기존 카카오 인증 확인. 게임 접속 중...');
+    await enterOnlineGame();
+    return;
+  }
+
+  setLoginMsg('카카오 인증 화면으로 이동합니다.');
   const redirectTo = getKakaoRedirectUrl();
   const { error } = await client.auth.signInWithOAuth({
     provider: 'kakao',
@@ -4528,12 +4553,21 @@ async function loginWithKakao(){
 }
 
 async function enterOnlineGame(){
+  const nick = (document.getElementById('nicknameInput')?.value.trim() || localStorage.getItem('legacyNickname') || '').slice(0,12);
+  if(!nick){
+    setLoginMsg('닉네임을 먼저 입력하세요.');
+    document.getElementById('nicknameInput')?.focus();
+    return;
+  }
+  localStorage.setItem('legacyNickname', nick);
+  player.nickname = nick;
+
   const client = createSupabaseClient();
   if(!client) return;
   const { data } = await client.auth.getSession();
   onlineSession = data?.session || null;
   if(!onlineSession){
-    setLoginMsg('먼저 닉네임을 입력하고 카카오 로그인을 완료하세요.');
+    setLoginMsg('먼저 카카오 인증을 완료하세요.');
     return;
   }
   player.userId = onlineSession.user.id;
