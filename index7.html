@@ -2400,6 +2400,221 @@ const colors = {
   mountain:'#4a4c48', danger:'#3b1f1d', dungeon:'#24202d', swamp:'#23382d', desert:'#8c7440'
 };
 
+/* -------------------------------------------------------
+   Code-generated pixel background tiles
+   - 외부 PNG 파일 없이 index 파일 내부 JS로 32x32 도트 타일을 생성한다.
+   - 지형: 풀/길/물/숲/산/늪/사막/위험지대/던전/마을
+   - 오브젝트: 나무/바위/광석/약초/물고기/상자
+------------------------------------------------------- */
+const pixelTiles = {ready:false, terrain:{}, object:{}};
+
+function createPixelCanvas(transparent=false){
+  const c = document.createElement('canvas');
+  c.width = TILE;
+  c.height = TILE;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  if(!transparent){
+    g.fillStyle = '#000';
+    g.fillRect(0,0,TILE,TILE);
+  }
+  return {c,g};
+}
+function px(g,x,y,color,w=1,h=1){
+  g.fillStyle = color;
+  g.fillRect(Math.round(x*2), Math.round(y*2), Math.round(w*2), Math.round(h*2));
+}
+function pxLine(g,x1,y1,x2,y2,color){
+  x1=Math.round(x1); y1=Math.round(y1); x2=Math.round(x2); y2=Math.round(y2);
+  const dx=Math.abs(x2-x1), dy=-Math.abs(y2-y1);
+  const sx=x1<x2?1:-1, sy=y1<y2?1:-1;
+  let err=dx+dy;
+  while(true){
+    px(g,x1,y1,color);
+    if(x1===x2 && y1===y2) break;
+    const e2=2*err;
+    if(e2>=dy){err+=dy; x1+=sx;}
+    if(e2<=dx){err+=dx; y1+=sy;}
+  }
+}
+function pxEllipse(g,cx,cy,rx,ry,color){
+  for(let yy=Math.floor(cy-ry); yy<=Math.ceil(cy+ry); yy++){
+    for(let xx=Math.floor(cx-rx); xx<=Math.ceil(cx+rx); xx++){
+      const nx=(xx-cx)/rx, ny=(yy-cy)/ry;
+      if(nx*nx+ny*ny<=1) px(g,xx,yy,color);
+    }
+  }
+}
+function pxTri(g,pts,color){
+  const minX=Math.floor(Math.min(...pts.map(p=>p[0]))), maxX=Math.ceil(Math.max(...pts.map(p=>p[0])));
+  const minY=Math.floor(Math.min(...pts.map(p=>p[1]))), maxY=Math.ceil(Math.max(...pts.map(p=>p[1])));
+  const area=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  for(let y=minY;y<=maxY;y++) for(let x=minX;x<=maxX;x++){
+    const p=[x+.5,y+.5];
+    const a1=area(pts[0],pts[1],p), a2=area(pts[1],pts[2],p), a3=area(pts[2],pts[0],p);
+    if((a1>=0&&a2>=0&&a3>=0)||(a1<=0&&a2<=0&&a3<=0)) px(g,x,y,color);
+  }
+}
+function tileSeed(name){
+  let h=2166136261;
+  for(let i=0;i<name.length;i++) h=(h^name.charCodeAt(i))*16777619;
+  return h>>>0;
+}
+function tileRand(seed){
+  let s=seed>>>0;
+  return function(n=1){
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return (s / 4294967296) * n;
+  };
+}
+function noise(g, seedName, colors, count){
+  const rnd=tileRand(tileSeed(seedName));
+  for(let i=0;i<count;i++){
+    px(g, Math.floor(rnd(16)), Math.floor(rnd(16)), colors[Math.floor(rnd(colors.length))]);
+  }
+}
+function makeTerrainTile(type){
+  const base = colors[type] || colors.grass;
+  const {c,g} = createPixelCanvas(false);
+  px(g,0,0,base,16,16);
+
+  if(type==='grass'){
+    noise(g,type,['#36572b','#1f3518','#436a34'],30);
+    [[2,5],[5,12],[9,6],[13,13]].forEach(([x,y])=>pxLine(g,x,y,x+1,y-2,'#47723a'));
+  }else if(type==='darkGrass'){
+    noise(g,type,['#315327','#1a2a13','#28441f'],34);
+    [[3,5],[7,12],[12,4],[14,10]].forEach(([x,y])=>pxLine(g,x,y,x+1,y-2,'#355c2b'));
+  }else if(type==='road'){
+    px(g,0,0,'#766746',16,16);
+    noise(g,type,['#8b7851','#66563a','#544832'],34);
+    pxLine(g,0,5,15,4,'#65563a');
+    pxLine(g,0,11,15,12,'#8b7a54');
+    [[4,8],[9,7],[12,10],[2,13]].forEach(([x,y])=>px(g,x,y,'#4f442f',2,1));
+  }else if(type==='town'){
+    px(g,0,0,'#6f6747',16,16);
+    for(let y=0;y<16;y+=4){
+      pxLine(g,0,y,15,y,'#4d4733');
+      const off=(y/4)%2?3:0;
+      for(let x=off;x<16;x+=6) pxLine(g,x,y,x,Math.min(15,y+3),'#4d4733');
+    }
+    noise(g,type,['#817754','#5c563d'],22);
+  }else if(type==='water'){
+    px(g,0,0,'#1c5362',16,16);
+    noise(g,type,['#246a7a','#15424f','#315f6a'],28);
+    pxLine(g,1,4,7,4,'#6aa1aa');
+    pxLine(g,7,8,12,8,'#6aa1aa');
+    pxLine(g,3,12,11,12,'#558b95');
+  }else if(type==='forest'){
+    px(g,0,0,'#254e24',16,16);
+    noise(g,type,['#1d421d','#31642e','#173117'],44);
+    pxEllipse(g,5,5,4,4,'#2f7a32');
+    pxEllipse(g,10,4,4,3,'#3d8a39');
+    pxEllipse(g,8,10,5,4,'#2b6a2d');
+    pxEllipse(g,13,12,3,2,'#397c35');
+  }else if(type==='mountain'){
+    px(g,0,0,'#4a4c48',16,16);
+    noise(g,type,['#5d5f58','#383a37','#6b6a61'],34);
+    pxTri(g,[[1,14],[5,4],[9,14]],'#5f615a');
+    pxTri(g,[[6,14],[11,2],[15,14]],'#3e403e');
+    pxLine(g,5,4,7,8,'#aaa58e');
+    pxLine(g,11,2,12,6,'#9c9885');
+  }else if(type==='swamp'){
+    px(g,0,0,'#23382d',16,16);
+    noise(g,type,['#2e4a37','#183026','#406142'],36);
+    pxEllipse(g,4,11,3,2,'#50794d');
+    pxLine(g,4,11,7,9,'#23382d');
+    pxEllipse(g,12,5,3,2,'#5d8754');
+    px(g,12,5,'#d6cf8b');
+  }else if(type==='desert' || type==='sand'){
+    px(g,0,0,type==='sand'?'#9a8549':'#8c7440',16,16);
+    noise(g,type,['#a28a50','#735e36','#b59b5e'],30);
+    pxLine(g,1,5,6,4,'#b59b5e'); pxLine(g,6,4,11,5,'#b59b5e'); pxLine(g,11,5,15,4,'#b59b5e');
+    pxLine(g,0,11,5,12,'#735e36'); pxLine(g,5,12,10,11,'#735e36'); pxLine(g,10,11,15,12,'#735e36');
+  }else if(type==='danger'){
+    px(g,0,0,'#3b1f1d',16,16);
+    noise(g,type,['#4a2521','#2a1514','#6c3028'],38);
+    pxLine(g,3,1,6,5,'#7a382f'); pxLine(g,6,5,4,9,'#7a382f'); pxLine(g,4,9,8,14,'#7a382f');
+    pxLine(g,11,2,9,7,'#20100f'); pxLine(g,9,7,12,13,'#20100f');
+    px(g,5,6,'#4c211e',6,3);
+  }else if(type==='dungeon'){
+    px(g,0,0,'#24202d',16,16);
+    for(let y=0;y<16;y+=4){
+      pxLine(g,0,y,15,y,'#15131d');
+      const off=(y/4)%2?0:4;
+      for(let x=off;x<16;x+=8) pxLine(g,x,y,x,Math.min(15,y+3),'#15131d');
+    }
+    noise(g,type,['#302a3b','#1b1822','#3c354c'],24);
+    pxLine(g,3,3,12,3,'#44395b'); pxLine(g,12,3,12,12,'#44395b'); pxLine(g,12,12,3,12,'#44395b'); pxLine(g,3,12,3,3,'#44395b');
+  }else{
+    noise(g,type,['#36572b','#1f3518','#436a34'],24);
+  }
+  return c;
+}
+function makeObjectTile(type){
+  const {c,g} = createPixelCanvas(true);
+  if(type==='tree'){
+    px(g,7,8,'#5e3f22',3,8);
+    px(g,6,10,'#6b4727',5,6);
+    pxEllipse(g,6,6,4,4,'#2f7a32');
+    pxEllipse(g,10,5,4,4,'#3b8a38');
+    pxEllipse(g,5,10,5,4,'#286b2b');
+    pxEllipse(g,11,10,5,4,'#2d7430');
+    px(g,5,4,'#68a85f');
+  }else if(type==='rock'){
+    pxTri(g,[[2,13],[5,6],[10,3]],'#98998c');
+    pxTri(g,[[2,13],[10,3],[14,8]],'#7c7d74');
+    pxTri(g,[[2,13],[14,8],[13,13]],'#5d5e58');
+    px(g,7,6,'#c7c6b1',3,2);
+  }else if(type==='ore'){
+    const rock = makeObjectTile('rock'); g.drawImage(rock,0,0);
+    [[6,9],[9,8],[11,11]].forEach(([x,y])=>px(g,x,y,'#d7b45a',2,2));
+  }else if(type==='herb'){
+    pxLine(g,8,14,8,6,'#d8ec9d');
+    pxEllipse(g,5,10,4,3,'#75c66a');
+    pxEllipse(g,10,8,4,3,'#65b85d');
+    pxEllipse(g,8,5,3,3,'#91db7b');
+  }else if(type==='fish'){
+    pxTri(g,[[3,8],[0,5],[0,11]],'#5b8aa0');
+    pxEllipse(g,8,8,6,3,'#d4d3b0');
+    px(g,11,7,'#222');
+    pxLine(g,5,10,12,10,'#a7b194');
+  }else if(type==='chestLocked' || type==='chestOpen'){
+    px(g,3,7,type==='chestLocked'?'#6d4a22':'#8a6331',11,7);
+    px(g,3,5,'#8a6331',11,4);
+    pxLine(g,3,8,13,8,'#3f2813');
+    px(g,7,8,'#d7b45a',3,3);
+    px(g,2,6,'#4a2d15',2,7); px(g,12,6,'#4a2d15',2,7);
+    if(type==='chestOpen') pxLine(g,4,5,12,2,'#b68440');
+  }else if(type==='bush'){
+    pxEllipse(g,5,10,4,3,'#3f8b3a');
+    pxEllipse(g,10,9,5,4,'#327a32');
+    pxEllipse(g,8,6,4,4,'#4da247');
+    px(g,9,6,'#9ad279');
+  }
+  return c;
+}
+function ensurePixelTiles(){
+  if(pixelTiles.ready) return;
+  ['grass','darkGrass','road','town','water','forest','mountain','swamp','desert','danger','dungeon','sand'].forEach(t=>{
+    pixelTiles.terrain[t]=makeTerrainTile(t);
+  });
+  ['tree','rock','ore','herb','fish','chestLocked','chestOpen','bush'].forEach(t=>{
+    pixelTiles.object[t]=makeObjectTile(t);
+  });
+  pixelTiles.ready = true;
+}
+function drawPixelObject(kind,x,y,extra={}){
+  ensurePixelTiles();
+  let key = kind;
+  if(kind==='chest') key = extra.locked ? 'chestLocked' : 'chestOpen';
+  if(kind==='mine') key = 'ore';
+  if(kind==='wood') key = 'tree';
+  const img = pixelTiles.object[key] || pixelTiles.object.herb;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, Math.floor(x), Math.floor(y), TILE, TILE);
+}
+
+
 function rand(n){ return Math.floor(Math.random()*n); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
@@ -6532,99 +6747,57 @@ function renderY(obj){
 }
 
 function drawOrganicTerrain(startX, startY, endX, endY, camPxX, camPxY, vw, vh){
+  ensurePixelTiles();
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = colors.grass;
   ctx.fillRect(0,0,vw,vh);
 
-  // 격자선은 없애되 지형 면은 선명하게 유지한다.
   for(let my=startY-1; my<=endY+1; my++){
     for(let mx=startX-1; mx<=endX+1; mx++){
       if(mx<0||my<0||mx>=W||my>=H) continue;
-      const t = map[my][mx];
+      const t = map[my][mx] || 'grass';
       const x = Math.floor(mx*TILE - camPxX);
       const y = Math.floor(my*TILE - camPxY);
-      ctx.fillStyle = colors[t] || colors.grass;
-      ctx.fillRect(x, y, TILE+1, TILE+1);
+      const tileImg = pixelTiles.terrain[t] || pixelTiles.terrain.grass;
+      ctx.drawImage(tileImg, x, y, TILE, TILE);
     }
   }
 
-  // 다른 지형과 만나는 곳만 얇은 가장자리 음영을 준다. 격자선처럼 전부 긋지 않는다.
+  // 지형 경계선만 약하게 찍어 타일 경계를 구분한다.
   for(let my=startY-1; my<=endY+1; my++){
     for(let mx=startX-1; mx<=endX+1; mx++){
       if(mx<0||my<0||mx>=W||my>=H) continue;
       const t = map[my][mx];
       const x = Math.floor(mx*TILE - camPxX);
       const y = Math.floor(my*TILE - camPxY);
-      const edgeColor = t === 'water' ? 'rgba(8,22,30,.34)' :
-                        t === 'mountain' ? 'rgba(0,0,0,.20)' :
-                        t === 'town' ? 'rgba(255,238,170,.12)' :
-                        t === 'danger' ? 'rgba(80,0,0,.22)' :
-                        'rgba(0,0,0,.08)';
+      const edgeColor = t === 'water' ? 'rgba(8,22,30,.42)' :
+                        t === 'mountain' ? 'rgba(0,0,0,.28)' :
+                        t === 'town' ? 'rgba(255,238,170,.14)' :
+                        t === 'danger' ? 'rgba(80,0,0,.26)' :
+                        'rgba(0,0,0,.10)';
       ctx.fillStyle = edgeColor;
       if(mx>0 && map[my][mx-1] !== t) ctx.fillRect(x, y, 2, TILE);
       if(my>0 && map[my-1][mx] !== t) ctx.fillRect(x, y, TILE, 2);
     }
   }
 
-  // 길은 연결선으로 정리해 타일 조각처럼 보이지 않게 한다.
-  ctx.lineCap='round';
-  ctx.lineJoin='round';
-  ctx.strokeStyle = colors.road;
-  ctx.lineWidth = Math.max(13, TILE*.52);
+  // 물만 살짝 움직이는 도트 물결. 기본 타일은 코드로 생성된 정적 이미지다.
   for(let my=startY-1; my<=endY+1; my++){
     for(let mx=startX-1; mx<=endX+1; mx++){
       if(mx<0||my<0||mx>=W||my>=H) continue;
-      if(map[my][mx] !== 'road') continue;
-      const x = mx*TILE - camPxX + TILE/2;
-      const y = my*TILE - camPxY + TILE/2;
-      if(mx+1<W && map[my][mx+1]==='road'){
-        ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+TILE,y); ctx.stroke();
-      }
-      if(my+1<H && map[my+1][mx]==='road'){
-        ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+TILE); ctx.stroke();
-      }
-    }
-  }
-
-  // 물결과 질감은 적게만 넣어 뭉개짐 방지.
-  for(let my=startY-1; my<=endY+1; my++){
-    for(let mx=startX-1; mx<=endX+1; mx++){
-      if(mx<0||my<0||mx>=W||my>=H) continue;
-      const t = map[my][mx];
+      if(map[my][mx] !== 'water') continue;
       const x = Math.floor(mx*TILE - camPxX);
       const y = Math.floor(my*TILE - camPxY);
-      if(t === 'water'){
-        ctx.fillStyle='rgba(255,255,255,.12)';
-        ctx.fillRect(x+5+((tick+mx*3)%10), y+9, 12, 2);
-        ctx.fillRect(x+14+((tick+my*2)%8), y+21, 9, 2);
-      }else if(t === 'forest'){
-        ctx.fillStyle='rgba(14,60,18,.18)';
-        ctx.fillRect(x+6, y+6, 5, 5);
-        ctx.fillRect(x+21, y+20, 4, 4);
-      }else if(t === 'mountain'){
-        ctx.fillStyle='rgba(255,255,255,.10)';
-        ctx.fillRect(x+9, y+7, 8, 2);
-        ctx.fillStyle='rgba(0,0,0,.12)';
-        ctx.fillRect(x+19, y+18, 8, 2);
-      }else if(t === 'danger'){
-        ctx.fillStyle='rgba(255,0,0,.08)';
-        ctx.fillRect(x+4, y+4, TILE-8, TILE-8);
-      }else if(t === 'dungeon'){
-        ctx.fillStyle='rgba(180,160,255,.10)';
-        ctx.fillRect(x+5, y+5, TILE-10, TILE-10);
-        ctx.fillStyle='rgba(0,0,0,.20)';
-        ctx.fillRect(x+2, y+24, TILE-4, 3);
-      }else if(t === 'swamp'){
-        ctx.fillStyle='rgba(120,190,130,.12)';
-        circle(x+8,y+20,4); circle(x+24,y+12,3);
-      }else if(t === 'desert'){
-        ctx.fillStyle='rgba(255,240,160,.12)';
-        ctx.fillRect(x+4, y+10, 18, 2);
-        ctx.fillRect(x+13, y+22, 14, 2);
-      }
+      const off1 = ((tick + mx*3) % 10) | 0;
+      const off2 = ((tick + my*2) % 8) | 0;
+      ctx.fillStyle='rgba(205,245,255,.18)';
+      ctx.fillRect(x+4+off1, y+8, 12, 2);
+      ctx.fillRect(x+13+off2, y+22, 10, 2);
     }
   }
   ctx.lineWidth=1;
 }
+
 
 function isTownArea(x,y){
   const gx = gridX(x), gy = gridY(y);
@@ -6776,26 +6949,11 @@ function draw(){
     if(r.kind === 'fish' && tileAt(r.x, r.y) !== 'water') continue;
     const x=r.x*TILE - camPxX, y=r.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
-    if(r.kind==='tree'){
-      ctx.fillStyle='#5e3f22'; ctx.fillRect(x+13,y+13,6,15);
-      ctx.fillStyle='#2f7a32'; circle(x+16,y+12,11);
-    }else if(r.kind==='ore'){
-      ctx.fillStyle='#8a8b80'; poly([[x+8,y+23],[x+15,y+8],[x+26,y+15],[x+23,y+26]]);
-      ctx.fillStyle='#c7c6b1'; ctx.fillRect(x+15,y+13,4,4);
-    }else if(r.kind==='fish'){
+    if(r.kind==='fish'){
       const swim = Math.sin((tick*0.18)+(r.x*1.7))*4;
-      ctx.fillStyle='#d4d3b0';
-      ellipse(x+17+swim,y+17,9,4);
-      ctx.fillStyle='#5b8aa0';
-      ctx.beginPath();
-      ctx.moveTo(x+7+swim,y+17);
-      ctx.lineTo(x+12+swim,y+13);
-      ctx.lineTo(x+12+swim,y+21);
-      ctx.closePath();
-      ctx.fill();
+      drawPixelObject('fish', x+swim, y);
     }else{
-      ctx.fillStyle='#75c66a'; circle(x+12,y+19,5); circle(x+19,y+16,5);
-      ctx.fillStyle='#d8ec9d'; ctx.fillRect(x+15,y+12,3,10);
+      drawPixelObject(r.kind, x, y);
     }
   }
 
@@ -6803,10 +6961,7 @@ function draw(){
     if(chest.opened) continue;
     const x=chest.x*TILE - camPxX, y=chest.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
-    ctx.fillStyle=chest.locked?'#6d4a22':'#8a6331';
-    ctx.fillRect(x+7,y+13,18,13);
-    ctx.fillStyle='#d7b45a';
-    ctx.fillRect(x+14,y+18,4,4);
+    drawPixelObject('chest', x, y, {locked:chest.locked});
     if(chest.locked){
       ctx.fillStyle='#fff0b4';
       ctx.font='10px system-ui';
