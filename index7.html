@@ -6283,7 +6283,7 @@ function hardRedirectToLogin(reason='login'){
 }
 
 async function deleteAccountData(){
-  if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 계속할까요?')) return;
+  if(!confirm('계정탈퇴는 프로필·캐릭터·온라인 기록·이벤트 기록을 삭제하고 로그아웃합니다. 계속할까요?')) return;
 
   forceShowLoginAfterSignOut('계정 데이터 삭제 중입니다...', true);
 
@@ -6293,23 +6293,43 @@ async function deleteAccountData(){
     const user = data?.session?.user || (typeof currentAuthUser === 'function' ? await currentAuthUser() : null);
     const uid = user?.id || player.userId;
 
-    if(client && uid && uid !== 'guest'){
-      const targets = [
-        ['player_presence','user_id',uid],
-        ['characters','user_id',uid],
-        ['game_events','user_id',uid],
-        ['profiles','id',uid],
-        ['profiles','user_id',uid]
-      ];
+    if(!client || !uid || uid === 'guest'){
+      throw new Error('로그인 유저 정보를 찾지 못했습니다.');
+    }
 
-      for(const [table,col,value] of targets){
-        try{
-          const { error } = await client.from(table).delete().eq(col,value);
-          if(error) console.warn(`delete ${table}.${col}`, error.message);
-        }catch(e){
-          console.warn(`delete ${table}.${col}`, e.message);
+    // 중요: auth.users는 브라우저에서 지우지 않고, 게임 계정 데이터만 삭제한다.
+    // profiles 삭제가 막히면 RLS delete policy가 없는 상태다.
+    const targets = [
+      ['profiles', 'id', uid],
+      ['characters', 'user_id', uid],
+      ['player_presence', 'user_id', uid],
+      ['game_events', 'user_id', uid]
+    ];
+
+    const failed = [];
+
+    for(const [table, col, value] of targets){
+      try{
+        const { error } = await client.from(table).delete().eq(col, value);
+        if(error){
+          failed.push(`${table}: ${error.message}`);
+          console.warn(`delete ${table}.${col}`, error.message);
+        }else{
+          setServerDiag?.(`${table} delete OK`);
         }
+      }catch(e){
+        failed.push(`${table}: ${e.message || String(e)}`);
+        console.warn(`delete ${table}.${col}`, e);
       }
+    }
+
+    if(failed.length){
+      setServerDiag?.('DELETE ERROR\n' + failed.join('\n'));
+      setLoginMsg('계정 데이터 삭제 일부 실패. Supabase DELETE 정책을 확인하세요.');
+      // 그래도 로컬 세션은 정리한다.
+    }else{
+      setServerDiag?.('profiles/characters/presence/events delete OK');
+      setLoginMsg('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
     }
 
     try{
@@ -6330,26 +6350,24 @@ async function deleteAccountData(){
       catch(e){ await client.auth.signOut(); }
     }
 
-    clearOnlyAuthTokens();
+    clearOnlyAuthTokens?.();
     supabaseClient = null;
-    markAccountDeletedMode();
+    markAccountDeletedMode?.();
 
-    setLoginMsg('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
-    setServerDiag?.('account deleted locally/cloud data removed');
   }catch(e){
     console.error(e);
-    markAccountDeletedMode();
-    clearOnlyAuthTokens();
+    markAccountDeletedMode?.();
+    clearOnlyAuthTokens?.();
     supabaseClient = null;
-    setLoginMsg('계정탈퇴 처리 일부 실패. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
-    setServerDiag?.('delete warning: ' + (e.message || String(e)));
+    setLoginMsg('계정탈퇴 처리 실패: ' + (e.message || String(e)));
+    setServerDiag?.('deleteAccountData ERROR: ' + (e.message || String(e)));
   }
 
   setTimeout(()=>{
     const u = new URL('./index7.html', window.location.href);
     u.searchParams.set('deleted', String(Date.now()));
     window.location.replace(u.href);
-  }, 220);
+  }, 260);
 }
 
 
@@ -7024,13 +7042,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'탈퇴 후 새 접속 차단 원인 수정',
+    title:'계정탈퇴 시 Supabase 프로필 삭제 고정',
     items:[
-      '탈퇴는 auth.users를 삭제하지 않으므로 같은 auth 계정 재로그인 흐름으로 처리',
-      '재로그인 시 profiles가 없으면 다시 upsert',
-      'characters가 없으면 방랑자 Lv.1 새 캐릭터를 강제 생성',
-      'OAuth 성공 후에만 legacyAccountDeleted 플래그 제거',
-      '서버 접속 실패 지점을 서버 상태 박스에 표시'
+      '계정탈퇴 시 profiles를 명시적으로 삭제',
+      'characters/player_presence/game_events도 같은 유저 id로 삭제',
+      '삭제 실패 시 서버 상태 박스에 RLS 오류 표시',
+      'auth.users는 클라이언트에서 삭제하지 않고 게임 데이터만 삭제'
     ]
   },
   {
