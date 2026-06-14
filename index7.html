@@ -1100,6 +1100,49 @@
   .chatPanel button{--btnH:34px; min-height:34px; font-size:11px; padding:0 8px;}
   .accountDangerText{color:#ffaaa0; font-size:11px; line-height:1.4;}
 
+
+  /* final visual pass: transparent HUD/popup layers */
+  .topbar{
+    background:rgba(18,24,14,.58) !important;
+    border-bottom:1px solid rgba(215,180,90,.28) !important;
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+  }
+  .pop{
+    background:rgba(25,31,20,.56) !important;
+    border-color:rgba(215,180,90,.48) !important;
+    backdrop-filter:blur(5px);
+    -webkit-backdrop-filter:blur(5px);
+  }
+  .popHead{
+    background:rgba(44,51,36,.50) !important;
+    border-bottom-color:rgba(215,180,90,.25) !important;
+  }
+  .popBody{
+    background:rgba(10,12,9,.18) !important;
+  }
+  .pop .card,
+  .pop .tradePanel,
+  .pop .invSlot,
+  .pop .itemSlot,
+  .pop .autoCheck{
+    background:rgba(16,20,14,.42) !important;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .meter{
+    background:rgba(5,7,5,.46) !important;
+    border-color:rgba(215,180,90,.24) !important;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.48), 0 1px 0 rgba(255,255,255,.04);
+  }
+  .meter span{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 1px rgba(0,0,0,.22);
+  }
+  #hpbar{background:linear-gradient(90deg,#7d1f1a 0%,#d84b43 48%,#ffb08a 100%) !important;}
+  #mpbar{background:linear-gradient(90deg,#1c4775 0%,#74a9d8 52%,#c6ecff 100%) !important;}
+  #stbar{background:linear-gradient(90deg,#24672c 0%,#4fb15f 52%,#b9f0a7 100%) !important;}
+  #xpbar{background:linear-gradient(90deg,#7d5d1e 0%,#d7b45a 52%,#fff1a8 100%) !important;}
+
 </style>
 </head>
 <body>
@@ -4163,7 +4206,7 @@ function ensureAutoSettings(){
   for(const [k,v] of Object.entries(base)){
     if(typeof player.auto[k] === 'undefined') player.auto[k] = v;
   }
-  player.auto.hpPercent = clamp(Number(player.auto.hpPercent)||35, 10, 90);
+  player.auto.hpPercent = Math.round(clamp(Number(player.auto.hpPercent)||35, 1, 100));
   return player.auto;
 }
 function setAutoOption(key, value){
@@ -4175,7 +4218,7 @@ function setAutoOption(key, value){
 }
 function setAutoHpPercent(value){
   const a = ensureAutoSettings();
-  a.hpPercent = clamp(Number(value)||35, 10, 90);
+  a.hpPercent = Math.round(clamp(Number(value)||35, 1, 100));
   const out = document.getElementById('autoHpValue');
   if(out) out.textContent = `${a.hpPercent}%`;
 }
@@ -4194,8 +4237,8 @@ function renderSettings(){
   panel.innerHTML = `
     <div><span class="autoStateTag ${a.enabled?'on':''}">${a.enabled?'오토 작동 중':'오토 정지'}</span></div>
     <div class="autoRangeRow">
-      <span>HP 기준</span>
-      <input type="range" min="10" max="90" step="5" value="${a.hpPercent}" oninput="setAutoHpPercent(this.value)">
+      <span>HP 기준<br><small>1% 단위</small></span>
+      <input type="range" min="1" max="100" step="1" value="${a.hpPercent}" oninput="setAutoHpPercent(this.value)">
       <b id="autoHpValue">${a.hpPercent}%</b>
     </div>
     <div class="autoCheckGrid">
@@ -4553,10 +4596,11 @@ async function loginWithKakao(){
 }
 
 async function enterOnlineGame(){
-  const nick = (document.getElementById('nicknameInput')?.value.trim() || localStorage.getItem('legacyNickname') || '').slice(0,12);
+  const nickInput = document.getElementById('nicknameInput');
+  const nick = (nickInput?.value.trim() || localStorage.getItem('legacyNickname') || '').slice(0,12);
   if(!nick){
     setLoginMsg('닉네임을 먼저 입력하세요.');
-    document.getElementById('nicknameInput')?.focus();
+    nickInput?.focus();
     return;
   }
   localStorage.setItem('legacyNickname', nick);
@@ -4570,19 +4614,29 @@ async function enterOnlineGame(){
     setLoginMsg('먼저 카카오 인증을 완료하세요.');
     return;
   }
+
   player.userId = onlineSession.user.id;
   player.isOnline = true;
-  await ensureSupabaseProfile(onlineSession.user);
+
   await loadCloudCharacter(true);
+
+  // 클라우드 저장값에 예전 닉네임(예: 나)이 있어도 로그인창 닉네임을 우선 적용.
+  player.nickname = nick;
+  player.userId = onlineSession.user.id;
+  player.isOnline = true;
+  if(!player.job || player.job === '모험가') player.job = '방랑자';
+
+  await ensureSupabaseProfile(onlineSession.user);
   hideLoginPage();
   setupRealtimeOnline();
   await saveCloudCharacter(true);
   await recordGameEvent('login', { nickname: player.nickname });
 }
 
+
 function enterGuestMode(){
   const {nick} = saveLoginSettings();
-  player.nickname = nick || '나';
+  player.nickname = nick || '';
   player.userId = 'guest-' + Math.random().toString(36).slice(2,8);
   player.isOnline = false;
   hideLoginPage();
@@ -4923,7 +4977,7 @@ async function loadCloudCharacter(silent=false){
   }
 
   if(!data){
-    resetPlayerForNewKakaoAccount(localStorage.getItem('legacyNickname') || player.nickname || '나', user.id, true);
+    resetPlayerForNewKakaoAccount(localStorage.getItem('legacyNickname') || document.getElementById('nicknameInput')?.value.trim() || player.nickname || '나', user.id, true);
     await saveCloudCharacter(true);
     if(!silent) toast('방랑자 Lv.1 새 캐릭터 생성');
     return true;
@@ -4961,30 +5015,9 @@ async function logoutAccount(){
 
 async function deleteAccountData(){
   if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 이후 다시 카카오 인증으로 로그인해야 합니다. 계속할까요?')) return;
-  try{
-    const user = await currentAuthUser();
-    localStorage.removeItem('legacyRealmsSave');
-    localStorage.removeItem('legacyNickname');
 
-    if(supabaseClient && user){
-      const jobs = [
-        supabaseClient.from('player_presence').delete().eq('user_id', user.id),
-        supabaseClient.from('characters').delete().eq('user_id', user.id),
-        supabaseClient.from('game_events').delete().eq('user_id', user.id),
-        supabaseClient.from('profiles').delete().eq('id', user.id)
-      ];
-      const results = await Promise.allSettled(jobs);
-      for(const r of results){
-        if(r.status === 'fulfilled' && r.value?.error){
-          addLog('계정 데이터 삭제 일부 실패: ' + r.value.error.message);
-        }
-      }
-    }
-
-    addLog('계정 데이터 삭제 완료. 카카오 재인증 필요.');
-  }catch(e){
-    addLog('계정 데이터 삭제 오류: ' + e.message);
-  }
+  const user = await currentAuthUser();
+  const uid = user?.id || player.userId;
 
   try{
     if(onlineChannel && supabaseClient){
@@ -4992,27 +5025,63 @@ async function deleteAccountData(){
       try{ supabaseClient.removeChannel(onlineChannel); }catch(e){}
       onlineChannel = null;
     }
-    if(supabaseClient) await supabaseClient.auth.signOut({ scope:'global' });
+
+    if(supabaseClient && uid && uid !== 'guest'){
+      const deletions = [
+        ['player_presence', 'user_id'],
+        ['characters', 'user_id'],
+        ['game_events', 'user_id'],
+        ['profiles', 'id']
+      ].map(([table, col]) =>
+        supabaseClient.from(table).delete().eq(col, uid)
+      );
+
+      const results = await Promise.allSettled(deletions);
+      for(const r of results){
+        if(r.status === 'fulfilled' && r.value?.error){
+          addLog('삭제 일부 실패: ' + r.value.error.message);
+        }else if(r.status === 'rejected'){
+          addLog('삭제 일부 실패: ' + String(r.reason?.message || r.reason));
+        }
+      }
+    }
+
+    localStorage.removeItem('legacyRealmsSave');
+    localStorage.removeItem('legacyNickname');
+    Object.keys(localStorage).forEach(k=>{
+      if(k.startsWith('sb-') || k.includes('supabase.auth.token')) localStorage.removeItem(k);
+    });
+
+    if(supabaseClient){
+      try{ await supabaseClient.auth.signOut({ scope:'global' }); }
+      catch(e){ await supabaseClient.auth.signOut(); }
+    }
+
+    onlineSession = null;
+    remotePlayers = {};
+    player.isOnline = false;
+    player.userId = 'guest';
+    resetPlayerForNewKakaoAccount('', 'guest', false);
+
+    closePop();
+    const nickInput = document.getElementById('nicknameInput');
+    if(nickInput) nickInput.value = '';
+
+    const loginPage = document.getElementById('loginPage');
+    loginPage?.classList.remove('hidden');
+    updateOnlineBadge();
+    setLoginMsg('데이터가 삭제되었습니다. 닉네임을 다시 작성하고 카카오로 재인증하세요.');
+    toast('계정 데이터 삭제 완료');
+
+    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    setTimeout(()=>location.reload(), 120);
   }catch(e){
-    addLog('로그아웃 처리 중 오류: ' + e.message);
+    addLog('계정 데이터 삭제 오류: ' + e.message);
+    setLoginMsg('계정 데이터 삭제 오류: ' + e.message);
+    document.getElementById('loginPage')?.classList.remove('hidden');
   }
-
-  Object.keys(localStorage).forEach(k=>{
-    if(k.startsWith('sb-') || k.includes('supabase.auth.token')) localStorage.removeItem(k);
-  });
-
-  onlineSession = null;
-  remotePlayers = {};
-  resetPlayerForNewKakaoAccount('', 'guest', false);
-  updateOnlineBadge();
-  closePop();
-  const loginPage = document.getElementById('loginPage');
-  loginPage?.classList.remove('hidden');
-  const nickInput = document.getElementById('nicknameInput');
-  if(nickInput) nickInput.value = '';
-  setLoginMsg('데이터가 삭제되었습니다. 닉네임을 다시 작성하고 카카오로 재인증하세요.');
-  toast('계정 데이터 삭제');
 }
+
 
 function renderAccountStatus(){
   const el = document.getElementById('accountStatusText');
@@ -5106,7 +5175,7 @@ function updateHud(){
   document.getElementById('xptxt').textContent = `XP ${(player.exp||0) % player.nextExp}/${player.nextExp}`;
   const charInfo = document.getElementById('charInfo');
   if(charInfo){
-    charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(player.nickname || '나')}<small>${escapeHtml(player.job || '방랑자')}</small>`;
+    charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(player.nickname || (player.isOnline ? '유저' : '나'))}<small>${escapeHtml(player.job || '방랑자')}</small>`;
   }
   document.getElementById('gold').textContent = `골드 ${player.gold}g · 수배 ${player.wanted || 0}`;
 }
