@@ -1613,6 +1613,65 @@
     -webkit-backdrop-filter:blur(3px) !important;
   }
 
+
+
+  /* quest HUD + transparent top meters patch */
+  .topbar .meter{
+    background:rgba(0,0,0,.10) !important;
+    background-color:rgba(0,0,0,.10) !important;
+    border-color:rgba(255,235,170,.10) !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+  .topbar .meter span{
+    opacity:.62 !important;
+    box-shadow:none !important;
+  }
+  .topbar .meter small{
+    text-shadow:0 1px 2px rgba(0,0,0,.75) !important;
+  }
+  .questBox{
+    position:fixed !important;
+    left:8px !important;
+    top:calc(var(--topbar-offset, 72px) + 8px) !important;
+    bottom:auto !important;
+    width:min(238px, calc(100vw - 118px)) !important;
+    max-width:238px !important;
+    z-index:84 !important;
+    display:none;
+    border:1px solid rgba(143,209,106,.24) !important;
+    border-radius:9px !important;
+    background:rgba(5,8,4,.18) !important;
+    padding:7px 8px !important;
+    font-size:10.5px !important;
+    line-height:1.28 !important;
+    color:#e9e3bf !important;
+    pointer-events:none !important;
+    backdrop-filter:blur(1px) !important;
+    -webkit-backdrop-filter:blur(1px) !important;
+  }
+  .questBox.active{display:block !important;}
+  .questBox b{color:#b8ed94 !important;}
+  .questBox .questLine{
+    margin-top:3px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .questBox .questMuted{color:#b8b08d;}
+  @media(max-width:560px){
+    .questBox{
+      display:none;
+      top:calc(var(--topbar-offset, 72px) + 6px) !important;
+      left:6px !important;
+      width:min(210px, calc(100vw - 102px)) !important;
+      font-size:9.5px !important;
+      padding:6px !important;
+    }
+    .questBox.active{display:block !important;}
+  }
+
 </style>
 
 
@@ -1680,11 +1739,7 @@
 
   <div id="gameWrap">
     <canvas id="game" width="960" height="640"></canvas>
-    <div class="questBox">
-      <b>목표</b><br>
-      스킬 제한 없는 생활형 RPG 원형.<br>
-      채집·전투·제작·거래·의뢰·범죄 자유도를 한 화면에서 테스트.
-    </div>
+    <div class="questBox" id="activeQuestHud"></div>
     <div class="worldHud" id="worldHud"></div>
     <div class="coolHint" id="targetHint">NPC 터치: 가방 · 공격버튼: 공격</div>
     <div class="miniTrade" id="miniTrade">
@@ -1845,7 +1900,7 @@
           <button onclick="openPop('popSkills')">스킬</button>
           <button onclick="openPop('popCraft')">제작</button>
           <button onclick="openPop('popBank')">은행</button>
-          <button onclick="openPop('popQuest')">의뢰</button>
+          <button onclick="openQuestFromMenu()">의뢰</button>
           <button onclick="openPop('popParty')">파티</button>
           <button onclick="openPop('popShop')">상점</button>
           <button onclick="openPop('popMap')">지도</button>
@@ -2295,6 +2350,7 @@ const player = {
   merchantStock: {},
   questKills: {},
   questDone: {},
+  activeQuests: {},
   journal: []
 };
 
@@ -2349,6 +2405,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     merchantStock:{},
     questKills:{},
     questDone:{},
+    activeQuests:{},
     journal:[]
   });
   normalizePlayer();
@@ -2360,7 +2417,7 @@ const npcs = [
   {x:33,y:22,homeX:33,homeY:22,name:'대장장이 로간', role:'대장장이', hp:85, maxHp:85, atk:5, loot:['ore','stolenPouch'], talk:'광석과 가죽으로 장비를 제작한다. [제작] 메뉴를 열어라.'},
   {x:27,y:24,homeX:27,homeY:24,name:'길드 서기', role:'안내', hp:60, maxHp:60, atk:2, loot:['stolenPouch'], talk:'이 게임은 직업보다 행동으로 성장한다. 하고 싶은 일을 계속 하면 된다.'},
   {x:31,y:24,homeX:31,homeY:24,name:'은행원 세라', role:'은행', hp:65, maxHp:65, atk:2, loot:['stolenRing','gold'], talk:'돈과 물건을 은행에 보관할 수 있다. [은행] 메뉴를 사용해라.'},
-  {x:25,y:21,homeX:25,homeY:21,name:'의뢰 관리인', role:'의뢰', hp:75, maxHp:75, atk:3, loot:['stolenPouch'], talk:'마을 게시판의 반복 의뢰를 관리한다. [의뢰] 메뉴에서 완료 보상을 받을 수 있다.'},
+  {x:25,y:21,homeX:25,homeY:21,name:'의뢰 관리인', role:'의뢰', hp:75, maxHp:75, atk:3, loot:['stolenPouch'], talk:'길드 의뢰를 맡긴다. [의뢰하기]로 의뢰를 수락한 뒤에만 퀘스트가 활성화된다.'},
   {x:32,y:20,homeX:32,homeY:20,name:'잡화상 리나', role:'상점', hp:68, maxHp:68, atk:2, loot:['herb','fish','stolenPouch'], talk:'회복품과 기본 장비를 판다. [상점] 메뉴를 열어라.'},
   {x:23,y:23,homeX:23,homeY:23,name:'마을 경비병', role:'경비', guard:true, hp:120, maxHp:120, atk:13, loot:[], talk:'수배 중인 자는 즉시 제압한다.'},
   {x:36,y:23,homeX:36,homeY:23,name:'순찰 경비병', role:'경비', guard:true, hp:110, maxHp:110, atk:12, loot:[], talk:'마을 법을 어기지 마라.'},
@@ -2743,6 +2800,7 @@ function updateWorldHud(){
   const restText = tick >= (player.restReadyTick||0) ? '가능' : Math.ceil(((player.restReadyTick||0)-tick)*0.45)+'초';
   const jailText = tick < (player.jailUntilTick||0) ? ` · 수감 ${jailRemainingSeconds()}초` : '';
   el.innerHTML = `<b>${region}</b> · 위험 ${regionDangerLevel()}${jailText}<br>Day ${c.day} · ${c.hh}:${c.mm} ${isNight()?'밤':'낮'} · ${weatherLabel()}<br>휴식 ${restText} · 자동저장 ${Math.max(0, 60 - Math.floor((tick-lastAutoSaveTick)*0.45))}초`;
+  updateQuestHud();
 }
 
 function addLog(msg){
@@ -3618,7 +3676,9 @@ function guardAI(){
 function killMob(mob){
   normalizePlayer();
   mobs = mobs.filter(m=>m!==mob);
-  player.questKills[mob.type] = (player.questKills[mob.type]||0) + 1;
+  if(hasActiveKillQuestFor(mob.type)){
+    player.questKills[mob.type] = (player.questKills[mob.type]||0) + 1;
+  }
   applyChoiceConsequencesOnKill(mob);
   const g = (mob.gold||0) + (mob.animal ? 0 : rand(mob.boss ? 80 : 8));
   const expReward = (mob.animal ? 4 : mob.boss ? 160 : 18) + Math.floor((mob.maxHp||20)/4);
@@ -3939,7 +3999,7 @@ function npcRoleActions(npc){
   }
 
   if(role === '의뢰'){
-    add('퀘스트', "openPop('popQuest'); closeMiniNpcMenu()");
+    add('의뢰하기', "openPop('popQuest'); closeMiniNpcMenu()");
     add('NPC 가방', 'openNpcBagFromMenu()', 'danger');
     return actions;
   }
@@ -5054,8 +5114,23 @@ function renderTradeBagSlots(){
   }).join('');
 }
 
+function isQuestActive(id){
+  normalizePlayer();
+  return !!player.activeQuests?.[id];
+}
+function activeQuestList(){
+  normalizePlayer();
+  return questDefs.filter(q=>isQuestActive(q.id));
+}
+function activeQuestCount(){
+  return activeQuestList().length;
+}
+function hasActiveKillQuestFor(type){
+  return questDefs.some(q=>q.type==='kill' && q.target===type && isQuestActive(q.id));
+}
 function questProgress(q){
   normalizePlayer();
+  if(!q || !isQuestActive(q.id)) return 0;
   if(q.type === 'kill') return player.questKills[q.target] || 0;
   return player.inv[q.target] || 0;
 }
@@ -5067,10 +5142,42 @@ function rewardText(q){
   return `${q.rewardGold}g · 평판 ${q.rewardFame}${items ? ' · ' + items : ''}`;
 }
 
+function acceptQuest(id){
+  normalizePlayer();
+  const q = questDefs.find(x=>x.id===id);
+  if(!q) return;
+  if(isQuestActive(id)){ toast('이미 받은 의뢰'); return; }
+  if(activeQuestCount() >= 3){ toast('동시 의뢰는 3개까지'); return; }
+  player.activeQuests[id] = {acceptedTick:tick, from:'길드 의뢰인'};
+  if(q.type === 'kill') player.questKills[q.target] = 0;
+  addLog(`의뢰 수락: ${q.title}.`);
+  toast('의뢰 수락');
+  renderQuests();
+  updateQuestHud();
+}
+
+function abandonQuest(id){
+  normalizePlayer();
+  const q = questDefs.find(x=>x.id===id);
+  if(!q || !isQuestActive(id)) return;
+  delete player.activeQuests[id];
+  if(q.type === 'kill') player.questKills[q.target] = 0;
+  addLog(`의뢰 포기: ${q.title}.`);
+  toast('의뢰 포기');
+  renderQuests();
+  updateQuestHud();
+}
+
+function openQuestFromMenu(){
+  toast('길드 의뢰인에게 말을 걸어 의뢰하기를 선택하세요.');
+  addLog('의뢰는 길드 의뢰인에게 직접 받아야 표시된다.');
+}
+
 function completeQuest(id){
   normalizePlayer();
   const q = questDefs.find(x=>x.id===id);
   if(!q) return;
+  if(!isQuestActive(id)){ toast('먼저 의뢰를 수락해야 함'); return; }
   const prog = questProgress(q);
   if(prog < q.need){ toast('조건 부족'); return; }
 
@@ -5083,34 +5190,69 @@ function completeQuest(id){
   player.gold += q.rewardGold;
   player.fame += q.rewardFame;
   player.questDone[q.id] = (player.questDone[q.id]||0) + 1;
+  delete player.activeQuests[q.id];
   Object.entries(q.rewardItems||{}).forEach(([item,qty])=>addItem(item,qty));
   gainSkill('trading',0.18);
   addLog(`의뢰 완료: ${q.title}. 보상 ${rewardText(q)}.`);
   renderQuests();
+  updateQuestHud();
   renderInventory();
   draw();
+}
+
+function updateQuestHud(){
+  normalizePlayer();
+  const el = document.getElementById('activeQuestHud');
+  if(!el) return;
+  const list = activeQuestList();
+  if(!list.length){
+    el.classList.remove('active');
+    el.innerHTML = '';
+    return;
+  }
+  const lines = list.slice(0,3).map(q=>{
+    const prog = questProgress(q);
+    const unit = q.type === 'kill' ? '마리' : '개';
+    const ready = prog >= q.need;
+    return `<div class="questLine">${ready?'완료':'진행'} · ${escapeHtml(q.title)} <span class="questMuted">${prog}/${q.need}${unit}</span></div>`;
+  }).join('');
+  el.innerHTML = `<b>받은 의뢰</b>${lines}`;
+  el.classList.add('active');
 }
 
 function renderQuests(){
   normalizePlayer();
   const el = document.getElementById('questList');
   if(!el) return;
-  el.innerHTML = questDefs.map(q=>{
+  const active = activeQuestList();
+  const available = questDefs.filter(q=>!isQuestActive(q.id));
+  const renderCard = (q, mode)=>{
     const prog = questProgress(q);
     const pct = clamp((prog / q.need) * 100, 0, 100);
     const done = player.questDone[q.id] || 0;
-    const ready = prog >= q.need;
+    const ready = mode === 'active' && prog >= q.need;
     const label = q.type === 'kill' ? '처치' : '납품';
+    const progressHtml = mode === 'active'
+      ? `<div class="row"><span>진행도</span><b>${prog}/${q.need}</b></div><div class="progressBox"><span style="width:${pct}%"></span></div>`
+      : `<div class="notice">의뢰하기를 누르면 퀘스트가 활성화되고 화면 왼쪽 아래에 표시된다.</div>`;
+    const actionHtml = mode === 'active'
+      ? `<button class="${ready?'primary':'danger'}" onclick="completeQuest('${q.id}')">${ready?'보상 받기':'진행 중'}</button><button onclick="abandonQuest('${q.id}')">포기</button>`
+      : `<button class="primary" onclick="acceptQuest('${q.id}')">의뢰하기</button>`;
     return `<div class="card">
       <h3>${escapeHtml(q.title)} <span class="tag">${label}</span></h3>
       <p>목표: ${escapeHtml(q.targetName)} ${q.need}${q.type === 'kill' ? '마리' : '개'}</p>
       <p>보상: ${escapeHtml(rewardText(q))}</p>
-      <div class="row"><span>진행도</span><b>${prog}/${q.need}</b></div>
-      <div class="progressBox"><span style="width:${pct}%"></span></div>
+      ${progressHtml}
       <div class="row"><span>완료 횟수</span><b>${done}</b></div>
-      <div class="actionLine"><button class="${ready?'primary':'danger'}" onclick="completeQuest('${q.id}')">${ready?'보상 받기':'진행 중'}</button></div>
+      <div class="actionLine">${actionHtml}</div>
     </div>`;
-  }).join('');
+  };
+  const activeHtml = active.length
+    ? `<div class="card"><h3>진행 중인 의뢰</h3><p>받은 의뢰만 진행도에 표시된다. 최대 3개까지 동시에 받을 수 있다.</p></div>` + active.map(q=>renderCard(q,'active')).join('')
+    : `<div class="card"><h3>진행 중인 의뢰 없음</h3><p>아래 목록에서 의뢰하기를 눌러 길드 의뢰를 수락하세요.</p></div>`;
+  const availableHtml = `<div class="card"><h3>길드 의뢰 목록</h3><p>의뢰를 수락해야 퀘스트가 생성되고 왼쪽 아래 요약 HUD에 표시된다.</p></div>` + available.map(q=>renderCard(q,'available')).join('');
+  el.innerHTML = activeHtml + availableHtml;
+  updateQuestHud();
 }
 
 function renderBank(){
@@ -5160,6 +5302,7 @@ function normalizePlayer(){
   if(!player.merchantStock) player.merchantStock = {};
   if(!player.questKills) player.questKills = {};
   if(!player.questDone) player.questDone = {};
+  if(!player.activeQuests) player.activeQuests = {};
   if(!player.durability) player.durability = {};
   if(!player.discoveredRegions) player.discoveredRegions = {};
   if(!player.crimeRecord) player.crimeRecord = {steals:0, arrests:0};
@@ -7920,6 +8063,17 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
+    title:'상단 HUD 투명화·길드 의뢰 수락식 퀘스트 전환',
+    items:[
+      '상단 HP/MP/SP/XP 게이지 배경과 테두리를 더 투명하게 조정',
+      '퀘스트는 길드 의뢰인 NPC의 의뢰하기를 눌러 수락해야 생성되도록 변경',
+      '통합 메뉴 의뢰 버튼은 직접 수락 안내만 표시하도록 변경',
+      '받은 의뢰 요약 HUD를 상단 박스 밖 왼쪽 아래 위치로 이동',
+      '처치 의뢰 카운트는 활성 의뢰가 있을 때만 누적되도록 수정'
+    ]
+  },
+  {
+    version:'전 단계 1',
     title:'유저 파티 시스템 구축',
     items:[
       '온라인 유저 대상 파티 생성·초대·수락·거절·탈퇴·추방·해산 기능 추가',
