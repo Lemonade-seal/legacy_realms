@@ -1560,6 +1560,25 @@
     background:rgba(8,12,7,.24)!important;
   }
 
+
+  .oauthManualLinkBox{
+    margin-top:8px;
+    font-size:12px;
+    line-height:1.4;
+  }
+  .oauthManualLinkBox a{
+    display:block;
+    margin-top:6px;
+    padding:10px;
+    border:1px solid rgba(255,223,121,.55);
+    border-radius:10px;
+    color:#ffe08a;
+    text-decoration:none;
+    background:rgba(88,68,22,.24);
+    text-align:center;
+    font-weight:900;
+  }
+
 </style>
 
 
@@ -1596,7 +1615,7 @@
     <input id="nicknameInput" type="text" value="" maxlength="12" placeholder="닉네임을 입력하세요" autocomplete="nickname" inputmode="text">
 
     <div class="loginBtns simpleLoginBtns">
-      <button class="primary" onclick="startKakaoLogin()">카카오 로그인</button>
+      <button id="kakaoLoginBtn" class="primary"  type="button" onclick="startKakaoLogin(event)">카카오 로그인</button>
     </div>
     <p id="loginMsg">게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.</p>
     <div id="serverDiagBox" class="serverDiagBox">
@@ -1604,6 +1623,7 @@
       <div id="serverDiagText">진단 대기</div>
       <button type="button" onclick="runServerDiagnostics()">서버진단</button>
     </div>
+  <div id="oauthManualLinkBox" class="oauthManualLinkBox hidden"></div>
   </div>
 </div>
 <div id="app">
@@ -5273,6 +5293,7 @@ async function showKakaoLoginPage(autoCheck=true){
 
   const loginPage = document.getElementById('loginPage');
   loginPage?.classList.remove('hidden');
+  setTimeout(attachKakaoLoginButton, 50);
 
   cloudState.ready = false;
   cloudState.status = '로그인 필요';
@@ -5308,21 +5329,6 @@ function showCloudLoadingPage(msg='서버 데이터 확인 중...'){
 }
 
 
-function goOAuthUrl(url){
-  if(!url){
-    setLoginMsg('카카오 OAuth 주소를 받지 못했습니다.');
-    return false;
-  }
-
-  setLoginMsg('카카오 인증 화면으로 이동 중...');
-
-  // Kakao in-app browser can ignore SDK's automatic redirect.
-  // Use direct navigation with multiple fallbacks.
-  try{ window.location.assign(url); }catch(e){}
-  setTimeout(()=>{ try{ window.location.href = url; }catch(e){} }, 80);
-  setTimeout(()=>{ try{ window.location.replace(url); }catch(e){} }, 240);
-  return true;
-}
 
 
 
@@ -5403,7 +5409,102 @@ async function runServerDiagnostics(){
 }
 
 
-async function startKakaoLogin(){
+
+let kakaoLoginBusy = false;
+let lastOAuthUrl = '';
+
+function getSupabaseAuthAuthorizeUrl(){
+  const base = normalizeSupabaseUrl(
+    document.getElementById('supabaseUrlInput')?.value ||
+    localStorage.getItem('legacySupabaseUrl') ||
+    DEFAULT_SUPABASE_URL
+  );
+  if(!base) return '';
+  const u = new URL('/auth/v1/authorize', base);
+  u.searchParams.set('provider', 'kakao');
+  u.searchParams.set('redirect_to', getKakaoRedirectUrl());
+  return u.href;
+}
+
+function showOAuthManualLink(url){
+  lastOAuthUrl = url || lastOAuthUrl || '';
+  const box = document.getElementById('oauthManualLinkBox');
+  if(!box || !lastOAuthUrl) return;
+  box.classList.remove('hidden');
+  box.innerHTML = `자동 이동이 안 되면 아래를 누르세요.<a href="${lastOAuthUrl}" target="_self" rel="noreferrer">카카오 인증 직접 열기</a>`;
+}
+
+function hideOAuthManualLink(){
+  const box = document.getElementById('oauthManualLinkBox');
+  if(box){
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  }
+}
+
+function goOAuthUrl(url){
+  if(!url){
+    setLoginMsg('카카오 OAuth 주소를 받지 못했습니다.');
+    return false;
+  }
+
+  lastOAuthUrl = url;
+  showOAuthManualLink(url);
+  setLoginMsg('카카오 인증 화면으로 이동 중...');
+
+  // Kakao in-app browser sometimes ignores SDK redirect.
+  // Try direct navigation, anchor click, then visible manual link.
+  try{
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_self';
+    a.rel = 'noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+  }catch(e){}
+
+  setTimeout(()=>{ try{ window.location.assign(url); }catch(e){} }, 30);
+  setTimeout(()=>{ try{ window.location.href = url; }catch(e){} }, 160);
+  setTimeout(()=>{
+    // If still here, keep manual link visible.
+    showOAuthManualLink(url);
+    setLoginMsg('자동 이동이 안 되면 아래 [카카오 인증 직접 열기]를 누르세요.');
+  }, 900);
+  return true;
+}
+
+function attachKakaoLoginButton(){
+  const btn = document.getElementById('kakaoLoginBtn');
+  if(!btn || btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  const handler = (ev)=>{
+    ev?.preventDefault?.();
+    ev?.stopPropagation?.();
+    startKakaoLogin(ev);
+  };
+
+  btn.addEventListener('touchend', handler, {passive:false});
+  btn.addEventListener('pointerup', handler);
+  btn.addEventListener('click', handler);
+}
+
+document.addEventListener('DOMContentLoaded', attachKakaoLoginButton);
+setTimeout(attachKakaoLoginButton, 300);
+setTimeout(attachKakaoLoginButton, 1200);
+
+
+async function startKakaoLogin(ev=null){
+  ev?.preventDefault?.();
+  ev?.stopPropagation?.();
+
+  if(kakaoLoginBusy){
+    setLoginMsg('카카오 로그인 처리 중입니다. 잠시만 기다리세요.');
+    return;
+  }
+
+  const btn = document.getElementById('kakaoLoginBtn');
   const nickInput = document.getElementById('nicknameInput');
   const nick = typeof typedGameNickname === 'function'
     ? typedGameNickname()
@@ -5415,33 +5516,37 @@ async function startKakaoLogin(){
     return;
   }
 
-  if(typeof saveGameNickname === 'function') saveGameNickname(nick);
-  else{
-    localStorage.setItem('legacyGameNickname', nick);
-    localStorage.setItem('legacyNickname', nick);
-    player.nickname = nick;
-  }
+  hideOAuthManualLink();
+  kakaoLoginBusy = true;
+  if(btn) btn.disabled = true;
 
-  const deletedFlow = typeof isDeletedLoginRequired === 'function' && isDeletedLoginRequired();
-
-  if(deletedFlow){
-    clearOnlyAuthTokens();
-    supabaseClient = null; // 탈퇴 후 남은 클라이언트 내부 세션 제거
+  try{
     if(typeof saveGameNickname === 'function') saveGameNickname(nick);
     else{
       localStorage.setItem('legacyGameNickname', nick);
       localStorage.setItem('legacyNickname', nick);
+      player.nickname = nick;
     }
-  }
 
-  const client = await ensureSupabaseClient(true);
-  if(!client){
-    setLoginMsg('Supabase 클라이언트 초기화 실패. 서버진단을 눌러 확인하세요.');
-    return;
-  }
+    const deletedFlow = typeof isDeletedLoginRequired === 'function' && isDeletedLoginRequired();
 
-  try{
-    setLoginMsg(deletedFlow ? '탈퇴 후 재로그인: 카카오 인증 주소 생성 중...' : '카카오톡 로그인 화면으로 이동합니다.');
+    if(deletedFlow){
+      clearOnlyAuthTokens();
+      supabaseClient = null;
+      if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+      else{
+        localStorage.setItem('legacyGameNickname', nick);
+        localStorage.setItem('legacyNickname', nick);
+      }
+    }
+
+    const client = await ensureSupabaseClient(true);
+    if(!client){
+      setLoginMsg('Supabase 클라이언트 초기화 실패. 서버진단을 눌러 확인하세요.');
+      return;
+    }
+
+    setLoginMsg(deletedFlow ? '탈퇴 후 재로그인: 카카오 인증 주소 생성 중...' : '카카오 인증 주소 생성 중...');
     setServerDiag?.('OAuth URL 생성 요청...');
 
     const { data, error } = await client.auth.signInWithOAuth({
@@ -5454,9 +5559,11 @@ async function startKakaoLogin(){
 
     if(error) throw error;
 
-    if(data?.url){
+    const oauthUrl = data?.url || getSupabaseAuthAuthorizeUrl();
+
+    if(oauthUrl){
       setServerDiag?.('OAuth URL OK');
-      goOAuthUrl(data.url);
+      goOAuthUrl(oauthUrl);
       return;
     }
 
@@ -5466,11 +5573,22 @@ async function startKakaoLogin(){
     console.error(e);
     setServerDiag?.('OAuth ERROR: ' + safeErr(e));
     setLoginMsg('카카오/Supabase 로그인 호출 실패: ' + safeErr(e));
+
+    const fallback = getSupabaseAuthAuthorizeUrl();
+    if(fallback){
+      showOAuthManualLink(fallback);
+      setServerDiag?.('Fallback OAuth URL 표시');
+    }
+  }finally{
+    setTimeout(()=>{
+      kakaoLoginBusy = false;
+      if(btn) btn.disabled = false;
+    }, 1200);
   }
 }
 
-async function loginWithKakao(){
-  return startKakaoLogin();
+async function loginWithKakao(ev=null){
+  return startKakaoLogin(ev);
 }
 
 async function loadCloudStateAndEnter(){
@@ -6816,12 +6934,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'서버 접속 진단·탈퇴 후 재로그인 보강',
+    title:'카톡 브라우저 OAuth 직접 이동 보강',
     items:[
-      '로그인 화면에 서버진단 버튼 추가',
-      'Supabase SDK/세션/테이블 연결 오류를 화면에 표시',
-      '탈퇴 후 재로그인 시 supabaseClient를 null로 초기화',
-      'OAuth URL 생성 실패 원인을 loginMsg와 서버 상태 박스에 표시'
+      '카카오 로그인 버튼에 touchend/pointerup/click 이벤트 직접 바인딩',
+      'Supabase OAuth URL을 받은 뒤 anchor click/location assign/href 순서로 직접 이동',
+      '자동 이동 실패 시 카카오 인증 직접 열기 링크 표시',
+      'SDK가 URL을 못 주면 Supabase authorize URL fallback 표시'
     ]
   },
   {
@@ -7215,6 +7333,8 @@ addLog('게이지 명칭을 HP/MP/SP/XP로 바꾸고 박스 자동 크기와 그
 
 try{
   window.runServerDiagnostics = runServerDiagnostics;
+  window.goOAuthUrl = goOAuthUrl;
+  window.attachKakaoLoginButton = attachKakaoLoginButton;
   window.startKakaoLogin = startKakaoLogin;
   window.loginWithKakao = loginWithKakao;
   window.showKakaoLoginPage = showKakaoLoginPage;
