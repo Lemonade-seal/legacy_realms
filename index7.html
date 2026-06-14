@@ -5286,6 +5286,13 @@ async function startKakaoLogin(){
     player.nickname = nick;
   }
 
+  // 계정탈퇴 후 재로그인: 기존 Supabase auth 토큰만 지우고, 방금 입력한 게임 닉네임은 보존한다.
+  if(isDeletedLoginRequired()){
+    clearOnlyAuthTokens();
+    if(typeof saveGameNickname === 'function') saveGameNickname(nick);
+    else localStorage.setItem('legacyNickname', nick);
+  }
+
   const client = await ensureSupabaseClient(true);
   if(!client) return;
 
@@ -5355,6 +5362,8 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
+    clearDeletedLoginRequired();
+
     hideLoginPage();
     setupRealtimeOnline();
     await saveCloudCharacter(true);
@@ -5400,6 +5409,7 @@ async function bootAuth(){
 
   const params = new URLSearchParams(window.location.search);
   const isLogoutRoute = params.has('logout');
+  const isDeletedRoute = params.has('deleted');
   const hasOAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
 
   const loginPage = document.getElementById('loginPage');
@@ -5408,13 +5418,22 @@ async function bootAuth(){
   const s = loginSettings();
   if(s.nick) player.nickname = s.nick;
 
-  const client = await ensureSupabaseClient(false);
-
-  if(isLogoutRoute){
-    forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.');
+  if(isDeletedRoute){
+    markDeletedLoginRequired();
+    clearOnlyAuthTokens();
+    forceShowLoginAfterSignOut('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.', true);
     history.replaceState({}, document.title, window.location.origin + window.location.pathname);
     return true;
   }
+
+  if(isLogoutRoute){
+    clearOnlyAuthTokens();
+    forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.', false);
+    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    return true;
+  }
+
+  const client = await ensureSupabaseClient(false);
 
   if(client && hasOAuthReturn){
     await finishOAuthRedirect(client);
@@ -5772,7 +5791,37 @@ async function loadCloudCharacter(silent=false){
 
 
 
-function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.'){
+
+function markDeletedLoginRequired(){
+  localStorage.setItem('legacyAccountDeleted', '1');
+}
+
+function clearDeletedLoginRequired(){
+  localStorage.removeItem('legacyAccountDeleted');
+}
+
+function isDeletedLoginRequired(){
+  const params = new URLSearchParams(window.location.search);
+  return localStorage.getItem('legacyAccountDeleted') === '1' || params.has('deleted');
+}
+
+function clearOnlyAuthTokens(){
+  try{
+    const keys = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(!k) continue;
+      if(k.startsWith('sb-') || k.includes('supabase.auth.token') || k.includes('auth-token')){
+        keys.push(k);
+      }
+    }
+    keys.forEach(k=>localStorage.removeItem(k));
+    try{ sessionStorage.clear(); }catch(e){}
+  }catch(e){}
+}
+
+
+function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.', clearNick=false){
   try{ closePop?.(); }catch(e){}
 
   try{
@@ -5802,7 +5851,10 @@ function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임
   loginPage?.classList.remove('hidden');
 
   const input = document.getElementById('nicknameInput');
-  if(input) setTimeout(()=>input.focus(), 80);
+  if(input){
+    if(clearNick) input.value = '';
+    setTimeout(()=>input.focus(), 80);
+  }
 
   setLoginMsg(message);
   updateOnlineBadge?.();
@@ -5813,7 +5865,7 @@ function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임
 
 
 async function kakaoLogout(){
-  forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.');
+  forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.', false);
 
   try{
     const client = await ensureSupabaseClient(false);
@@ -5825,18 +5877,7 @@ async function kakaoLogout(){
     console.warn('signOut warning', e);
   }
 
-  try{
-    const keys = [];
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if(!k) continue;
-      if(k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token')){
-        keys.push(k);
-      }
-    }
-    keys.forEach(k=>localStorage.removeItem(k));
-    sessionStorage.clear();
-  }catch(e){}
+  clearOnlyAuthTokens();
 
   setTimeout(()=>{
     const u = new URL('./index7.html', window.location.href);
@@ -5872,7 +5913,7 @@ function hardRedirectToLogin(reason='login'){
 async function deleteAccountData(){
   if(!confirm('계정탈퇴는 캐릭터·저장 데이터·온라인 기록을 삭제하고 로그아웃합니다. 계속할까요?')) return;
 
-  forceShowLoginAfterSignOut('계정 데이터 삭제 중입니다...');
+  forceShowLoginAfterSignOut('계정 데이터 삭제 중입니다...', true);
 
   try{
     const client = await ensureSupabaseClient(false);
@@ -5917,15 +5958,19 @@ async function deleteAccountData(){
       catch(e){ await client.auth.signOut(); }
     }
 
+    clearOnlyAuthTokens();
+    markDeletedLoginRequired();
     setLoginMsg('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
   }catch(e){
     console.error(e);
-    setLoginMsg('계정탈퇴 처리 오류: ' + (e.message || String(e)));
+    markDeletedLoginRequired();
+    clearOnlyAuthTokens();
+    setLoginMsg('계정탈퇴 처리 일부 실패. 로컬 로그인 상태는 초기화했습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.');
   }
 
   setTimeout(()=>{
     const u = new URL('./index7.html', window.location.href);
-    u.searchParams.set('logout', String(Date.now()));
+    u.searchParams.set('deleted', String(Date.now()));
     window.location.replace(u.href);
   }, 220);
 }
@@ -6602,12 +6647,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'로그인 불가 복구',
+    title:'탈퇴 후 재로그인 불가 수정',
     items:[
-      '로그아웃 오버레이가 정상 카카오 로그인까지 막던 문제 수정',
-      '카카오 로그인 버튼을 단순 signInWithOAuth 흐름으로 복구',
-      'OAuth code 복귀 시에만 서버 데이터 로드 수행',
-      '?logout 상태에서는 자동 세션 입장만 차단'
+      '계정탈퇴 후 ?logout이 아니라 ?deleted 전용 경로로 분리',
+      '탈퇴 후 재로그인 시 기존 Supabase auth 토큰만 제거하고 새 닉네임은 보존',
+      '카카오 OAuth 호출 전 legacyAccountDeleted 플래그 처리',
+      '로그인 성공 후에만 탈퇴 플래그 제거'
     ]
   },
   {
