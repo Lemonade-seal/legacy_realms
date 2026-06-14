@@ -1540,6 +1540,26 @@
     background:rgba(0,0,0,.92) !important;
   }
 
+
+  /* server diagnostic box */
+  .serverDiagBox{
+    margin-top:10px;
+    border:1px solid rgba(215,180,90,.35);
+    border-radius:12px;
+    padding:9px;
+    background:rgba(8,12,7,.22);
+    font-size:11px;
+    line-height:1.45;
+    text-align:left;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .serverDiagBox button{
+    margin-top:7px;
+    width:100%;
+    background:rgba(8,12,7,.24)!important;
+  }
+
 </style>
 
 
@@ -1579,6 +1599,11 @@
       <button class="primary" onclick="startKakaoLogin()">카카오 로그인</button>
     </div>
     <p id="loginMsg">게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.</p>
+    <div id="serverDiagBox" class="serverDiagBox">
+      <b>서버 상태</b>
+      <div id="serverDiagText">진단 대기</div>
+      <button type="button" onclick="runServerDiagnostics()">서버진단</button>
+    </div>
   </div>
 </div>
 <div id="app">
@@ -5053,12 +5078,22 @@ function supabaseConfigured(){
 async function ensureSupabaseClient(showError=true){
   seedSupabaseDefaults();
 
-  const s = saveLoginSettings();
-  const url = normalizeSupabaseUrl(s.url || DEFAULT_SUPABASE_URL);
-  const anon = s.anon || DEFAULT_SUPABASE_ANON_KEY;
+  const url = normalizeSupabaseUrl(
+    document.getElementById('supabaseUrlInput')?.value ||
+    localStorage.getItem('legacySupabaseUrl') ||
+    DEFAULT_SUPABASE_URL
+  );
+  const anon =
+    document.getElementById('supabaseAnonInput')?.value?.trim() ||
+    localStorage.getItem('legacySupabaseAnon') ||
+    DEFAULT_SUPABASE_ANON_KEY;
+
+  if(url) localStorage.setItem('legacySupabaseUrl', url);
+  if(anon) localStorage.setItem('legacySupabaseAnon', anon);
 
   if(!url || !anon){
-    if(showError) setLoginMsg('Supabase 설정이 없습니다.');
+    if(showError) setLoginMsg('Supabase URL 또는 Anon Key가 없습니다.');
+    setServerDiag?.('Supabase 설정 누락');
     return null;
   }
 
@@ -5067,7 +5102,8 @@ async function ensureSupabaseClient(showError=true){
   if(!supabaseSdkReady()){
     const ok = await loadSupabaseSdk();
     if(!ok || !supabaseSdkReady()){
-      if(showError) setLoginMsg('Supabase SDK를 불러오지 못했습니다. 네트워크 또는 CDN 차단을 확인하세요.');
+      if(showError) setLoginMsg('Supabase SDK를 불러오지 못했습니다.');
+      setServerDiag?.('Supabase SDK 로드 실패');
       return null;
     }
   }
@@ -5077,13 +5113,16 @@ async function ensureSupabaseClient(showError=true){
       auth: {
         persistSession:true,
         autoRefreshToken:true,
-        detectSessionInUrl:true
+        detectSessionInUrl:true,
+        flowType:'pkce'
       }
     });
+    setServerDiag?.('Supabase Client OK');
     return supabaseClient;
   }catch(e){
     console.error(e);
-    if(showError) setLoginMsg('Supabase 초기화 실패: ' + (e.message || String(e)));
+    if(showError) setLoginMsg('Supabase 초기화 실패: ' + safeErr(e));
+    setServerDiag?.('Supabase 초기화 실패: ' + safeErr(e));
     return null;
   }
 }
@@ -5286,6 +5325,84 @@ function goOAuthUrl(url){
 }
 
 
+
+function setServerDiag(msg){
+  const el = document.getElementById('serverDiagText');
+  if(el) el.textContent = String(msg || '');
+  console.log('[server diag]', msg);
+}
+
+function appendServerDiag(msg){
+  const el = document.getElementById('serverDiagText');
+  if(el) el.textContent = (el.textContent ? el.textContent + '\n' : '') + String(msg || '');
+  console.log('[server diag]', msg);
+}
+
+function safeErr(e){
+  if(!e) return 'unknown';
+  if(typeof e === 'string') return e;
+  return e.message || e.error_description || e.details || e.hint || JSON.stringify(e);
+}
+
+async function runServerDiagnostics(){
+  setLoginMsg('서버 진단 중...');
+  setServerDiag('1) Supabase SDK 확인...');
+
+  const sdkOk = await loadSupabaseSdk();
+  appendServerDiag('SDK: ' + (sdkOk && window.supabase?.createClient ? 'OK' : 'FAIL'));
+  if(!sdkOk || !window.supabase?.createClient){
+    setLoginMsg('Supabase SDK 로드 실패');
+    return false;
+  }
+
+  const url = normalizeSupabaseUrl(localStorage.getItem('legacySupabaseUrl') || DEFAULT_SUPABASE_URL);
+  const anon = localStorage.getItem('legacySupabaseAnon') || DEFAULT_SUPABASE_ANON_KEY;
+  appendServerDiag('URL: ' + url);
+  appendServerDiag('AnonKey: ' + (anon ? '있음' : '없음'));
+
+  if(!url || !anon){
+    setLoginMsg('Supabase URL/Anon Key 누락');
+    return false;
+  }
+
+  try{
+    const client = await ensureSupabaseClient(true);
+    if(!client){
+      appendServerDiag('Client: FAIL');
+      setLoginMsg('Supabase Client 생성 실패');
+      return false;
+    }
+    appendServerDiag('Client: OK');
+
+    const { data:sessionData, error:sessionError } = await client.auth.getSession();
+    appendServerDiag('Session: ' + (sessionError ? 'ERROR ' + safeErr(sessionError) : (sessionData?.session ? '있음' : '없음')));
+
+    const probes = [
+      ['profiles', 'select'],
+      ['characters', 'select'],
+      ['player_presence', 'select'],
+      ['game_events', 'select']
+    ];
+
+    for(const [table] of probes){
+      try{
+        const { error } = await client.from(table).select('*').limit(1);
+        appendServerDiag(table + ': ' + (error ? 'ERROR ' + safeErr(error) : 'OK'));
+      }catch(e){
+        appendServerDiag(table + ': EXCEPTION ' + safeErr(e));
+      }
+    }
+
+    setLoginMsg('서버 진단 완료. 오류 줄을 캡처해서 확인하세요.');
+    return true;
+  }catch(e){
+    appendServerDiag('EXCEPTION: ' + safeErr(e));
+    setLoginMsg('서버 진단 실패: ' + safeErr(e));
+    return false;
+  }
+}
+
+
 async function startKakaoLogin(){
   const nickInput = document.getElementById('nicknameInput');
   const nick = typeof typedGameNickname === 'function'
@@ -5298,7 +5415,6 @@ async function startKakaoLogin(){
     return;
   }
 
-  // 탈퇴 후 재로그인은 방금 입력한 닉네임을 먼저 확실히 저장한다.
   if(typeof saveGameNickname === 'function') saveGameNickname(nick);
   else{
     localStorage.setItem('legacyGameNickname', nick);
@@ -5306,11 +5422,11 @@ async function startKakaoLogin(){
     player.nickname = nick;
   }
 
-  const deletedFlow = isDeletedLoginRequired();
+  const deletedFlow = typeof isDeletedLoginRequired === 'function' && isDeletedLoginRequired();
 
-  // 탈퇴 후 남은 Supabase 세션 토큰만 제거. Supabase URL/Anon 설정은 건드리지 않음.
   if(deletedFlow){
     clearOnlyAuthTokens();
+    supabaseClient = null; // 탈퇴 후 남은 클라이언트 내부 세션 제거
     if(typeof saveGameNickname === 'function') saveGameNickname(nick);
     else{
       localStorage.setItem('legacyGameNickname', nick);
@@ -5320,12 +5436,13 @@ async function startKakaoLogin(){
 
   const client = await ensureSupabaseClient(true);
   if(!client){
-    setLoginMsg('Supabase 클라이언트 초기화 실패. 잠시 후 다시 시도하세요.');
+    setLoginMsg('Supabase 클라이언트 초기화 실패. 서버진단을 눌러 확인하세요.');
     return;
   }
 
   try{
     setLoginMsg(deletedFlow ? '탈퇴 후 재로그인: 카카오 인증 주소 생성 중...' : '카카오톡 로그인 화면으로 이동합니다.');
+    setServerDiag?.('OAuth URL 생성 요청...');
 
     const { data, error } = await client.auth.signInWithOAuth({
       provider:'kakao',
@@ -5338,14 +5455,17 @@ async function startKakaoLogin(){
     if(error) throw error;
 
     if(data?.url){
+      setServerDiag?.('OAuth URL OK');
       goOAuthUrl(data.url);
       return;
     }
 
-    setLoginMsg('카카오 OAuth 주소가 없습니다. Supabase Provider 설정을 확인하세요.');
+    setServerDiag?.('OAuth URL 없음: ' + JSON.stringify(data || {}));
+    setLoginMsg('카카오 OAuth 주소가 없습니다. Supabase Kakao Provider 설정을 확인하세요.');
   }catch(e){
     console.error(e);
-    setLoginMsg('카카오/Supabase 로그인 호출 실패: ' + (e.message || String(e)));
+    setServerDiag?.('OAuth ERROR: ' + safeErr(e));
+    setLoginMsg('카카오/Supabase 로그인 호출 실패: ' + safeErr(e));
   }
 }
 
@@ -5845,6 +5965,7 @@ function isDeletedLoginRequired(){
 
 function clearOnlyAuthTokens(){
   try{
+    const keepPending = sessionStorage.getItem('legacyPendingGameNickname') || '';
     const keys = [];
     for(let i=0;i<localStorage.length;i++){
       const k = localStorage.key(i);
@@ -5854,7 +5975,17 @@ function clearOnlyAuthTokens(){
       }
     }
     keys.forEach(k=>localStorage.removeItem(k));
-    try{ sessionStorage.clear(); }catch(e){}
+
+    const sessionKeys = [];
+    for(let i=0;i<sessionStorage.length;i++){
+      const k = sessionStorage.key(i);
+      if(!k) continue;
+      if(k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token')){
+        sessionKeys.push(k);
+      }
+    }
+    sessionKeys.forEach(k=>sessionStorage.removeItem(k));
+    if(keepPending) sessionStorage.setItem('legacyPendingGameNickname', keepPending);
   }catch(e){}
 }
 
@@ -6685,12 +6816,12 @@ function gameLoop(){
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'카톡 브라우저 탈퇴 후 재로그인 수정',
+    title:'서버 접속 진단·탈퇴 후 재로그인 보강',
     items:[
-      '카톡 인앱 브라우저에서 Supabase 자동 리다이렉트가 막히는 문제 대응',
-      'signInWithOAuth를 skipBrowserRedirect:true 로 호출',
-      '반환된 OAuth URL로 window.location 직접 이동',
-      '탈퇴 후 재로그인 시 새 닉네임은 보존하고 auth 토큰만 제거'
+      '로그인 화면에 서버진단 버튼 추가',
+      'Supabase SDK/세션/테이블 연결 오류를 화면에 표시',
+      '탈퇴 후 재로그인 시 supabaseClient를 null로 초기화',
+      'OAuth URL 생성 실패 원인을 loginMsg와 서버 상태 박스에 표시'
     ]
   },
   {
@@ -7083,6 +7214,7 @@ addLog('메뉴와 상태창을 압축 정리하고 NPC/경비/동물 AI를 확�
 addLog('게이지 명칭을 HP/MP/SP/XP로 바꾸고 박스 자동 크기와 그래픽을 정리했다.');
 
 try{
+  window.runServerDiagnostics = runServerDiagnostics;
   window.startKakaoLogin = startKakaoLogin;
   window.loginWithKakao = loginWithKakao;
   window.showKakaoLoginPage = showKakaoLoginPage;
