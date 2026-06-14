@@ -1143,6 +1143,100 @@
   #stbar{background:linear-gradient(90deg,#24672c 0%,#4fb15f 52%,#b9f0a7 100%) !important;}
   #xpbar{background:linear-gradient(90deg,#7d5d1e 0%,#d7b45a 52%,#fff1a8 100%) !important;}
 
+
+  /* hard transparent UI pass */
+  .topbar{
+    background:rgba(15,20,12,.22) !important;
+    border-bottom:1px solid rgba(215,180,90,.20) !important;
+    box-shadow:none !important;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .brand,
+  .gold,
+  .topQuick{
+    background:transparent !important;
+  }
+  .pop{
+    background:rgba(13,17,10,.18) !important;
+    border-color:rgba(215,180,90,.36) !important;
+    box-shadow:0 10px 32px rgba(0,0,0,.28) !important;
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+  }
+  .popHead{
+    background:rgba(31,39,25,.22) !important;
+    border-bottom-color:rgba(215,180,90,.20) !important;
+  }
+  .popBody{
+    background:rgba(5,8,4,.08) !important;
+  }
+  .card,
+  .tradePanel,
+  .itemSlot,
+  .invSlot,
+  .miniTrade,
+  .miniNpcMenu,
+  .invDetailPopup,
+  .bagDropZone,
+  .miniBagZone,
+  .autoCheck,
+  .statusTile,
+  .loginCard{
+    background:rgba(13,17,10,.20) !important;
+    border-color:rgba(215,180,90,.28) !important;
+    box-shadow:none !important;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .miniTradeHead,
+  .miniNpcHead,
+  .invDetailHead{
+    background:rgba(31,39,25,.24) !important;
+    border-bottom-color:rgba(215,180,90,.20) !important;
+  }
+  .log{
+    background:rgba(5,8,4,.20) !important;
+    border-top-color:rgba(215,180,90,.18) !important;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .questBox,
+  .worldHud,
+  .coolHint,
+  .minimap,
+  .onlineBadge,
+  .toast{
+    background:rgba(5,8,4,.20) !important;
+    border-color:rgba(215,180,90,.22) !important;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+  }
+  .toolbar,
+  .analogPad,
+  .actions{
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+  }
+  .toolbar .actions button,
+  .analogBase,
+  .analogKnob{
+    opacity:.68;
+  }
+  .meter{
+    background:rgba(5,7,5,.28) !important;
+    border-color:rgba(215,180,90,.18) !important;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.03) !important;
+  }
+  .meter span{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.34), inset 0 -1px 1px rgba(0,0,0,.20);
+  }
+  #hpbar{background:linear-gradient(90deg,#741a17 0%,#d84b43 50%,#ffc09d 100%) !important;}
+  #mpbar{background:linear-gradient(90deg,#183e6a 0%,#74a9d8 52%,#d4f3ff 100%) !important;}
+  #stbar{background:linear-gradient(90deg,#1e5b27 0%,#4fb15f 52%,#c8f7b7 100%) !important;}
+  #xpbar{background:linear-gradient(90deg,#6d4e18 0%,#d7b45a 52%,#fff4ae 100%) !important;}
+
 </style>
 </head>
 <body>
@@ -1424,7 +1518,7 @@
     <section class="pop" id="popPatchNotes">
       <div class="popHead"><b>패치노트</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <div class="notice">패치 기록은 바로 전 단계부터 최대 5단계까지만 표시합니다.</div>
+        <div class="notice">업데이트마다 기록하며 최근 5단계만 표시합니다.</div>
         <div id="patchNotesList" class="wideList"></div>
       </div>
     </section>
@@ -5745,36 +5839,64 @@ function gameLoop(){
 }
 
 
+
 const PATCH_NOTES = [
   {
     version:'현재 단계',
-    title:'통합 메뉴 정리',
-    items:['통합 메뉴에서 계정 버튼 제거', '통합 메뉴에 패치노트 버튼 추가', '패치 기록은 최근 5단계만 표시']
+    title:'투명 UI · 계정탈퇴 재수정 · 패치 기록 누적',
+    items:[
+      '상단 박스와 팝업창 투명도를 더 강하게 낮춤',
+      '계정탈퇴 후 로컬 저장·세션·클라우드 캐릭터를 강제 삭제 처리',
+      '탈퇴 완료 후 로그인 페이지로 강제 복귀',
+      '패치노트는 업데이트마다 기록하고 최근 5단계만 표시'
+    ]
   },
   {
     version:'전 단계 1',
-    title:'계정 시작 규칙',
-    items:['테스터 로그인 제거', '닉네임 입력 후 카카오 로그인', '첫 로그인 시 방랑자 Lv.1로 시작', '계정탈퇴 시 데이터 삭제 후 재인증 필요']
+    title:'새로고침·닉네임·오토 체력 기준 수정',
+    items:[
+      '새로고침 시 자동 진입하지 않고 로그인 페이지 유지',
+      '로그인창 닉네임이 클라우드 저장 닉네임보다 우선 적용',
+      '자동 체력 기준을 1% 단위로 설정 가능하게 변경',
+      '상단 게이지 그라데이션 적용'
+    ]
   },
   {
     version:'전 단계 2',
-    title:'하단 조작 UI',
-    items:['로그창 터치 채팅 입력 활성화', '아날로그와 액션 버튼 반투명 처리', '아날로그 위치와 비율 조정']
+    title:'로그인 페이지 고정',
+    items:[
+      '로그인 페이지가 자동으로 넘어가지 않게 수정',
+      '닉네임 입력 후 버튼을 눌러야 접속되도록 변경',
+      '카카오 인증 복귀 시에만 세션 처리'
+    ]
   },
   {
     version:'전 단계 3',
-    title:'카카오 로그인 루프 수정',
-    items:['OAuth code 유지 브릿지 적용', 'index7.html에서 세션 교환 처리', '로그인 복귀 흐름 안정화']
+    title:'통합 메뉴 패치노트 추가',
+    items:[
+      '통합 메뉴에서 계정 버튼 제거',
+      '통합 메뉴에 패치노트 버튼 추가',
+      '패치노트 팝업 추가'
+    ]
   },
   {
     version:'전 단계 4',
-    title:'월드/전직/스킬 확장',
-    items:['물고기 물 타일 제한', '필드 보스 배치', '몬스터 Lv/이름 표시', '울티마식 직업·스킬 추가']
+    title:'계정 시작 규칙',
+    items:[
+      '테스터 로그인 제거',
+      '닉네임 입력 후 카카오 로그인',
+      '첫 로그인 시 방랑자 Lv.1로 시작',
+      '계정탈퇴 시 재인증 필요 구조 추가'
+    ]
   },
   {
     version:'전 단계 5',
-    title:'링크 미리보기',
-    items:['legacy_realsm 링크 제목 적용', '공유 미리보기 이미지 추가', '앱 아이콘 추가']
+    title:'하단 조작 UI',
+    items:[
+      '로그창 터치 채팅 입력 활성화',
+      '아날로그와 액션 버튼 반투명 처리',
+      '아날로그 위치와 비율 조정'
+    ]
   }
 ];
 
@@ -5789,6 +5911,7 @@ function renderPatchNotes(){
     </div>
   `).join('');
 }
+
 
 function openPop(id){
   closeMiniNpcMenu();
