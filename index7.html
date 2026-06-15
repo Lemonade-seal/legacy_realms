@@ -2494,155 +2494,116 @@ header.topbar,
 #updatePercent{font-size:11px; margin-top:8px; color:#cfe5ff;}
 
 
+/* quickslot action bar: top 1-6, bottom auto/attack/action */
+.toolbar{grid-template-columns:var(--controlH) clamp(238px, 68vw, 390px) !important;}
+.mainActionBar{display:grid !important; grid-template-columns:1fr !important; grid-template-rows:var(--btnH) var(--btnH) !important; gap:4px !important; height:var(--controlH) !important;}
+.quickSlotRow{display:grid !important; grid-template-columns:repeat(6,minmax(0,1fr)) !important; width:100% !important; gap:3px !important; grid-row:1 !important;}
+.mainActionRow{display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:4px !important; grid-row:2 !important;}
+.quickSlotBtn{min-height:var(--btnH) !important; height:var(--btnH) !important; padding:0 2px !important; font-size:8.2px !important; line-height:1.02 !important; white-space:pre-line !important; border-radius:6px !important;}
+.quickSlotBtn.empty{opacity:.72; color:#d9d0ad;}
+.quickSlotBtn.assigned{color:#ffdf79; border-color:rgba(255,223,121,.58) !important;}
+.quickSlotPicker{position:fixed; z-index:10070; left:50%; bottom:calc(118px + env(safe-area-inset-bottom)); transform:translateX(-50%); display:none; width:min(360px,calc(100vw - 14px)); max-height:min(430px,calc(100dvh - 120px)); overflow:hidden; border:1px solid rgba(215,180,90,.30); border-radius:12px; background:rgba(8,12,7,.16); box-shadow:0 8px 24px rgba(0,0,0,.18); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);}
+.quickSlotPicker.open{display:block;}
+.quickSlotPickerHead{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(215,180,90,.24); background:rgba(31,39,25,.36);}
+.quickSlotPickerHead b{color:#ffdc82; font-size:13px;}
+.quickSlotPickerHead button{--btnH:24px; min-height:24px; width:30px; padding:0; font-size:11px;}
+.quickSlotPickerBody{padding:8px; overflow:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; max-height:min(380px,calc(100dvh - 174px));}
+.quickSlotSectionTitle{margin:8px 0 5px; color:#d9d0ad; font-size:10px; font-weight:900;}
+.quickSlotChoiceGrid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px;}
+.quickSlotChoiceGrid button{--btnH:30px; min-height:30px; padding:0 4px; font-size:10px; border-radius:7px;}
+.quickSlotHint{font-size:10px; line-height:1.35; color:#cfc6a5; margin-bottom:6px;}
+@media(max-width:560px){.toolbar{grid-template-columns:var(--controlH) clamp(226px, 70vw, 330px) !important;} .quickSlotRow{gap:2px !important;} .quickSlotBtn{font-size:7.4px !important;} .quickSlotPicker{bottom:calc(104px + env(safe-area-inset-bottom));}}
 
-/* ==== hard fix: top HUD gold / wanted / weather one-line fixed ==== */
-.topbar,
-header.topbar,
-#topbar{
-  min-height:68px !important;
-  height:calc(68px + env(safe-area-inset-top)) !important;
-  display:grid !important;
-  grid-template-columns:minmax(72px,98px) minmax(0,1fr) minmax(88px,132px) !important;
-  grid-template-rows:34px 24px !important;
-  align-items:center !important;
-  gap:3px 5px !important;
-  overflow:hidden !important;
+
+/* quickslot picker transparent overlay */
+.quickSlotPicker,
+#quickSlotPicker{
+  background:rgba(8,12,7,.16) !important;
+  background-color:rgba(8,12,7,.16) !important;
+  border-color:rgba(215,180,90,.30) !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.18) !important;
+  backdrop-filter:blur(3px) !important;
+  -webkit-backdrop-filter:blur(3px) !important;
 }
-.topbar .brand,
-.topbar #charInfo{
-  grid-column:1 !important;
-  grid-row:1 !important;
-  min-width:0 !important;
-  max-width:98px !important;
-  overflow:hidden !important;
+.quickSlotPickerHead,
+#quickSlotPicker .quickSlotPickerHead{
+  background:rgba(31,39,25,.14) !important;
+  background-color:rgba(31,39,25,.14) !important;
+  border-bottom-color:rgba(215,180,90,.18) !important;
 }
-.topbar .stats{
-  grid-column:2 !important;
-  grid-row:1 !important;
-  min-width:0 !important;
-  width:100% !important;
-  grid-template-columns:1fr 1fr !important;
-  grid-template-rows:1fr 1fr !important;
+.quickSlotPickerBody,
+#quickSlotPicker .quickSlotPickerBody{
+  background:transparent !important;
+  background-color:transparent !important;
 }
-.topbar .topQuick{
-  grid-column:3 !important;
-  grid-row:1 !important;
-  width:100% !important;
-  max-width:132px !important;
-  justify-self:end !important;
-  align-self:center !important;
-  display:grid !important;
-  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
-  gap:2px !important;
+.quickSlotChoiceGrid button,
+#quickSlotPicker button{
+  background:rgba(24,31,20,.22) !important;
+  border-color:rgba(215,180,90,.34) !important;
+  box-shadow:none !important;
 }
-.topbar .topQuick button{
-  min-width:0 !important;
-  --btnH:24px !important;
-  min-height:24px !important;
-  padding:0 2px !important;
-  font-size:9px !important;
-  line-height:1 !important;
-  white-space:nowrap !important;
-}
-.topbar .gold,
-.gold.statusGoldLine,
-#gold.statusGoldLine{
-  grid-column:2 / 4 !important;
-  grid-row:2 !important;
-  justify-self:stretch !important;
-  align-self:center !important;
-  width:100% !important;
-  max-width:100% !important;
-  min-width:0 !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:flex-start !important;
-  gap:4px !important;
-  flex-wrap:nowrap !important;
-  overflow:hidden !important;
-  white-space:nowrap !important;
-  text-overflow:clip !important;
-  font-size:clamp(9px,2.35vw,11px) !important;
-  line-height:1 !important;
-  color:#f0d47b !important;
-  text-align:left !important;
-}
-#gold .hudGoldText,
-#gold .hudWantedText,
-#gold .hudSep,
-#gold .pixelStatusBadge{
-  flex:0 0 auto !important;
-  white-space:nowrap !important;
-  min-width:0 !important;
-}
-#gold .pixelStatusBadge{
-  display:inline-flex !important;
-  align-items:center !important;
-  gap:2px !important;
-  max-width:none !important;
-}
-#gold .pixelIcon{
-  width:12px !important;
-  height:12px !important;
-  flex:0 0 12px !important;
-  vertical-align:middle !important;
-}
-.topbar .onlineBadge,
-.onlineBadge#onlineBadge{
-  grid-column:1 !important;
-  grid-row:2 !important;
-  justify-self:start !important;
-  align-self:center !important;
-  max-width:50px !important;
-  min-width:40px !important;
-  padding:3px 4px !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  white-space:nowrap !important;
-  font-size:8.5px !important;
-}
-.topbar .pkModeBadge,
-.pkModeBadge#pkModeBadge{
-  grid-column:1 !important;
-  grid-row:2 !important;
-  justify-self:end !important;
-  align-self:center !important;
-  margin-left:0 !important;
-  max-width:42px !important;
-  min-width:34px !important;
-  padding:3px 4px !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  white-space:nowrap !important;
-  font-size:8.5px !important;
-}
-@media(max-width:560px){
-  .topbar,
-  header.topbar,
-  #topbar{
-    min-height:66px !important;
-    height:calc(66px + env(safe-area-inset-top)) !important;
-    grid-template-columns:minmax(60px,82px) minmax(0,1fr) minmax(78px,108px) !important;
-    grid-template-rows:32px 23px !important;
-    gap:2px 4px !important;
-    padding-left:5px !important;
-    padding-right:5px !important;
+
+
+
+  /* ==== patch: gold/wanted/weather one-line HUD + update gate ==== */
+  :root{ --topbar-offset:88px; }
+  #updatePage{
+    z-index:300000 !important;
   }
-  .topbar .brand,
-  .topbar #charInfo{max-width:82px !important; font-size:9px !important;}
-  .topbar .brand small{font-size:8px !important;}
-  .topbar .meter{height:9px !important; min-width:0 !important;}
-  .topbar .meter small{font-size:6.8px !important; padding:0 1px !important;}
-  .topbar .topQuick{max-width:108px !important;}
-  .topbar .topQuick button{--btnH:22px !important; min-height:22px !important; font-size:8px !important;}
+  .topbar{
+    min-height:86px !important;
+    grid-template-rows:30px 23px 18px !important;
+  }
   .topbar .gold,
-  .gold.statusGoldLine,
-  #gold.statusGoldLine{font-size:clamp(8px,2.25vw,10px) !important; gap:3px !important;}
-  #gold .pixelIcon{width:10px !important; height:10px !important; flex-basis:10px !important;}
-  .topbar .onlineBadge,.onlineBadge#onlineBadge{max-width:42px !important; min-width:34px !important; font-size:7.5px !important; padding:2px 3px !important;}
-  .topbar .pkModeBadge,.pkModeBadge#pkModeBadge{max-width:36px !important; min-width:30px !important; font-size:7.5px !important; padding:2px 3px !important;}
-}
-
+  #gold.statusGoldLine{
+    grid-column:1 / -1 !important;
+    grid-row:3 !important;
+    justify-self:stretch !important;
+    align-self:center !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    gap:6px !important;
+    flex-wrap:nowrap !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    padding:0 4px !important;
+    font-size:clamp(9px,2.35vw,11px) !important;
+    line-height:1 !important;
+    color:#f0d47b !important;
+  }
+  #gold.statusGoldLine .hudInlineItem,
+  #gold.statusGoldLine .pixelStatusBadge{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:3px !important;
+    flex:0 0 auto !important;
+    min-width:0 !important;
+    white-space:nowrap !important;
+  }
+  #gold.statusGoldLine .hudInlineItem.weatherText{
+    flex:1 1 auto !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+  }
+  #gold.statusGoldLine .hudDot{opacity:.72; flex:0 0 auto;}
+  @media(max-width:560px){
+    :root{ --topbar-offset:90px; }
+    .topbar{
+      min-height:88px !important;
+      grid-template-rows:31px 23px 18px !important;
+    }
+    .topbar .gold,
+    #gold.statusGoldLine{
+      font-size:9px !important;
+      gap:4px !important;
+      padding:0 3px !important;
+    }
+  }
 </style>
 
 
@@ -2836,15 +2797,6 @@ header.topbar,
       </div>
     </section>
 
-    <section class="pop" id="popStorage">
-      <div class="popHead"><b>창고</b><button onclick="closePop(); closeInventoryItemPopup()">닫기</button></div>
-      <div class="popBody">
-        <div class="notice">마을 창고는 30칸입니다. 내 창고는 바로 이용하고, 다른 유저 창고는 훔쳐보기로 확인합니다. 자물쇠가 없으면 창고 아이템을 도둑맞을 수 있습니다.</div>
-        <div id="storageUserList" class="wideList"></div>
-        <div id="storageDetail" class="storageDetail"></div>
-      </div>
-    </section>
-
     <section class="pop" id="popNpc">
       <div class="popHead"><b id="npcTitle">NPC</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
@@ -2897,7 +2849,6 @@ header.topbar,
           <button onclick="openPop('popSkills')">스킬</button>
           <button onclick="openPop('popCraft')">제작</button>
           <button onclick="openPop('popBank')">은행</button>
-          <button onclick="openPop('popStorage')">창고</button>
           <button onclick="openQuestFromMenu()">의뢰</button>
           <button onclick="openPop('popParty')">파티</button>
           <button onclick="openMessagesPopup()">쪽지</button>
@@ -3047,12 +2998,24 @@ header.topbar,
       <div class="analogBase"></div>
       <div class="analogKnob" id="analogKnob"></div>
     </div>
-    <div class="actions">
-      <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
-      <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">살펴보기</button>
-      <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
+    <div class="actions mainActionBar" aria-label="퀵슬롯과 하단 액션 버튼">
+      <div class="quickSlotBar quickSlotRow" id="quickSlotBar" aria-label="퀵슬롯 1번부터 6번">
+        <button id="quickSlot1" class="quickSlotBtn" data-slot="1" onclick="return quickSlotPress(1,event)">1</button>
+        <button id="quickSlot2" class="quickSlotBtn" data-slot="2" onclick="return quickSlotPress(2,event)">2</button>
+        <button id="quickSlot3" class="quickSlotBtn" data-slot="3" onclick="return quickSlotPress(3,event)">3</button>
+        <button id="quickSlot4" class="quickSlotBtn" data-slot="4" onclick="return quickSlotPress(4,event)">4</button>
+        <button id="quickSlot5" class="quickSlotBtn" data-slot="5" onclick="return quickSlotPress(5,event)">5</button>
+        <button id="quickSlot6" class="quickSlotBtn" data-slot="6" onclick="return quickSlotPress(6,event)">6</button>
+      </div>
+      <div class="mainActionRow">
+        <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
+        <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
+        <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">액션</button>
+      </div>
     </div>
   </div>
+
+  <div id="quickSlotPicker" class="quickSlotPicker" aria-hidden="true"></div>
 
   <div class="chatPanel" id="chatPanel">
     <input id="chatInput" type="text" maxlength="60" placeholder="채팅 입력 후 Enter" autocomplete="off">
@@ -3168,14 +3131,13 @@ Object.assign(itemDefs, {
   silverFishingRod:{name:'은장 낚싯대', type:'tool', grade:'레어', price:210, rod:{distance:2.75,power:1.28,luck:0.10}, desc:'레어 낚싯대. 거리 2.75칸, 파워 1.28, 행운 +10%.'},
   epicFishingRod:{name:'폭풍 낚싯대', type:'tool', grade:'에픽', price:420, rod:{distance:3.05,power:1.45,luck:0.15}, desc:'에픽 낚싯대. 거리 3.05칸, 파워 1.45, 행운 +15%.'},
   legendaryFishingRod:{name:'용비늘 낚싯대', type:'tool', grade:'전설', price:850, rod:{distance:3.45,power:1.72,luck:0.22}, desc:'전설 낚싯대. 거리 3.45칸, 파워 1.72, 행운 +22%.'},
-  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'},
-  storageLock:{name:'자물쇠', type:'tool', grade:'일반', price:90, desc:'창고에 설치하면 다른 유저가 창고 아이템을 훔칠 수 없다.'}
+  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
   manaPotion:17, healthPotion:17, oakLog:8, copperOre:7, silverOre:13,
   dungeonKey:16, batWing:12, slimeGel:10, ancientRelic:18,
-  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16, storageLock:16, sturdyBackpack:21, adventurerBackpack:21, epicBackpack:21, legendaryBackpack:21, mythicBackpack:21, sturdyFishingRod:6, silverFishingRod:6, epicFishingRod:6, legendaryFishingRod:6, mythicFishingRod:6
+  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16, sturdyBackpack:21, adventurerBackpack:21, epicBackpack:21, legendaryBackpack:21, mythicBackpack:21, sturdyFishingRod:6, silverFishingRod:6, epicFishingRod:6, legendaryFishingRod:6, mythicFishingRod:6
 });
 
 
@@ -3260,7 +3222,6 @@ shopItems.push(
   {id:'cookedFish', price:18, stock:6, desc:'중간 회복 음식'},
   {id:'healthPotion', price:42, stock:6, desc:'체력 회복 물약'},
   {id:'manaPotion', price:34, stock:6, desc:'마나 회복 물약'},
-  {id:'storageLock', price:125, stock:2, desc:'창고 도난 방지용 자물쇠'},
   {id:'rangerBow', price:170, stock:1, desc:'원거리 사냥용 고급 활'},
   {id:'sturdyFishingRod', price:120, stock:1, desc:'고급 낚싯대'}
 );
@@ -3283,7 +3244,6 @@ recipes.push(
   {id:'bandage', name:'붕대', grade:'일반', skill:'healing', skillName:'회복', need:{herb:3, hide:1}, gold:6, min:10},
   {id:'cookedFish', name:'구운 생선', grade:'일반', skill:'fishing', skillName:'낚시', need:{fish:2, herb:1}, gold:4, min:10},
   {id:'backpack', name:'여행 가방', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:8, hide:6}, gold:16, min:18},
-  {id:'storageLock', name:'자물쇠', grade:'일반', skill:'blacksmith', skillName:'대장기술', need:{ore:5, log:1}, gold:12, min:16},
   {id:'healthPotion', name:'체력 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:5, slimeGel:2}, gold:12, min:22},
   {id:'manaPotion', name:'마나 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:3, batWing:1}, gold:10, min:18},
   {id:'sturdyBackpack', name:'튼튼한 가방', grade:'고급', skill:'carpentry', skillName:'목공', need:{backpack:1, oakLog:6, hide:4}, gold:28, min:26},
@@ -3507,7 +3467,8 @@ const player = {
     resistance:{name:'저항', v: 1.0}
   },
   inv: {rustySword:1, herb:2, arrow:10},
-  bank: {}, storage:{}, storageSlots:30, storageLocked:false, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
+  quickSlots: [null,null,null,null,null,null],
+  bank: {}, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
   shopStock: {},
   merchantStock: {},
   questKills: {},
@@ -3563,7 +3524,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     crimeRecord:{steals:0, arrests:0},
     skills:starterSkillSet(),
     inv:{rustySword:1, herb:2},
-    bank:{}, storage:{}, storageSlots:30, storageLocked:false, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
+    bank:{}, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
     shopStock:{},
     merchantStock:{},
     questKills:{},
@@ -3580,7 +3541,6 @@ const npcs = [
   {x:33,y:22,homeX:33,homeY:22,name:'대장장이 로간', role:'대장장이', hp:85, maxHp:85, atk:5, loot:['ore','stolenPouch'], talk:'광석과 가죽으로 장비를 제작한다. [제작] 메뉴를 열어라.'},
   {x:27,y:24,homeX:27,homeY:24,name:'길드 서기', role:'안내', hp:60, maxHp:60, atk:2, loot:['stolenPouch'], talk:'이 게임은 직업보다 행동으로 성장한다. 하고 싶은 일을 계속 하면 된다.'},
   {x:31,y:24,homeX:31,homeY:24,name:'은행원 세라', role:'은행', hp:65, maxHp:65, atk:2, loot:['stolenRing','gold'], talk:'골드를 금액 지정으로 입금·출금하고 변동금리 이자를 받을 수 있다. [은행] 메뉴를 사용해라.'},
-  {x:29,y:23,homeX:29,homeY:23,name:'창고 관리인', role:'창고', hp:65, maxHp:65, atk:1, loot:['storageLock','silverCoin'], talk:'마을 공동 창고를 관리한다. 내 창고는 30칸이고 자물쇠가 없으면 도둑맞을 수 있다.'},
   {x:25,y:21,homeX:25,homeY:21,name:'의뢰 관리인', role:'의뢰', hp:75, maxHp:75, atk:3, loot:['stolenPouch'], talk:'길드 의뢰를 맡긴다. [의뢰하기]로 의뢰를 수락한 뒤에만 퀘스트가 활성화된다.'},
   {x:32,y:20,homeX:32,homeY:20,name:'잡화상 리나', role:'상점', hp:68, maxHp:68, atk:2, loot:['herb','fish','stolenPouch'], talk:'회복품과 기본 장비를 판다. [상점] 메뉴를 열어라.'},
   {x:23,y:23,homeX:23,homeY:23,name:'마을 경비병', role:'경비', guard:true, hp:120, maxHp:120, atk:13, loot:[], talk:'수배 중인 자는 즉시 제압한다.'},
@@ -3593,7 +3553,6 @@ const NPC_OUTFITS = {
   '대장장이': {cloth:'#6b4632', pants:'#2c2520', trim:'#9f6b43', hair:'#2a1a12', style:'apron'},
   '안내': {cloth:'#5c4b88', pants:'#2a2942', trim:'#d7b45a', hair:'#3b2416', style:'robe'},
   '은행': {cloth:'#2f6d75', pants:'#24313a', trim:'#d9d0ad', hair:'#5a3a1f', style:'formal'},
-  '창고': {cloth:'#52633a', pants:'#2f3323', trim:'#d7b45a', hair:'#4a2d18', style:'vest'},
   '의뢰': {cloth:'#7a6540', pants:'#342b20', trim:'#9fd0ff', hair:'#302018', style:'sash'},
   '상점': {cloth:'#8a4f6d', pants:'#302433', trim:'#ffd36a', hair:'#44240f', style:'dress'},
   '경비': {cloth:'#8d3434', pants:'#2d2b32', trim:'#c7c6b1', hair:'#1d1712', style:'guard'},
@@ -3606,6 +3565,7 @@ function npcVisualStyle(npc){
 
 let currentNpc = null;
 let activeTradeNpc = null;
+let activeTradeMode = 'trade';
 let merchantDrag = null;
 let dragGhost = null;
 let worldMinutes = 8 * 60;
@@ -5881,6 +5841,16 @@ function death(){
   player.hp = player.maxHp;
   player.mana = player.maxMana;
   player.sta = player.maxSta;
+  const jailed = tick < (player.jailUntilTick||0) || isJailTile(player.x, player.y) || isInsideJailCell(player.x, player.y);
+  if(jailed){
+    player.x = JAIL.cellX;
+    player.y = JAIL.cellY;
+    addLog('감옥에서 기절 후 감옥 안에서 회복.');
+    toast('감옥에서 부활');
+    closeMiniTrade();
+    draw();
+    return;
+  }
   player.x = 30; player.y = 22;
   const loss = Math.floor(player.gold*0.12);
   player.gold -= loss;
@@ -6058,13 +6028,6 @@ function npcRoleActions(npc){
 
   if(role === '은행'){
     add('은행', "openPop('popBank'); closeMiniNpcMenu()");
-    add('창고', "openPop('popStorage'); closeMiniNpcMenu()");
-    add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
-    return actions;
-  }
-
-  if(role === '창고'){
-    add('창고', "openPop('popStorage'); closeMiniNpcMenu()");
     add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
     return actions;
   }
@@ -6160,12 +6123,14 @@ function renderMiniNpcMenu(npc){
 
 function openNpcBagFromMenu(){
   if(!currentNpc){ toast('NPC 없음'); return; }
+  activeTradeMode = 'peek';
   closeMiniNpcMenu();
   openMerchantTrade(currentNpc);
 }
 
 function openNpcTradeFromMenu(){
   if(!currentNpc){ toast('NPC 없음'); return; }
+  activeTradeMode = 'trade';
   activeTradeNpc = currentNpc;
   closeMiniNpcMenu();
   openPop('popShop');
@@ -6210,6 +6175,7 @@ function smartLifeAction(){
   const npc = nearbyNpc();
   if(npc){
     currentNpc = npc;
+    activeTradeMode = 'peek';
     openMerchantTrade(npc);
     toast('NPC 아이템을 누르면 설명창에서 훔치기 가능');
     return;
@@ -7120,7 +7086,8 @@ function showMiniItemInfo(id, owner='', ev=null){
   }
   if(ev){
     const origin = owner === 'NPC 소지품' ? 'merchant' : owner === '내 가방' ? 'player' : 'inventory';
-    showInventoryItemPopup(ev, id, {mode:'trade', origin});
+    const mode = activeTradeMode === 'peek' ? 'peek' : 'trade';
+    showInventoryItemPopup(ev, id, {mode, origin});
   }
 }
 
@@ -7276,7 +7243,6 @@ function merchantCatalog(npc){
       {id:'rustySword', price:18, stock:3, desc:'초보자용 검'},
       {id:'shortBow', price:42, stock:2, desc:'초보자용 활'},
       {id:'arrow', price:3, stock:99, desc:'활 공격 탄약'},
-      {id:'storageLock', price:125, stock:2, desc:'창고 도난 방지용 자물쇠'},
       {id:'fishingRod', price:52, stock:2, desc:'낚시 도구'},
       {id:'leatherArmor', price:96, stock:2, desc:'가죽 방어구'},
       {id:'log', price:6, stock:10, desc:'목재'},
@@ -7347,6 +7313,7 @@ function itemIcon(id){
 
 function openMerchantTrade(npc){
   normalizePlayer();
+  if(activeTradeMode !== 'peek') activeTradeMode = 'peek';
   closeMiniNpcMenu();
   if(!npc || !isMerchantNpc(npc)){ openPop('popNpc'); return; }
   if(dist(npc, player) > 1.9){ toast('NPC가 너무 멀다'); return; }
@@ -7365,7 +7332,7 @@ function startMerchantDrag(ev, id){
     ev.stopPropagation?.();
   }
   merchantDrag = null;
-  toast('아이템을 눌러 설명창에서 구매/훔치기를 선택하세요');
+  toast('아이템을 눌러 설명창에서 훔치기를 선택하세요');
 }
 function moveDragGhost(x,y){
   if(!dragGhost) return;
@@ -7501,6 +7468,7 @@ function openMiniTrade(npc){
 
 function closeMiniTrade(){
   clearMerchantDrag();
+  activeTradeMode = 'trade';
   const box = document.getElementById('miniTrade');
   if(box) box.classList.remove('open');
 }
@@ -7540,7 +7508,7 @@ function renderMiniTrade(){
     const w = inventoryWeight();
     const max = maxCarryWeight();
     const cls = w > max * 0.9 ? 'weightBad' : 'weightGood';
-    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.`;
+    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 훔치기만 선택할 수 있다.`;
   }
 }
 
@@ -7561,6 +7529,7 @@ function renderMiniBagSlots(){
 }
 
 function renderShop(){
+  activeTradeMode = 'trade';
   normalizePlayer();
   const merchantGrid = document.getElementById('merchantGrid');
   const bagGrid = document.getElementById('tradeBagGrid');
@@ -7798,10 +7767,6 @@ function normalizePlayer(){
   if(typeof player.bagSlots !== 'number' || !Number.isFinite(player.bagSlots)) player.bagSlots = bagSlotBase();
   player.bagSlots = clamp(Math.floor(player.bagSlots), bagSlotBase(), 240);
   if(!player.bank) player.bank = {};
-  if(!player.storage || typeof player.storage !== 'object') player.storage = {};
-  if(typeof player.storageSlots !== 'number' || !Number.isFinite(player.storageSlots)) player.storageSlots = 30;
-  player.storageSlots = 30;
-  if(typeof player.storageLocked !== 'boolean') player.storageLocked = false;
   if(!player.shopStock) player.shopStock = {};
   if(!player.merchantStock) player.merchantStock = {};
   if(!player.questKills) player.questKills = {};
@@ -7830,8 +7795,149 @@ function normalizePlayer(){
     if(!player.skills[k]) player.skills[k] = {...v};
   }
   ensureAutoSettings();
+  try{ ensureQuickSlots(); }catch(e){}
+  try{ renderQuickSlots(); }catch(e){}
   applyJobBonuses();
 }
+
+
+function defaultQuickSlots(){ return [null,null,null,null,null,null]; }
+function isQuickSlotPotion(id){ const def = itemDefs[id] || {}; return def.type === 'potion'; }
+function isQuickSlotSkillLearned(id){ const skill = ACTIVE_SKILL_DEFS.find(s=>s.id===id); return !!skill && meetsReq(skill.req); }
+function ensureQuickSlots(){
+  if(!Array.isArray(player.quickSlots)) player.quickSlots = defaultQuickSlots();
+  while(player.quickSlots.length < 6) player.quickSlots.push(null);
+  player.quickSlots = player.quickSlots.slice(0,6).map(slot=>{
+    if(!slot || typeof slot !== 'object') return null;
+    const type = String(slot.type || '');
+    const id = String(slot.id || '');
+    if(type === 'skill'){
+      const skill = ACTIVE_SKILL_DEFS.find(s=>s.id===id);
+      if(!skill || !meetsReq(skill.req)) return null;
+      return {type:'skill', id:skill.id, label:String(slot.label || skill.name).slice(0,8)};
+    }
+    if(type === 'item'){
+      const def = itemDefs[id];
+      if(!def || !isQuickSlotPotion(id) || (player.inv?.[id] || 0) <= 0) return null;
+      return {type:'item', id, label:String(slot.label || def.name || id).slice(0,8)};
+    }
+    return null;
+  });
+  return player.quickSlots;
+}
+function quickSlotAutoLabel(type, id){
+  if(type === 'skill') return ACTIVE_SKILL_DEFS.find(s=>s.id===id)?.name || '스킬';
+  if(type === 'item') return itemDefs[id]?.name || '물약';
+  return '';
+}
+function quickSlotShortLabel(slot, idx){
+  if(!slot) return `${idx+1}`;
+  const label = String(slot.label || quickSlotAutoLabel(slot.type, slot.id) || `${idx+1}`).replace(/\s+/g,'').slice(0,4);
+  return `${idx+1}\n${label}`;
+}
+function renderQuickSlots(){
+  const slots = ensureQuickSlots();
+  for(let i=0;i<6;i++){
+    const btn = document.getElementById(`quickSlot${i+1}`);
+    if(!btn) continue;
+    const slot = slots[i];
+    btn.textContent = quickSlotShortLabel(slot, i);
+    btn.classList.toggle('empty', !slot);
+    btn.classList.toggle('assigned', !!slot);
+    btn.title = slot ? `${i+1}번: ${quickSlotAutoLabel(slot.type, slot.id)} / 길게 눌러 변경` : `${i+1}번: 비어 있음 / 길게 눌러 등록`;
+  }
+}
+function useQuickSlotItem(id){
+  normalizePlayer();
+  const def = itemDefs[id] || {};
+  if(!isQuickSlotPotion(id)){ toast('퀵슬롯에는 물약만 사용 가능'); return; }
+  const qty = Math.max(0, Number(player.inv?.[id]) || 0);
+  if(qty <= 0){ toast(`${def.name || id} 없음`); renderQuickSlots(); return; }
+  consumeItem(id);
+  renderInventory(); renderStatus(); updateHud(); draw();
+}
+function runQuickSlot(slotNo){
+  normalizePlayer();
+  const slot = ensureQuickSlots()[slotNo-1];
+  if(!slot){ openQuickSlotSetup(slotNo); return false; }
+  if(slot.type === 'skill'){
+    if(!isQuickSlotSkillLearned(slot.id)){ toast('습득하지 않은 스킬'); player.quickSlots[slotNo-1]=null; renderQuickSlots(); return false; }
+    useActiveSkill(slot.id);
+  }else if(slot.type === 'item'){
+    useQuickSlotItem(slot.id);
+  }
+  renderQuickSlots();
+  return false;
+}
+let quickSlotLongPress = {slot:0, timer:null, opened:false, startedAt:0};
+function quickSlotPress(slotNo, ev=null){
+  if(ev){ try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){} }
+  if(quickSlotLongPress.opened && quickSlotLongPress.slot === slotNo){ quickSlotLongPress.opened = false; return false; }
+  return runQuickSlot(slotNo);
+}
+function setupQuickSlotButtons(){
+  for(let i=1;i<=6;i++){
+    const btn = document.getElementById(`quickSlot${i}`);
+    if(!btn || btn.dataset.quickBound === '1') continue;
+    btn.dataset.quickBound = '1';
+    const begin = ev=>{
+      try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
+      clearTimeout(quickSlotLongPress.timer);
+      quickSlotLongPress = {slot:i, timer:null, opened:false, startedAt:Date.now()};
+      quickSlotLongPress.timer = setTimeout(()=>{ quickSlotLongPress.opened = true; openQuickSlotSetup(i); }, 520);
+    };
+    const end = ev=>{ try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){} clearTimeout(quickSlotLongPress.timer); };
+    btn.addEventListener('pointerdown', begin, {passive:false});
+    btn.addEventListener('pointerup', end, {passive:false});
+    btn.addEventListener('pointercancel', end, {passive:false});
+    btn.addEventListener('touchstart', begin, {passive:false});
+    btn.addEventListener('touchend', end, {passive:false});
+    btn.addEventListener('touchcancel', end, {passive:false});
+  }
+  renderQuickSlots();
+}
+function closeQuickSlotPicker(){
+  const box = document.getElementById('quickSlotPicker');
+  if(box){ box.classList.remove('open'); box.setAttribute('aria-hidden','true'); }
+}
+function assignQuickSlot(slotNo, type, id, label=''){
+  normalizePlayer();
+  if(slotNo < 1 || slotNo > 6) return;
+  if(!type){ player.quickSlots[slotNo-1] = null; }
+  else if(type === 'skill'){
+    const skill = ACTIVE_SKILL_DEFS.find(s=>s.id===id);
+    if(!skill || !meetsReq(skill.req)){ toast('습득하지 않은 스킬은 장착할 수 없음'); return; }
+    player.quickSlots[slotNo-1] = {type:'skill', id:skill.id, label:label || skill.name};
+  }else if(type === 'item'){
+    const def = itemDefs[id];
+    if(!def || !isQuickSlotPotion(id)){ toast('퀵슬롯에는 물약만 장착 가능'); return; }
+    if((player.inv?.[id]||0) <= 0){ toast('보유하지 않은 물약은 장착할 수 없음'); return; }
+    player.quickSlots[slotNo-1] = {type:'item', id, label:label || def.name || id};
+  }else{ toast('스킬과 물약만 장착 가능'); return; }
+  renderQuickSlots(); closeQuickSlotPicker(); toast(type ? `${slotNo}번 등록` : `${slotNo}번 비움`);
+}
+function quickSlotUsableInventoryItems(){
+  normalizePlayer();
+  return Object.keys(player.inv || {}).filter(id=> (player.inv[id]||0) > 0 && isQuickSlotPotion(id)).sort((a,b)=>(itemDefs[a]?.name||a).localeCompare(itemDefs[b]?.name||b));
+}
+function openQuickSlotSetup(slotNo){
+  normalizePlayer();
+  const box = document.getElementById('quickSlotPicker');
+  if(!box){ toast('퀵슬롯 설정창 없음'); return; }
+  const skills = ACTIVE_SKILL_DEFS.filter(s=>meetsReq(s.req));
+  const items = quickSlotUsableInventoryItems();
+  const skillHtml = skills.length ? skills.map(s=>`<button onclick="assignQuickSlot(${slotNo},'skill','${escapeJsString(s.id)}','${escapeJsString(s.name)}')">${escapeHtml(s.name)}</button>`).join('') : '<div class="notice">습득한 액티브 스킬 없음</div>';
+  const itemHtml = items.length ? items.map(id=>`<button onclick="assignQuickSlot(${slotNo},'item','${escapeJsString(id)}','${escapeJsString(itemDefs[id]?.name || id)}')">${escapeHtml(itemDefs[id]?.name || id)} x${player.inv[id]||0}</button>`).join('') : '<div class="notice">보유 중인 물약 없음</div>';
+  box.innerHTML = `<div class="quickSlotPickerHead"><b>${slotNo}번 퀵슬롯 설정</b><button onclick="closeQuickSlotPicker()">X</button></div>
+    <div class="quickSlotPickerBody">
+      <div class="quickSlotHint">짧게 누르면 사용, 길게 누르면 설정. 습득한 스킬과 보유 물약만 등록됩니다.</div>
+      <div class="quickSlotSectionTitle">스킬</div><div class="quickSlotChoiceGrid">${skillHtml}</div>
+      <div class="quickSlotSectionTitle">물약</div><div class="quickSlotChoiceGrid">${itemHtml}</div>
+      <div class="quickSlotSectionTitle">비우기</div><div class="quickSlotChoiceGrid"><button class="danger" onclick="assignQuickSlot(${slotNo},null,'','')">비우기</button></div>
+    </div>`;
+  box.classList.add('open'); box.setAttribute('aria-hidden','false');
+}
+
 
 function defaultAutoSettings(){
   return {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false};
@@ -7990,6 +8096,7 @@ function setupLogScrollBox(){
 }
 
 setupLogScrollBox();
+window.addEventListener('load', ()=>setTimeout(()=>{ try{ setupQuickSlotButtons(); }catch(e){} }, 200));
 
 function inventoryItemActionButtons(id, ctx={}){
   const def = itemDefs[id] || {};
@@ -7997,6 +8104,7 @@ function inventoryItemActionButtons(id, ctx={}){
   const mode = ctx.mode || 'inventory';
   const origin = ctx.origin || 'inventory';
   const inTrade = mode === 'trade' && !!activeTradeNpc;
+  const inPeek = mode === 'peek' && !!activeTradeNpc;
 
   if(mode === 'remotePeek' && origin === 'remote'){
     const targetId = ctx.targetId || '';
@@ -8006,12 +8114,11 @@ function inventoryItemActionButtons(id, ctx={}){
   if(inTrade){
     const npc = activeTradeNpc || currentNpc;
     if(origin === 'merchant'){
-      const stock = npc ? ensureMerchantStock(npc) : {};
       const price = npc ? tradeBuyPrice(npc, id) : (def.price || 0);
       const maxQty = npc ? maxBuyQuantity(npc, id) : 0;
       const canBuy = canNormalTradeWith(npc) && maxQty > 0;
       actions.push(`<button class="${canBuy?'primary':'danger'}" onclick="purchaseTradeItem('${id}', readTradeQuantity())">구매 ${price}g/개</button>`);
-      actions.push(`<button onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
+      actions.push(`<button class="danger" onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
     }else if(origin === 'player'){
       const price = tradeSellPrice(id, npc);
       const maxQty = maxSellQuantity(id, npc);
@@ -8020,25 +8127,17 @@ function inventoryItemActionButtons(id, ctx={}){
     }
   }
 
+  if(inPeek && origin === 'merchant'){
+    actions.push(`<button class="danger" onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
+  }
+
   if(origin !== 'merchant'){
-    if(def.type === 'weapon'){
-      actions.push(`<button onclick="equip('${id}'); closeInventoryItemPopup()">${player.weapon===id?'착용중':'착용'}</button>`);
-    }
-    if(def.type === 'armor'){
-      actions.push(`<button onclick="equipArmor('${id}'); closeInventoryItemPopup()">${player.armor===id?'착용중':'착용'}</button>`);
-    }
-    if(def.type === 'food' || def.type === 'potion'){
-      actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">사용</button>`);
-    }
-    if(def.type === 'bag'){
-      actions.push(`<button onclick="useBagItem('${id}'); closeInventoryItemPopup()">가방 사용</button>`);
-    }
-    if(id === 'repairKit'){
-      actions.push(`<button onclick="useRepairKit(); closeInventoryItemPopup()">수리</button>`);
-    }
-    if(id === 'smokeBomb'){
-      actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
-    }
+    if(def.type === 'weapon') actions.push(`<button onclick="equip('${id}'); closeInventoryItemPopup()">${player.weapon===id?'착용중':'착용'}</button>`);
+    if(def.type === 'armor') actions.push(`<button onclick="equipArmor('${id}'); closeInventoryItemPopup()">${player.armor===id?'착용중':'착용'}</button>`);
+    if(def.type === 'food' || def.type === 'potion') actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">사용</button>`);
+    if(def.type === 'bag') actions.push(`<button onclick="useBagItem('${id}'); closeInventoryItemPopup()">가방 사용</button>`);
+    if(id === 'repairKit') actions.push(`<button onclick="useRepairKit(); closeInventoryItemPopup()">수리</button>`);
+    if(id === 'smokeBomb') actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
   }
   return actions.join('');
 }
@@ -8805,6 +8904,21 @@ document.addEventListener('DOMContentLoaded', attachKakaoLoginButton);
 setTimeout(attachKakaoLoginButton, 300);
 setTimeout(attachKakaoLoginButton, 1200);
 
+(function bindNicknameEnterLogin(){
+  const bind = () => {
+    const input = document.getElementById('nicknameInput');
+    if(!input || input.dataset.enterLoginBound === '1') return;
+    input.dataset.enterLoginBound = '1';
+    input.addEventListener('keydown', ev=>{
+      if(ev.key !== 'Enter') return;
+      ev.preventDefault();
+      startKakaoLogin(ev);
+    });
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
+  else bind();
+})();
+
 
 async function startKakaoLogin(ev=null){
   ev?.preventDefault?.();
@@ -8900,6 +9014,74 @@ async function loginWithKakao(ev=null){
   return startKakaoLogin(ev);
 }
 
+
+const CLIENT_PATCH_VERSION = '2026-06-16-hud-login-update-gate';
+const CLIENT_PATCH_STORAGE_KEY = 'legacyRealmsAppliedPatchVersion';
+
+function shouldShowPatchUpdatePage(){
+  try{ return localStorage.getItem(CLIENT_PATCH_STORAGE_KEY) !== CLIENT_PATCH_VERSION; }
+  catch(e){ return true; }
+}
+
+function markPatchUpdateApplied(){
+  try{ localStorage.setItem(CLIENT_PATCH_STORAGE_KEY, CLIENT_PATCH_VERSION); }catch(e){}
+}
+
+function setUpdatePageProgress(percent, text=''){
+  const p = clamp(Math.round(Number(percent) || 0), 0, 100);
+  const bar = document.getElementById('updateProgressInner');
+  const label = document.getElementById('updatePercent');
+  if(bar) bar.style.width = `${p}%`;
+  if(label) label.textContent = text ? `${p}% · ${text}` : `${p}%`;
+}
+
+function runPatchUpdatePageIfNeeded(){
+  return new Promise(resolve=>{
+    const page = document.getElementById('updatePage');
+    if(!page || !shouldShowPatchUpdatePage()){
+      markPatchUpdateApplied();
+      resolve(false);
+      return;
+    }
+
+    page.classList.add('open');
+    page.setAttribute('aria-hidden','false');
+    setUpdatePageProgress(0, '패치 확인');
+
+    const steps = [
+      [18, '리소스 정리'],
+      [42, '상단 HUD 적용'],
+      [68, '로그인 흐름 확인'],
+      [88, '저장 데이터 보정'],
+      [100, '완료']
+    ];
+    let i = 0;
+    const next = ()=>{
+      const step = steps[i++];
+      if(!step){
+        markPatchUpdateApplied();
+        setTimeout(()=>{
+          page.classList.remove('open');
+          page.setAttribute('aria-hidden','true');
+          resolve(true);
+        }, 180);
+        return;
+      }
+      setUpdatePageProgress(step[0], step[1]);
+      setTimeout(next, step[0] >= 100 ? 260 : 170);
+    };
+    setTimeout(next, 120);
+  });
+}
+
+async function enterGameAfterLoginGate(){
+  await runPatchUpdatePageIfNeeded();
+  hideLoginPage();
+  updateHud();
+  updateWorldHud();
+  draw();
+}
+
 async function loadCloudStateAndEnter(){
   const client = await ensureSupabaseClient();
   if(!client) return false;
@@ -8966,7 +9148,7 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    hideLoginPage();
+    await enterGameAfterLoginGate();
     setupRealtimeOnline();
     await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
 
@@ -8990,12 +9172,12 @@ async function enterOnlineGame(){
 }
 
 
-function enterGuestMode(){
+async function enterGuestMode(){
   const {nick} = saveLoginSettings();
   player.nickname = nick || '';
   player.userId = 'guest-' + Math.random().toString(36).slice(2,8);
   player.isOnline = false;
-  hideLoginPage();
+  await enterGameAfterLoginGate();
   updateOnlineBadge();
   addLog('게스트 모드로 입장.');
 }
@@ -10592,7 +10774,15 @@ function updateHud(){
   const goldEl = document.getElementById('gold');
   if(goldEl){
     goldEl.classList.add('statusGoldLine');
-    goldEl.innerHTML = `<span class="hudGoldText">골드 ${player.gold}g</span><span class="hudSep">·</span><span class="hudWantedText">수배 ${player.wanted || 0}</span><span class="hudSep">·</span>${dayNightPixelHtml()}<span class="hudSep">·</span>${weatherPixelHtml()}`;
+    const gold = Math.floor(Number(player.gold) || 0);
+    const wanted = Math.max(0, Math.floor(Number(player.wanted) || 0));
+    goldEl.innerHTML = `
+      <span class="hudInlineItem">골드 ${gold}g</span>
+      <span class="hudDot">·</span>
+      <span class="hudInlineItem">수배 ${wanted}</span>
+      <span class="hudDot">·</span>
+      <span class="hudInlineItem weatherText">날씨 ${weatherPixelHtml()}</span>
+    `;
   }
   applyTopHudAdaptiveTone();
 }
