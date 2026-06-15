@@ -656,7 +656,7 @@
     vertical-align:middle;
   }
   .arrowItemIcon{
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M5 24 L23 6' stroke='%23210f08' stroke-width='5' stroke-linecap='square'/%3E%3Cpath d='M5 24 L23 6' stroke='%23d8b56c' stroke-width='2' stroke-linecap='square'/%3E%3Cpath d='M22 5 L30 2 L27 10 Z' fill='%23e8e2c8' stroke='%23210f08' stroke-width='1'/%3E%3Cpath d='M3 25 L11 21 L8 28 Z' fill='%2374a8bd' stroke='%23210f08' stroke-width='1'/%3E%3Cpath d='M6 22 L13 18 L10 25 Z' fill='%2399c2d1' stroke='%23210f08' stroke-width='1'/%3E%3Crect x='19' y='8' width='3' height='3' fill='%23f5d987'/%3E%3C/svg%3E") !important;
+    background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%20shape-rendering%3D%27crispEdges%27%3E%0A%3Crect%20width%3D%2732%27%20height%3D%2732%27%20fill%3D%27none%27%2F%3E%0A%3C%21--%20tail%20feathers%20outline%20--%3E%0A%3Cpath%20d%3D%27M4%2025%20L1%2018%20L9%2021%20Z%27%20fill%3D%27%231c130b%27%2F%3E%0A%3Cpath%20d%3D%27M7%2028%20L14%2024%20L10%2031%20Z%27%20fill%3D%27%231c130b%27%2F%3E%0A%3C%21--%20shaft%20outline%20--%3E%0A%3Cpath%20d%3D%27M5%2025%20L24%206%20L27%209%20L8%2028%20Z%27%20fill%3D%27%231c130b%27%2F%3E%0A%3C%21--%20arrow%20head%20outline%20--%3E%0A%3Cpath%20d%3D%27M22%204%20L31%201%20L28%2011%20L24%209%20L21%2014%20L18%2011%20L23%208%20Z%27%20fill%3D%27%231c130b%27%2F%3E%0A%3C%21--%20shaft%20--%3E%0A%3Cpath%20d%3D%27M7%2024%20L24%207%20L25%208%20L8%2025%20Z%27%20fill%3D%27%239a6b32%27%2F%3E%0A%3Cpath%20d%3D%27M9%2022%20L23%208%20L24%209%20L10%2023%20Z%27%20fill%3D%27%23d7b46a%27%2F%3E%0A%3Cpath%20d%3D%27M8%2025%20L25%208%20L26%209%20L9%2026%20Z%27%20fill%3D%27%2360401f%27%2F%3E%0A%3C%21--%20head%20--%3E%0A%3Cpath%20d%3D%27M23%205%20L29%203%20L27%209%20L24%207%20L22%2011%20L20%2010%20L24%208%20Z%27%20fill%3D%27%23e7e5d2%27%2F%3E%0A%3Cpath%20d%3D%27M26%207%20L27%209%20L24%208%20L22%2011%20L21%2010%20L24%207%20Z%27%20fill%3D%27%23aaa995%27%2F%3E%0A%3Cpath%20d%3D%27M25%205%20L28%204%20L27%206%20Z%27%20fill%3D%27%23ffffff%27%2F%3E%0A%3C%21--%20feathers%20--%3E%0A%3Cpath%20d%3D%27M4%2024%20L3%2020%20L8%2022%20Z%27%20fill%3D%27%2386b9c8%27%2F%3E%0A%3Cpath%20d%3D%27M7%2027%20L12%2025%20L10%2029%20Z%27%20fill%3D%27%23b8d9df%27%2F%3E%0A%3Cpath%20d%3D%27M5%2025%20L8%2022%20L9%2024%20L7%2026%20Z%27%20fill%3D%27%235e8fa0%27%2F%3E%0A%3C%21--%20pixel%20highlights%20--%3E%0A%3Crect%20x%3D%2719%27%20y%3D%2711%27%20width%3D%272%27%20height%3D%272%27%20fill%3D%27%23f1d78a%27%2F%3E%0A%3Crect%20x%3D%2713%27%20y%3D%2717%27%20width%3D%272%27%20height%3D%272%27%20fill%3D%27%23f1d78a%27%2F%3E%0A%3C%2Fsvg%3E") !important;
     background-size:contain !important;
     background-position:center !important;
     background-repeat:no-repeat !important;
@@ -1992,6 +1992,39 @@
 .tradeQtyBox label{font-size:11px; color:#d6c99f}
 .tradeQtyBox input{width:74px; min-height:30px; border:1px solid rgba(255,255,255,.18); border-radius:8px; background:rgba(12,14,16,.88); color:#f7edc0; text-align:center; font-weight:800}
 .tradeQtyBox button{min-height:30px; padding:0 10px}
+
+
+
+  /* log window vertical scroll */
+  :root{--legacy-log-h:76px;}
+  .log,
+  #log{
+    height:var(--legacy-log-h) !important;
+    max-height:var(--legacy-log-h) !important;
+    min-height:var(--legacy-log-h) !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    padding:5px 8px calc(5px + env(safe-area-inset-bottom)) 8px !important;
+    scroll-behavior:smooth;
+  }
+  .log div,
+  #log div{
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+    padding:1px 0;
+    line-height:1.25;
+  }
+  .log::-webkit-scrollbar,
+  #log::-webkit-scrollbar{width:6px;}
+  .log::-webkit-scrollbar-thumb,
+  #log::-webkit-scrollbar-thumb{background:rgba(215,180,90,.35); border-radius:999px;}
+  .toolbar{bottom:calc(var(--legacy-log-h) + env(safe-area-inset-bottom)) !important;}
 
 </style>
 
@@ -5340,37 +5373,82 @@ function drawProjectileEffects(camPxX, camPxY){
     ctx.translate(x, y);
     ctx.rotate(ang);
 
-    // 실제 화살 형태: 긴 나무 축, 금속 촉, 뒤쪽 깃.
-    ctx.lineCap='round';
-    ctx.strokeStyle='rgba(45,30,16,.9)';
-    ctx.lineWidth=4;
+    // 원본 도트 스타일 화살: 검은 외곽, 긴 화살대, 금속 촉, 뒤쪽 깃.
+    ctx.imageSmoothingEnabled = false;
+    ctx.lineCap='square';
+    ctx.lineJoin='miter';
+
+    // shaft outline
+    ctx.strokeStyle='rgba(24,16,9,.96)';
+    ctx.lineWidth=5;
     ctx.beginPath();
-    ctx.moveTo(-13, 1.4);
-    ctx.lineTo(11, 1.4);
+    ctx.moveTo(-17, 1);
+    ctx.lineTo(9, 1);
     ctx.stroke();
 
-    ctx.strokeStyle='#d7bd7d';
-    ctx.lineWidth=2;
+    // shaft body
+    ctx.strokeStyle='#8f5e2a';
+    ctx.lineWidth=3;
     ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.lineTo(10, 0);
+    ctx.moveTo(-17, 0);
+    ctx.lineTo(9, 0);
+    ctx.stroke();
+    ctx.strokeStyle='#e2bc70';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(-15, -1);
+    ctx.lineTo(7, -1);
     ctx.stroke();
 
-    ctx.fillStyle='#eef0dc';
+    // head outline
+    ctx.fillStyle='#181009';
     ctx.beginPath();
-    ctx.moveTo(15, 0);
-    ctx.lineTo(8, -4);
-    ctx.lineTo(10, 0);
-    ctx.lineTo(8, 4);
+    ctx.moveTo(17, 0);
+    ctx.lineTo(7, -6);
+    ctx.lineTo(10, -1);
+    ctx.lineTo(7, 0);
+    ctx.lineTo(10, 1);
+    ctx.lineTo(7, 6);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle='#8fb3c8';
+    // head fill
+    ctx.fillStyle='#f0edda';
     ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.lineTo(-21, -5);
-    ctx.lineTo(-18, 0);
-    ctx.lineTo(-21, 5);
+    ctx.moveTo(15, 0);
+    ctx.lineTo(9, -4);
+    ctx.lineTo(11, -1);
+    ctx.lineTo(8, 0);
+    ctx.lineTo(11, 1);
+    ctx.lineTo(9, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle='#a9a894';
+    ctx.fillRect(9,1,4,2);
+
+    // feathers outline
+    ctx.fillStyle='#181009';
+    ctx.beginPath();
+    ctx.moveTo(-17,0);
+    ctx.lineTo(-25,-6);
+    ctx.lineTo(-22,0);
+    ctx.lineTo(-25,6);
+    ctx.closePath();
+    ctx.fill();
+
+    // feathers fill
+    ctx.fillStyle='#b7dbe2';
+    ctx.beginPath();
+    ctx.moveTo(-18,0);
+    ctx.lineTo(-23,-4);
+    ctx.lineTo(-21,0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle='#78aabb';
+    ctx.beginPath();
+    ctx.moveTo(-18,0);
+    ctx.lineTo(-23,4);
+    ctx.lineTo(-21,0);
     ctx.closePath();
     ctx.fill();
 
@@ -6446,7 +6524,10 @@ function runAutoMode(){
 
 function renderLog(){
   const el = document.getElementById('log');
-  el.innerHTML = player.journal.slice(0,2).map(x=>`<div>${escapeHtml(x)}</div>`).join('');
+  if(!el) return;
+  const keepTop = el.scrollTop <= 4;
+  el.innerHTML = player.journal.map(x=>`<div>${escapeHtml(x)}</div>`).join('');
+  if(keepTop) el.scrollTop = 0;
 }
 
 function inventoryItemActionButtons(id, ctx={}){
@@ -9283,6 +9364,17 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'로그창 스크롤 기능 추가', items:[
+    '하단 로그창에 세로 스크롤을 추가해 누적 로그를 직접 위아래로 확인할 수 있게 했다.',
+    '최신 로그는 위쪽에 유지하고, 긴 로그 문장은 줄바꿈되어 잘리지 않도록 수정했다.',
+    '로그창 높이 증가에 맞춰 조작 버튼 영역이 겹치지 않도록 하단 위치를 보정했다.'
+  ]},
+
+  {version:'현재', title:'화살 도트 이미지 1번 스타일 재작업', items:[
+    '인터넷 후보 1번의 선명한 대각 화살 느낌을 참고하되 직접 복사하지 않고 원본 도트 아이콘으로 재작업했다.',
+    '아이템창 화살 아이콘과 발사 투사체 모두 검은 외곽, 금속 촉, 나무 화살대, 깃이 보이도록 수정했다.'
+  ]},
+
   {version:'현재', title:'쿨타임 음영·실시간 저장·화살 아이콘 개선', items:[
     '공격 버튼에 쿨타임 음영을 추가하고 수동 공격에도 공속 기반 쿨타임을 적용했다.',
     '화살 아이템 아이콘을 더 명확한 화살 형태로 다시 그렸다.',
@@ -10110,7 +10202,6 @@ function frameLoop(ts){
   updateCombatEffects(dt);
   updateProjectileEffects(dt);
   updateContextButtons();
-  realtimeLocalSnapshot(false);
   sendOnlineState();
   draw();
   requestAnimationFrame(frameLoop);
