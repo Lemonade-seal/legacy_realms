@@ -2157,6 +2157,21 @@ header.topbar,
   filter:brightness(1.18) !important;
 }
 
+#onlineBadge{
+  position:relative !important;
+  z-index:30 !important;
+  pointer-events:auto !important;
+  touch-action:manipulation !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+}
+#popOnlineList .popBody{
+  display:block;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#popOnlineList .notice{margin-bottom:8px;}
+
 </style>
 
 
@@ -2219,7 +2234,7 @@ header.topbar,
       <button onclick="openPop('popStatus')">상태</button>
       <button onclick="openPop('popMainMenu')">메뉴</button>
     </div>
-    <button class="onlineBadge" id="onlineBadge" type="button" onclick="openPop('popOnlineList')">오프라인</button>
+    <button class="onlineBadge" id="onlineBadge" type="button" onclick="openOnlineListPopup(event)">오프라인</button>
   </div>
 
   <div id="gameWrap">
@@ -2406,6 +2421,14 @@ header.topbar,
       <div class="popBody">
         <div class="notice">온라인 유저를 초대해 파티를 만든다. 파티원은 지도 위에 표시되고, 근처에서 처치한 몬스터의 골드/경험치를 나눠 받는다. 채팅 입력창에서 <b>/p 내용</b>을 쓰면 파티 채팅.</div>
         <div id="partyPanel"></div>
+      </div>
+    </section>
+
+    <section class="pop" id="popOnlineList">
+      <div class="popHead"><b>접속자 리스트</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">현재 접속 중이거나 최근 위치가 확인된 유저를 표시합니다.</div>
+        <div id="onlineListBody" class="wideList"></div>
       </div>
     </section>
 
@@ -8485,6 +8508,18 @@ function onlineListRows(){
   }
   return rows.sort((a,b)=> (b.me?0:1) - (a.me?0:1) || String(a.nick||'').localeCompare(String(b.nick||'')) );
 }
+function openOnlineListPopup(ev){
+  if(ev){
+    try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){}
+  }
+  const pop = document.getElementById('popOnlineList');
+  if(!pop){
+    toast('접속자 리스트 창을 찾을 수 없습니다.');
+    return;
+  }
+  openPop('popOnlineList');
+}
+
 function renderOnlineList(){
   const body = document.getElementById('onlineListBody');
   if(!body) return;
@@ -10009,6 +10044,7 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {title:'온라인 배지 팝업 클릭 수정', body:['상단 온라인 배지의 기존 모양을 유지하면서 클릭·터치 시 접속자 리스트 팝업이 열리도록 전용 이벤트를 보강했다.','누락된 접속자 리스트 팝업 DOM을 추가하고 openPop의 누락 팝업 오류를 방지했다.']},
   {title:'상대 유저 1프레임 보간·접속자 리스트', body:['원격 유저 좌표를 목표 좌표와 속도 기반으로 매 프레임 보간해 뚝뚝 끊겨 보이는 현상을 줄였다.','상단 온라인 버튼을 누르면 레벨·닉네임·직업·지역·좌표가 표시되는 접속자 리스트 팝업을 연다.']},
   {version:'현재', title:'가방 슬롯·등급 제작·낚싯대 성능 복구', items:[
     '기본 가방을 20칸으로 고정하고, 제작한 가방 아이템을 사용하면 슬롯이 영구 증가하도록 변경했다.',
@@ -10287,8 +10323,14 @@ function renderPatchNotes(){
 
 function openPop(id){
   closeMiniNpcMenu();
+  const pop = document.getElementById(id);
+  if(!pop){
+    console.warn('missing pop:', id);
+    toast('창을 찾을 수 없습니다.');
+    return;
+  }
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
-  document.getElementById(id).classList.add('open');
+  pop.classList.add('open');
   if(id==='popInv') renderInventory();
   if(id==='popSkills') renderSkills();
   if(id==='popJournal') renderJournal();
@@ -10309,6 +10351,21 @@ function closePop(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
   closeInventoryItemPopup();
 }
+
+(function bindOnlineBadgeClickFix(){
+  const bind = () => {
+    const badge = document.getElementById('onlineBadge');
+    if(!badge || badge.dataset.onlineClickBound === '1') return;
+    badge.dataset.onlineClickBound = '1';
+    const handler = (ev) => openOnlineListPopup(ev);
+    badge.addEventListener('click', handler, {capture:true});
+    badge.addEventListener('pointerup', handler, {capture:true});
+    badge.addEventListener('touchend', handler, {capture:true, passive:false});
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
+  else bind();
+})();
+
 function toggleGrid(){ showGrid=!showGrid; draw(); }
 
 function saveGame(){
