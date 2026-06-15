@@ -2080,6 +2080,16 @@
   color:inherit;
 }
 .onlineListGrid{display:grid; gap:8px;}
+
+.onlineUserCard{cursor:pointer;}
+.onlineUserActions{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; margin-top:6px; grid-column:1 / -1;}
+.onlineUserActions button{min-height:28px; padding:5px 9px; border-radius:10px; border:1px solid rgba(255,255,255,.10); color:#f8fafc; background:linear-gradient(180deg,rgba(15,23,42,.62),rgba(15,23,42,.28)); font-weight:800;}
+.onlineUserActions button.party{background:linear-gradient(180deg,rgba(37,99,235,.62),rgba(30,64,175,.30));}
+.onlineUserActions button.note{background:linear-gradient(180deg,rgba(14,116,144,.62),rgba(8,47,73,.30));}
+.onlineUserActions button:disabled{opacity:.45; filter:saturate(.55);}
+.onlineUserActionPanel{display:grid; gap:8px;}
+.onlineUserActionPanel .actionLine{display:flex; gap:8px; flex-wrap:wrap;}
+
 .onlineUserCard{
   display:grid;
   grid-template-columns:1fr auto;
@@ -2806,6 +2816,37 @@ recipes.push(
   {id:'mythicFishingRod', name:'별빛 낚싯대', grade:'신화', skill:'carpentry', skillName:'목공', need:{legendaryFishingRod:1, ancientRelic:2, goldenFish:2, relicShard:8}, gold:420, min:82},
   {id:'mythicBackpack', name:'신화의 가방', grade:'신화', skill:'tailoring', skillName:'재봉', need:{legendaryBackpack:1, ancientRelic:2, boneCharm:8, relicShard:8}, gold:480, min:84}
 );
+
+function hardenCraftRecipeDifficulty(){
+  if(recipes._difficultyHardened) return;
+  recipes._difficultyHardened = true;
+  const gradeRules = {
+    '일반': {min:18, goldMul:1.45, goldAdd:18, matMul:1.30, extra:{}},
+    '고급': {min:36, goldMul:2.15, goldAdd:72, matMul:1.75, extra:{oakLog:3, ore:4}},
+    '레어': {min:54, goldMul:3.20, goldAdd:165, matMul:2.30, extra:{silverOre:5, gem:2, silverCoin:4}},
+    '에픽': {min:72, goldMul:4.80, goldAdd:360, matMul:3.00, extra:{silverOre:10, gem:5, relicShard:4}},
+    '전설': {min:92, goldMul:7.20, goldAdd:900, matMul:4.00, extra:{ancientRelic:3, relicShard:12, frostOre:8, goldenFish:2}},
+    '신화': {min:115, goldMul:11.0, goldAdd:2100, matMul:5.50, extra:{ancientRelic:7, relicShard:28, frostOre:18, boneCharm:16, goldenFish:5}}
+  };
+  const scalableTypes = new Set(['mat','special','loot','ammo']);
+  for(const r of recipes){
+    const grade = craftGradeOf(r);
+    const rule = gradeRules[grade] || gradeRules['일반'];
+    r.min = Math.max(Number(r.min)||0, rule.min);
+    r.gold = Math.max(1, Math.ceil((Number(r.gold)||0) * rule.goldMul + rule.goldAdd));
+    const nextNeed = {};
+    for(const [id, qty] of Object.entries(r.need || {})){
+      const def = itemDefs[id];
+      const q = Math.max(1, Number(qty)||1);
+      nextNeed[id] = scalableTypes.has(def?.type) ? Math.max(q, Math.ceil(q * rule.matMul)) : q;
+    }
+    for(const [id, qty] of Object.entries(rule.extra || {})){
+      if(itemDefs[id] && id !== r.id) nextNeed[id] = (nextNeed[id] || 0) + qty;
+    }
+    r.need = nextNeed;
+  }
+}
+hardenCraftRecipeDifficulty();
 
 questDefs.push(
   {id:'boar4', title:'초원 멧돼지 사냥', type:'kill', target:'boar', targetName:'멧돼지', need:4, rewardGold:88, rewardFame:4, rewardItems:{hide:2, bandage:1}},
@@ -5755,7 +5796,7 @@ function renderCraft(){
           <p>${escapeHtml(def.desc||'')}</p>
           ${rodText}${bagText}
           <p>필요: ${escapeHtml(needText(r.need))} · ${r.gold}g</p>
-          <p>스킬: ${r.skillName} ${skill.toFixed(1)} · 성공률 ${chance}%</p>
+          <p>스킬: ${r.skillName} ${skill.toFixed(1)} / 필요 ${r.min} · 성공률 ${chance}%</p>
           <button class="${ok?'primary':'danger'}" onclick="craftItem('${r.id}')">${ok?'제작':'재료/가방 부족'}</button>
         </div>`;
       }).join('')}
@@ -7219,6 +7260,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
   if(!box) return;
 
   const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
+  const grade = itemGrade(id);
+  const displayName = `[${grade}] ${def.name || id}`;
   const mode = ctx.mode || 'inventory';
   const origin = ctx.origin || 'inventory';
   const npc = activeTradeNpc || currentNpc;
@@ -7259,7 +7302,7 @@ function showInventoryItemPopup(ev, id, ctx={}){
   }
 
   box.innerHTML = `<div class="invDetailHead">
-      <b>${escapeHtml(def.name)}</b>
+      <b>${escapeHtml(displayName)}</b>
       <button onclick="closeInventoryItemPopup()">X</button>
     </div>
     <div class="invDetailBody">
@@ -8763,7 +8806,13 @@ function renderOnlineList(){
     const gx = gridX(r.x), gy = gridY(r.y);
     const region = regionNameAt(r.x, r.y);
     const age = r.me ? '현재 접속' : `${Math.max(0, Math.floor((Date.now() - (r.ts || Date.now()))/1000))}초 전`;
-    return `<div class="onlineUserCard ${r.me?'me':''}">
+    const userId = escapeAttr(r.id || '');
+    const click = r.me ? '' : ` onclick="openOnlineUserActions('${userId}', event)"`;
+    const actions = r.me ? '' : `<div class="onlineUserActions" onclick="event.stopPropagation()">
+        <button class="note" onclick="sendPrivateNote('${userId}')">쪽지보내기</button>
+        <button class="party" onclick="partyInviteFromOnlineList('${userId}')" ${partySame(r.id)?'disabled':''}>${partySame(r.id)?'파티중':'파티 신청'}</button>
+      </div>`;
+    return `<div class="onlineUserCard ${r.me?'me':''}"${click}>
       <div>
         <div class="onlineUserMain">Lv.${escapeHtml(r.level || 1)} ${escapeHtml(r.nick || '유저')}</div>
         <div class="onlineUserSub">${escapeHtml(r.job || '방랑자')} · HP ${Math.max(0, Math.ceil(r.hp || 0))}/${Math.max(1, Math.ceil(r.maxHp || 100))}</div>
@@ -8772,9 +8821,46 @@ function renderOnlineList(){
         <div class="onlineUserLoc">${escapeHtml(region)} · ${gx}, ${gy}</div>
         <div class="onlineUserState">${r.me ? '나' : age}</div>
       </div>
+      ${actions}
     </div>`;
   }).join('');
-  body.innerHTML = `<div class="notice">현재 보이는 접속자 ${rows.length}명</div><div class="onlineListGrid">${html || '<p>접속자 없음</p>'}</div>`;
+  body.innerHTML = `<div class="notice">현재 보이는 접속자 ${rows.length}명 · 유저를 누르면 쪽지/파티 신청을 선택할 수 있습니다.</div><div class="onlineListGrid">${html || '<p>접속자 없음</p>'}</div>`;
+}
+
+function ensureOnlineUserActionPopup(){
+  if(document.getElementById('popOnlineUserActions')) return;
+  const sec = document.createElement('section');
+  sec.className = 'pop';
+  sec.id = 'popOnlineUserActions';
+  sec.innerHTML = `<div class="popHead"><b>유저 메뉴</b><button onclick="closePop()">닫기</button></div><div class="popBody"><div id="onlineUserActionBody" class="onlineUserActionPanel"></div></div>`;
+  document.body.appendChild(sec);
+}
+function openOnlineUserActions(targetId, ev){
+  if(ev){ try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){} }
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  ensureOnlineUserActionPopup();
+  const body = document.getElementById('onlineUserActionBody');
+  if(body){
+    const pos = remotePlayerPos(rp);
+    body.innerHTML = `<div class="card">
+      <h3>Lv.${escapeHtml(rp.level||1)} ${escapeHtml(rp.nick||'유저')}</h3>
+      <p>${escapeHtml(rp.job||'방랑자')} · ${escapeHtml(regionNameAt(pos.x||0,pos.y||0))} · ${gridX(pos.x||0)}, ${gridY(pos.y||0)}</p>
+      <div class="actionLine">
+        <button onclick="sendPrivateNote('${escapeAttr(rp.id)}')">쪽지보내기</button>
+        <button onclick="partyInviteFromOnlineList('${escapeAttr(rp.id)}')" ${partySame(rp.id)?'disabled':''}>${partySame(rp.id)?'이미 파티중':'파티 신청 보내기'}</button>
+      </div>
+    </div>`;
+  }
+  openPop('popOnlineUserActions');
+}
+function partyInviteFromOnlineList(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  if(partySame(targetId)){ toast('이미 파티원'); return; }
+  partyInvite(targetId);
+  addLog(`${rp.nick || '유저'}에게 파티 신청을 보냈다.`, 'system');
+  if(document.getElementById('popOnlineList')?.classList.contains('open')) renderOnlineList();
 }
 
 function updateOnlineBadge(){
@@ -8863,9 +8949,6 @@ function remoteRenderPosition(rp){
   const ty = Number(rp.targetY ?? rp.y ?? 0);
   if(!Number.isFinite(rp.displayX)) rp.displayX = tx;
   if(!Number.isFinite(rp.displayY)) rp.displayY = ty;
-  if(Number.isFinite(rp.lastRenderUpdate) && now - Number(rp.lastRenderUpdate) < 4){
-    return {x:rp.displayX, y:rp.displayY};
-  }
 
   const dt = Math.max(0.006, Math.min(0.034, (now - Number(rp.lastRenderUpdate || now)) / 1000));
   rp.lastRenderUpdate = now;
@@ -10320,6 +10403,8 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {title:'아이템 설명창 등급 표시', body:['아이템 설명창 제목에서 아이템명 앞에 [일반]·[고급]·[레어]·[에픽]·[전설]·[신화] 등급 표기를 붙이도록 수정했다.']},
+  {title:'접속자 리스트 유저 액션·제작 난이도 강화', body:['접속자 리스트에서 유저를 누르면 쪽지보내기와 파티 신청 보내기 메뉴가 열리도록 추가했다.','제작 레시피의 등급별 최소 숙련도·재료·골드 요구량을 강화하고 신화 등급으로 갈수록 요구치를 크게 높였다.']},
   {title:'온라인 배지 팝업 클릭 수정', body:['상단 온라인 배지의 기존 모양을 유지하면서 클릭·터치 시 접속자 리스트 팝업이 열리도록 전용 이벤트를 보강했다.','누락된 접속자 리스트 팝업 DOM을 추가하고 openPop의 누락 팝업 오류를 방지했다.']},
   {title:'상대 유저 1프레임 보간·접속자 리스트', body:['원격 유저 좌표를 목표 좌표와 속도 기반으로 매 프레임 보간해 뚝뚝 끊겨 보이는 현상을 줄였다.','상단 온라인 버튼을 누르면 레벨·닉네임·직업·지역·좌표가 표시되는 접속자 리스트 팝업을 연다.']},
   {version:'현재', title:'가방 슬롯·등급 제작·낚싯대 성능 복구', items:[
