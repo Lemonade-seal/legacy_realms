@@ -2365,6 +2365,66 @@ header.topbar,
   color:#ffaaa0 !important;
 }
 
+
+
+/* ==== login gate + update page fix ==== */
+#loginPage.characterReadyMode #loginStartBtn,
+#loginPage.characterReadyMode #nicknameInput,
+#loginPage.characterReadyMode label[for="nicknameInput"],
+#loginPage.characterReadyMode .loginBtns,
+#loginPage.characterReadyMode #serverDiagBox,
+#loginPage.characterReadyMode #oauthManualLinkBox{
+  display:none !important;
+}
+#loginPage.characterReadyMode .loginFormArea{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  gap:10px !important;
+}
+.characterEnterBtn{
+  width:min(300px,82vw) !important;
+  min-height:54px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:1px solid rgba(255,223,121,.82) !important;
+  border-radius:999px !important;
+  background:linear-gradient(180deg, rgba(82,66,24,.88), rgba(19,18,12,.76)) !important;
+  color:#fff3bd !important;
+  font-size:17px !important;
+  font-weight:900 !important;
+  text-shadow:0 0 9px rgba(255,223,121,.95), 0 2px 3px rgba(0,0,0,.88) !important;
+  box-shadow:0 0 12px rgba(255,223,121,.55), inset 0 0 14px rgba(255,223,121,.18) !important;
+  animation:startGlowPulse 1.2s ease-in-out infinite !important;
+}
+#updatePage{
+  position:fixed;
+  inset:0;
+  z-index:100200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:radial-gradient(circle at 50% 22%, rgba(74,169,255,.18), transparent 36%), rgba(6,8,10,.96);
+  color:#fff3bd;
+  text-align:center;
+}
+#updatePage.open{display:flex;}
+.updateCard{
+  width:min(360px,92vw);
+  border:1px solid rgba(255,223,121,.55);
+  border-radius:18px;
+  padding:20px;
+  background:rgba(10,12,9,.72);
+  box-shadow:0 18px 42px rgba(0,0,0,.55), inset 0 0 18px rgba(255,223,121,.08);
+}
+.updateCard h2{margin:0 0 8px; font-size:20px; color:#ffdc82;}
+.updateCard p{margin:6px 0 12px; font-size:12px; color:#dbcba7;}
+.updateProgressOuter{height:14px; border:1px solid rgba(255,223,121,.50); border-radius:999px; overflow:hidden; background:rgba(0,0,0,.42);}
+.updateProgressInner{height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#7aa7ff,#ffdc82,#fff3bd); box-shadow:0 0 14px rgba(255,223,121,.75); transition:width .18s linear;}
+#updatePercent{font-size:11px; margin-top:8px; color:#cfe5ff;}
+
 </style>
 
 
@@ -2763,12 +2823,23 @@ header.topbar,
   <div class="log" id="log" title="탭하면 채팅 입력 / 위아래 스크롤로 로그 확인" role="button" aria-label="로그창, 탭하면 채팅 입력"></div>
 </div>
 
+
+<div id="updatePage" aria-hidden="true">
+  <div class="updateCard">
+    <h2>업데이트 중</h2>
+    <p>패치 데이터를 적용하고 있습니다.</p>
+    <div class="updateProgressOuter"><div id="updateProgressInner" class="updateProgressInner"></div></div>
+    <div id="updatePercent">0%</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 'use strict';
 
 function showLoginForm(ev){
   try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  loginStartClicked = true;
   const page = document.getElementById('loginPage');
   const form = document.getElementById('loginFormArea');
   const start = document.getElementById('loginStartBtn');
@@ -2785,8 +2856,119 @@ function showLoginForm(ev){
     const nick = document.getElementById('nicknameInput');
     try{ nick?.focus?.(); }catch(e){}
   },80);
+  setTimeout(()=>{ try{ checkSessionAfterStart(); }catch(e){} },120);
 }
 try{ window.showLoginForm = showLoginForm; }catch(e){}
+
+const GAME_VERSION = '2026-06-15-login-weight-balance-02';
+let gameEntered = false;
+let gameReadyLoaded = false;
+let loginStartClicked = false;
+
+function gameUpdateNeeded(){
+  try{ return localStorage.getItem('legacyRealmsVersion') !== GAME_VERSION; }catch(e){ return true; }
+}
+function markGameUpdated(){
+  try{ localStorage.setItem('legacyRealmsVersion', GAME_VERSION); }catch(e){}
+}
+function ensureCharacterEnterButton(){
+  let btn = document.getElementById('characterEnterBtn');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'characterEnterBtn';
+    btn.type = 'button';
+    btn.className = 'characterEnterBtn';
+    btn.addEventListener('click', enterGameFromCharacterButton);
+    document.getElementById('loginFormArea')?.appendChild(btn);
+  }
+  return btn;
+}
+function showCharacterEnterGate(){
+  const page = document.getElementById('loginPage');
+  const form = document.getElementById('loginFormArea');
+  const start = document.getElementById('loginStartBtn');
+  const btn = ensureCharacterEnterButton();
+  const nick = (typeof displayGameNickname === 'function' ? displayGameNickname() : (player.nickname || '유저')) || '유저';
+  btn.textContent = `Lv.${player.level || 1} ${nick}`;
+  btn.style.display = 'flex';
+  if(start) start.style.display = 'none';
+  if(form){
+    form.classList.remove('hidden');
+    form.setAttribute('aria-hidden','false');
+  }
+  if(page){
+    page.classList.remove('hidden','loginStartMode','loginFormMode');
+    page.classList.add('characterReadyMode');
+  }
+  setLoginMsg('캐릭터를 눌러 게임에 입장하세요.');
+  gameReadyLoaded = true;
+}
+function hideCharacterEnterGate(){
+  document.getElementById('loginPage')?.classList.remove('characterReadyMode');
+}
+function showUpdatePageThenEnter(){
+  return new Promise(resolve=>{
+    const page = document.getElementById('updatePage');
+    const bar = document.getElementById('updateProgressInner');
+    const txt = document.getElementById('updatePercent');
+    if(!page){ resolve(); return; }
+    page.classList.add('open');
+    page.setAttribute('aria-hidden','false');
+    let pct = 0;
+    const step = () => {
+      pct = Math.min(100, pct + Math.max(4, Math.floor(Math.random()*13)+5));
+      if(bar) bar.style.width = pct + '%';
+      if(txt) txt.textContent = pct + '%';
+      if(pct >= 100){
+        markGameUpdated();
+        setTimeout(()=>{
+          page.classList.remove('open');
+          page.setAttribute('aria-hidden','true');
+          resolve();
+        }, 360);
+        return;
+      }
+      setTimeout(step, 120 + Math.random()*120);
+    };
+    step();
+  });
+}
+async function finalEnterGame(){
+  if(gameEntered) return true;
+  gameEntered = true;
+  hideCharacterEnterGate();
+  hideLoginPage();
+  setupRealtimeOnline();
+  try{ await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname }); }catch(e){}
+  toast('서버 접속 완료');
+  setServerDiag?.('SERVER ENTER OK');
+  return true;
+}
+async function enterGameFromCharacterButton(ev=null){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  if(!cloudState?.ready || !player?.userId || player.userId === 'guest'){
+    setLoginMsg('서버 데이터 확인 후 입장할 수 있습니다.');
+    return false;
+  }
+  const btn = document.getElementById('characterEnterBtn');
+  if(btn) btn.disabled = true;
+  try{
+    if(gameUpdateNeeded()) await showUpdatePageThenEnter();
+    return await finalEnterGame();
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+async function checkSessionAfterStart(){
+  try{
+    const client = await ensureSupabaseClient(false);
+    const { data } = await client?.auth?.getSession?.() || {};
+    if(data?.session && !gameReadyLoaded){
+      showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
+      await loadCloudStateAndEnter();
+    }
+  }catch(e){ console.error(e); }
+}
 
 
 const TILE = 32;
@@ -4723,7 +4905,7 @@ function attack(target=null){
   if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
   if(ranged && !consumeAmmoForWeapon(weapon)) return;
 
-  player.attackReadyTick = tick + playerAttackSpeed();
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
   player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
 
   ensureDurability(player.weapon);
@@ -4809,7 +4991,7 @@ function attackRemotePlayer(rp, opts={}){
   if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
   if(ranged && !consumeAmmoForWeapon(weapon)) return;
 
-  player.attackReadyTick = tick + playerAttackSpeed();
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
   player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
 
   ensureDurability(player.weapon);
@@ -4894,7 +5076,7 @@ function attackNpc(npc, opts={}){
   if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
   if(ranged && !consumeAmmoForWeapon(weapon)) return;
 
-  player.attackReadyTick = tick + playerAttackSpeed();
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
   player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
 
   markCriminal(`${npc.name} 공격.`, npc.guard ? 4 : 2);
@@ -5534,11 +5716,11 @@ function updateContextButtons(){
   }
 
   if(attackButton){
-    const cdTotal = Math.max(0.1, playerAttackSpeed ? playerAttackSpeed() : attackSecondsToTicks(BASIC_ATTACK_COOLDOWN_SECONDS));
+    const cdTotal = Math.max(1, Math.ceil(playerAttackSpeed ? playerAttackSpeed() : 12));
     const cdRemain = Math.max(0, (player.attackReadyTick || 0) - tick);
     const cdFill = clamp(cdRemain / cdTotal, 0, 1);
     const baseLabel = '공격';
-    attackButton.textContent = cdRemain > 0 ? `${baseLabel}\n${(cdRemain*GAME_TICK_SECONDS).toFixed(1)}초` : baseLabel;
+    attackButton.textContent = cdRemain > 0 ? `${baseLabel}\n${(cdRemain*0.45).toFixed(1)}초` : baseLabel;
     attackButton.style.setProperty('--cooldown-fill', cdFill.toFixed(3));
     attackButton.style.setProperty('--cooldown-opacity', cdFill > 0 ? '1' : '0');
     attackButton.classList.toggle('cooling', cdFill > 0);
@@ -6240,20 +6422,13 @@ function playerMoveSpeed(){
   const jobBonus = player.job === '궁수' || player.job === '순찰자' ? 0.22 : 0;
   return Math.max(2.15, base + tactics/180 + jobBonus - armorPenalty - weightPenalty);
 }
-const GAME_TICK_SECONDS = 0.45;
-const BASIC_ATTACK_COOLDOWN_SECONDS = 1.5;
-function attackSecondsToTicks(sec){
-  return Math.max(0.1, Number(sec) || BASIC_ATTACK_COOLDOWN_SECONDS) / GAME_TICK_SECONDS;
-}
 function playerAttackSpeed(){
   normalizePlayer();
+  const weapon = equippedWeaponDef();
   const skill = isRangedWeapon() ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
-  const tactics = player.skills.tactics?.v || 0;
-  // 기본공격은 1.5초 기준. 숙련도는 초반 밸런스가 무너지지 않게 소폭만 단축한다.
-  const skillReductionSec = Math.min(0.35, skill / 260 + tactics / 320);
-  const rangedPenaltySec = isRangedWeapon() ? 0.15 : 0;
-  const cooldownSec = Math.max(1.05, BASIC_ATTACK_COOLDOWN_SECONDS + rangedPenaltySec - skillReductionSec);
-  return attackSecondsToTicks(cooldownSec);
+  const weaponDelay = isRangedWeapon() ? 7.2 : Math.max(3.8, 6.2 - (weapon.atk || 0) * 0.08);
+  const speedBonus = Math.min(2.25, skill / 55 + (player.skills.tactics?.v || 0) / 90);
+  return Math.max(2.4, weaponDelay - speedBonus);
 }
 function playerHitRange(){
   const weapon = equippedWeaponDef();
@@ -6550,18 +6725,20 @@ function renderFence(){
 
 function itemWeight(id){
   const def = itemDefs[id] || {};
-  if(def.type === 'armor') return 8;
-  if(def.type === 'weapon') return 5;
-  if(def.type === 'tool') return 2;
-  if(def.type === 'bag') return 2.5;
-  if(def.type === 'special') return 1.5;
-  if(def.type === 'food') return id==='bandage' ? 0.6 : 1;
-  if(def.type === 'potion') return 0.8;
-  if(def.type === 'stolen') return 1.5;
-  if(id === 'ore') return 2;
-  if(id === 'log') return 2;
-  if(id === 'gem' || id === 'silverCoin') return 0.4;
-  return 1;
+  // 무게 밸런스 재조정: 생활 재료가 후반에 과도하게 무거워지는 문제를 줄인다.
+  if(def.type === 'armor') return 5.5;
+  if(def.type === 'weapon') return 3.2;
+  if(def.type === 'tool') return 1.2;
+  if(def.type === 'bag') return 1.0;
+  if(def.type === 'special') return 0.8;
+  if(def.type === 'food') return id==='bandage' ? 0.15 : 0.25;
+  if(def.type === 'potion') return 0.35;
+  if(def.type === 'stolen') return 0.8;
+  if(id === 'ore' || id === 'copperOre' || id === 'silverOre' || id === 'frostOre') return 0.8;
+  if(id === 'log' || id === 'oakLog') return 0.7;
+  if(id === 'gem' || id === 'silverCoin' || id === 'relicShard' || id === 'boneCharm') return 0.12;
+  if(def.type === 'mat') return 0.45;
+  return 0.5;
 }
 
 function inventoryWeight(inv=player.inv){
@@ -6569,8 +6746,11 @@ function inventoryWeight(inv=player.inv){
 }
 
 function maxCarryWeight(){
-  const base = 52 + Math.floor((player.skills.tactics?.v || 0) / 5);
-  return base;
+  normalizePlayer(false);
+  const levelBonus = Math.max(0, Number(player.level || 1) - 1) * 2;
+  const tacticsBonus = Math.floor((player.skills?.tactics?.v || 0) * 0.8);
+  const bagBonus = Math.max(0, maxBagSlots() - bagSlotBase()) * 3;
+  return Math.floor(120 + levelBonus + tacticsBonus + bagBonus);
 }
 
 function canCarryItem(id, qty=1){
@@ -7334,7 +7514,7 @@ function normalizePlayer(){
   if(typeof player.restCooldownTicks !== 'number') player.restCooldownTicks = 0;
   if(typeof player.attackReadyTick !== 'number' || !Number.isFinite(player.attackReadyTick)) player.attackReadyTick = 0;
   // 저장/재접속/이전 버전 데이터로 공격 준비 시간이 비정상적으로 커지면 공격이 계속 막히므로 현재 접속 tick 기준으로 보정한다.
-  if(player.attackReadyTick > tick + (typeof playerAttackSpeed === 'function' ? playerAttackSpeed() + 1 : 5) || player.attackReadyTick < tick - 500) player.attackReadyTick = tick;
+  if(player.attackReadyTick > tick + 80 || player.attackReadyTick < tick - 500) player.attackReadyTick = tick;
   if(typeof player.lastOnlineTimerTick !== 'number') player.lastOnlineTimerTick = tick;
   refreshOnlineCountdownSnapshots();
   if(typeof player.bagSlots !== 'number' || !Number.isFinite(player.bagSlots)) player.bagSlots = bagSlotBase();
@@ -8128,7 +8308,8 @@ async function showKakaoLoginPage(autoCheck=true){
 
   setLoginMsg('게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.');
 
-  if(autoCheck){
+  // 시작하기 전에는 기존 카카오 세션이 있어도 자동 입장하지 않는다.
+  if(autoCheck && loginStartClicked){
     try{
       const { data } = await client.auth.getSession();
       if(data?.session){
@@ -8504,19 +8685,19 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    hideLoginPage();
-    setupRealtimeOnline();
-    await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
-
-    toast('서버 접속 완료');
-    setServerDiag?.('SERVER ENTER OK');
+    // 로그인 완료 후 바로 게임으로 들어가지 않고 Lv.닉네임 버튼을 표시한다.
+    showCharacterEnterGate();
+    setServerDiag?.('SERVER READY: CHARACTER GATE');
     return true;
   }catch(e){
     console.error(e);
     cloudState.loading = false;
     cloudState.ready = false;
     cloudState.status = '서버 오류';
-    document.getElementById('loginPage')?.classList.remove('hidden');
+    const loginPage = document.getElementById('loginPage');
+    loginPage?.classList.remove('hidden','characterReadyMode');
+    loginPage?.classList.add('loginFormMode');
+    document.getElementById('loginFormArea')?.classList.remove('hidden');
     setLoginMsg('서버 접속 실패: ' + (e.message || String(e)));
     setServerDiag?.('SERVER ENTER ERROR: ' + (e.message || String(e)));
     return false;
@@ -8538,15 +8719,9 @@ function enterGuestMode(){
   addLog('게스트 모드로 입장.');
 }
 
-function clearAttackCooldownOnEntry(){
-  // 로그인/업데이트 화면에서 tick이 흐르거나 서버 저장값이 남아 시작 직후 공격 쿨타임이 도는 문제를 차단한다.
-  player.attackReadyTick = Math.min(Number(player.attackReadyTick || 0), tick);
-}
 function hideLoginPage(){
-  clearAttackCooldownOnEntry();
   document.getElementById('loginPage')?.classList.add('hidden');
   updateHud();
-  updateContextButtons();
   draw();
 }
 
@@ -10827,6 +11002,11 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'로그인 게이트 안정화·가방 무게 밸런스 조정', items:[
+    '기존 카카오 세션이 있어도 시작하기 전에는 자동 입장하지 않도록 로그인 흐름을 고정했다.',
+    '카카오 인증 완료 후에는 바로 게임으로 넘어가지 않고 Lv.닉네임 버튼을 표시한다.',
+    '생활 재료와 음식·포션·장비 무게를 낮추고, 기본 소지 한도와 가방 슬롯에 따른 소지 한도 보너스를 크게 올렸다.'
+  ]},
   {version:'현재', title:'타겟팅 삭제·근처 액션 자동화·쿨타임 음영 개선', items:[
     '월드 오브젝트를 눌러 고정하는 타겟팅 시스템을 제거하고, 근처 감지 기반 액션 버튼 방식으로 정리했다.',
     'NPC 근처에 가면 액션 버튼이 자동으로 대화로 바뀌며, 버튼을 누르면 바로 대화 메뉴가 열린다.',
@@ -11449,26 +11629,20 @@ function autoActionChaseStep(dt){
   return true;
 }
 
-function hasManualMoveInput(){
-  return !!(analog.active
-    || keysDown.has('arrowup') || keysDown.has('w')
-    || keysDown.has('arrowdown') || keysDown.has('s')
-    || keysDown.has('arrowleft') || keysDown.has('a')
-    || keysDown.has('arrowright') || keysDown.has('d'));
-}
-
-function autoAttackChaseStep(dt, opts={}){
+function autoAttackChaseStep(dt){
   const chase = autoAttackChase;
   if(!chase || !chase.ref) return false;
   const target = chase.ref;
   const kind = chase.kind || 'mob';
   const valid = kind === 'npc' ? isNpcTargetValid(target) : kind === 'player' ? isRemotePlayerTargetValid(target) : isMobTargetAlive(target);
-  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0) || (typeof canAttackByPkMode === 'function' && !canAttackByPkMode(kind, target))){
+  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0)){
     stopAutoAttackChase();
     return false;
   }
 
-  const allowMove = opts.allowMove !== false;
+  const hasManualMove = analog.active || keysDown.has('arrowup') || keysDown.has('w') || keysDown.has('arrowdown') || keysDown.has('s') || keysDown.has('arrowleft') || keysDown.has('a') || keysDown.has('arrowright') || keysDown.has('d');
+  if(hasManualMove) return false;
+
   const pos = targetCombatPos(target, kind);
   if(!pos){ stopAutoAttackChase(); return false; }
   const dx = pos.x - player.x;
@@ -11481,8 +11655,7 @@ function autoAttackChaseStep(dt, opts={}){
   }
 
   facePlayerToTarget(target, kind);
-  // 이동 중 공격을 위해 자동 공격 판정을 넉넉하게 잡는다.
-  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.55 : 1.05)){
+  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.45 : 0.5)){
     if(tick >= (player.attackReadyTick || 0)){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
@@ -11492,28 +11665,20 @@ function autoAttackChaseStep(dt, opts={}){
     return true;
   }
 
-  if(!allowMove){
-    // 사용자가 직접 이동 중이면 자동 추격 이동은 하지 않고, 사거리 안일 때만 공격한다.
-    return false;
-  }
-
   const len = d || 1;
   player.dir = [dx/len, dy/len];
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.35) * (dt/1000));
-  if(!moved && canAttackCombatTarget(target, kind, 1.05) && tick >= (player.attackReadyTick || 0)){
+  if(!moved && canAttackCombatTarget(target, kind, 0.85) && tick >= (player.attackReadyTick || 0)){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
-    else if(kind === 'player') attackRemotePlayer(target, {manual:true, auto:true});
     else attack(target);
   }
   return true;
 }
 
 function processMovement(dt){
-  // 자원/상자/NPC 자동 행동은 기존처럼 이동을 선점한다.
   if(autoActionChaseStep(dt)) return;
-
-  const manualMove = hasManualMoveInput();
+  if(autoAttackChaseStep(dt)) return;
   let vx = analog.active ? analog.x : 0;
   let vy = analog.active ? analog.y : 0;
   if(keysDown.has('arrowup') || keysDown.has('w')) vy -= 1;
@@ -11521,18 +11686,10 @@ function processMovement(dt){
   if(keysDown.has('arrowleft') || keysDown.has('a')) vx -= 1;
   if(keysDown.has('arrowright') || keysDown.has('d')) vx += 1;
   const mag = Math.hypot(vx,vy);
-
-  // 먼저 플레이어 이동을 처리하고, 같은 프레임에서 공격 판정을 별도로 돌린다.
-  if(mag >= 0.05){
-    const power = Math.min(1, mag);
-    const step = playerMoveSpeed() * power * (dt/1000);
-    move(vx,vy,step);
-  }
-
-  // 공격 자동 추격은 수동 이동을 막지 않는다. 수동 이동 중이면 추격 이동은 하지 않고, 사거리 안일 때만 공격한다.
-  if(autoAttackChase?.ref){
-    autoAttackChaseStep(dt, {allowMove:!manualMove});
-  }
+  if(mag < 0.05) return;
+  const power = Math.min(1, mag);
+  const step = playerMoveSpeed() * power * (dt/1000);
+  move(vx,vy,step);
 }
 
 
