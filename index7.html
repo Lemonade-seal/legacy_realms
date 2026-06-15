@@ -655,6 +655,36 @@
     image-rendering:pixelated;
     vertical-align:middle;
   }
+  .arrowItemIcon{
+    background:none !important;
+    position:relative;
+    width:var(--cell,24px);
+    height:var(--cell,24px);
+  }
+  .arrowItemIcon::before{
+    content:'';
+    position:absolute;
+    left:18%;
+    top:49%;
+    width:62%;
+    height:2px;
+    background:#d8c08a;
+    transform:rotate(-35deg);
+    transform-origin:left center;
+    box-shadow:0 1px 0 rgba(40,28,14,.9);
+  }
+  .arrowItemIcon::after{
+    content:'';
+    position:absolute;
+    right:15%;
+    top:20%;
+    width:0; height:0;
+    border-left:7px solid #e9dfba;
+    border-top:4px solid transparent;
+    border-bottom:4px solid transparent;
+    transform:rotate(-35deg);
+    filter:drop-shadow(0 1px 0 rgba(40,28,14,.85));
+  }
   .itemIcon{
     min-height:24px;
     display:flex;
@@ -3703,7 +3733,6 @@ function selectTarget(kind, ref, beginChase=false){
   if(kind !== 'mob') stopAutoAttackChase();
   if(kind === 'npc') currentNpc = ref;
   if(kind === 'mob' && beginChase) startAutoAttackChase(ref);
-  toast(`타겟: ${targetDisplayName(kind, ref)}`);
   draw();
   return true;
 }
@@ -3883,7 +3912,10 @@ function attack(target=null){
   }
 
   if(tick < (player.attackReadyTick || 0)){
-    if(isManualAttack) toast('공격 준비 중');
+    if(isManualAttack){
+      startAutoAttackChase(target, 'mob');
+      draw();
+    }
     return;
   }
 
@@ -3977,7 +4009,10 @@ function attackNpc(npc, opts={}){
   }
 
   if(tick < (player.attackReadyTick || 0)){
-    if(isManualAttack) toast('공격 준비 중');
+    if(isManualAttack){
+      startAutoAttackChase(npc, 'npc');
+      draw();
+    }
     return;
   }
 
@@ -4563,13 +4598,7 @@ function updateContextButtons(){
   const ctx = getContextAction();
   if(use) use.textContent = ctx.type === 'use' ? '말걸기' : ctx.label;
   if(attackButton){
-    if(autoAttackChase?.ref){
-      attackButton.textContent = '공격 취소';
-    }else{
-      const selectedEnemy = (manualAttackLock?.kind === 'mob' || manualAttackLock?.kind === 'npc') && isManualAttackLockedTargetValid() ? manualAttackLock.ref : null;
-      const nearbyEnemy = selectedEnemy || mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
-      attackButton.textContent = nearbyEnemy ? `공격:${(nearbyEnemy.name||'대상').slice(0,3)}` : '공격';
-    }
+    attackButton.textContent = autoAttackChase?.ref ? '공격 취소' : '공격';
   }
   if(autoButton){
     autoButton.textContent = player.auto?.enabled ? '오토 ON' : '오토';
@@ -5211,26 +5240,60 @@ function updateProjectileEffects(dt){
 }
 function drawProjectileEffects(camPxX, camPxY){
   ctx.save();
-  ctx.lineCap = 'round';
   for(const e of projectileEffects){
     const p = clamp(1 - e.life/e.maxLife, 0, 1);
-    const x = (e.sx + (e.tx-e.sx)*p) * TILE - camPxX + 16;
-    const y = (e.sy + (e.ty-e.sy)*p) * TILE - camPxY + 16;
-    const px = (e.sx + (e.tx-e.sx)*Math.max(0,p-0.08)) * TILE - camPxX + 16;
-    const py = (e.sy + (e.ty-e.sy)*Math.max(0,p-0.08)) * TILE - camPxY + 16;
+    const sx = e.sx*TILE - camPxX + 16;
+    const sy = e.sy*TILE - camPxY + 16;
+    const tx = e.tx*TILE - camPxX + 16;
+    const ty = e.ty*TILE - camPxY + 16;
+    const x = sx + (tx-sx)*p;
+    const y = sy + (ty-sy)*p;
+    const ang = Math.atan2(ty-sy, tx-sx);
     const a = Math.max(0, e.life/e.maxLife);
+    ctx.save();
     ctx.globalAlpha = a;
-    ctx.strokeStyle = '#d9c486';
-    ctx.lineWidth = 2;
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+
+    // 실제 화살 형태: 긴 나무 축, 금속 촉, 뒤쪽 깃.
+    ctx.lineCap='round';
+    ctx.strokeStyle='rgba(45,30,16,.9)';
+    ctx.lineWidth=4;
     ctx.beginPath();
-    ctx.moveTo(px, py);
-    ctx.lineTo(x, y);
+    ctx.moveTo(-13, 1.4);
+    ctx.lineTo(11, 1.4);
     ctx.stroke();
-    ctx.fillStyle = '#f1e3a5';
-    ctx.fillRect(x-1, y-1, 2, 2);
+
+    ctx.strokeStyle='#d7bd7d';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(-14, 0);
+    ctx.lineTo(10, 0);
+    ctx.stroke();
+
+    ctx.fillStyle='#eef0dc';
+    ctx.beginPath();
+    ctx.moveTo(15, 0);
+    ctx.lineTo(8, -4);
+    ctx.lineTo(10, 0);
+    ctx.lineTo(8, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle='#8fb3c8';
+    ctx.beginPath();
+    ctx.moveTo(-14, 0);
+    ctx.lineTo(-21, -5);
+    ctx.lineTo(-18, 0);
+    ctx.lineTo(-21, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
   }
   ctx.restore();
 }
+
 function combatPower(){
   const weapon = equippedWeaponDef();
   const weaponAtk = player.weapon && itemDefs[player.weapon] ? (itemDefs[player.weapon].atk || 0) : 0;
@@ -5697,6 +5760,10 @@ function ensureMerchantStock(npc){
 }
 
 function itemIcon(id){
+  if(id === 'arrow'){
+    const label = itemDefs[id]?.name || '화살';
+    return `<span class="spriteIcon arrowItemIcon" aria-label="${escapeHtml(label)}"></span>`;
+  }
   const idx = ITEM_SPRITE_INDEX[id] ?? ITEM_SPRITE_INDEX.default;
   const col = idx % ITEM_SPRITE_COLS;
   const row = Math.floor(idx / ITEM_SPRITE_COLS);
@@ -6150,6 +6217,9 @@ function normalizePlayer(){
   if(typeof player.criminalUntil !== 'number') player.criminalUntil = 0;
   if(typeof player.restReadyTick !== 'number') player.restReadyTick = 0;
   if(typeof player.restCooldownTicks !== 'number') player.restCooldownTicks = 0;
+  if(typeof player.attackReadyTick !== 'number' || !Number.isFinite(player.attackReadyTick)) player.attackReadyTick = 0;
+  // 저장/재접속/이전 버전 데이터로 공격 준비 시간이 비정상적으로 커지면 공격이 계속 막히므로 현재 접속 tick 기준으로 보정한다.
+  if(player.attackReadyTick > tick + 80 || player.attackReadyTick < tick - 500) player.attackReadyTick = tick;
   if(typeof player.lastOnlineTimerTick !== 'number') player.lastOnlineTimerTick = tick;
   refreshOnlineCountdownSnapshots();
   if(!player.bank) player.bank = {};
@@ -8828,15 +8898,6 @@ function drawYellowTargetMarker(target, x, y){
   ctx.moveTo(cx, cy+r-3); ctx.lineTo(cx, cy+r+5);
   ctx.stroke();
 
-  const lock = manualAttackLock?.ref === target ? manualAttackLock : null;
-  const label = lock ? targetDisplayName(lock.kind, target) : 'TARGET';
-  ctx.font='bold 10px system-ui';
-  ctx.textAlign='center';
-  ctx.lineWidth=3;
-  ctx.strokeStyle='rgba(39,25,0,.9)';
-  ctx.fillStyle='#ffe872';
-  ctx.strokeText(label, cx, y-7);
-  ctx.fillText(label, cx, y-7);
   ctx.restore();
 }
 
@@ -9082,6 +9143,13 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'공격 준비 멈춤·화살 이미지·타겟 이름 표시 수정', items:[
+    '공격 준비 시간이 재접속/저장 데이터 때문에 과도하게 커지는 경우를 접속 tick 기준으로 보정했다.',
+    '공격 대기 중에는 준비중 토스트만 반복하지 않고 자동 추격 상태를 유지해 준비가 끝나는 즉시 공격되게 수정했다.',
+    '화살 투사체와 화살 아이템 아이콘을 실제 화살 형태로 다시 그렸다.',
+    '타겟 설정 시 대상 이름 토스트와 타겟 마커 이름 텍스트를 제거했다.'
+  ]},
+
   {version:'현재', title:'사거리 표시 정리·NPC 공격·거래 수량 입력', items:[
     '상태창에서 사거리 보너스 별도 항목을 제거하고 최종 사거리 수치에만 보너스가 반영되게 정리했다.',
     'NPC를 타겟팅한 뒤 공격 버튼을 눌렀을 때 근접/원거리 사거리 기준으로 접근 또는 공격되도록 수정했다.',
