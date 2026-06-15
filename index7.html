@@ -2043,6 +2043,15 @@
   }
   .toolbar{bottom:calc(50px + env(safe-area-inset-bottom)) !important;}
 
+
+  /* bottom-up log flow: newest records stay at the bottom and older records rise upward */
+  .log,
+  #log{
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:flex-end !important;
+  }
+
 </style>
 
 
@@ -3339,8 +3348,8 @@ function updateWorldHud(){
 
 function addLog(msg){
   const stamp = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-  player.journal.unshift(`[${stamp}] ${msg}`);
-  player.journal = player.journal.slice(0,80);
+  player.journal.push(`[${stamp}] ${msg}`);
+  player.journal = player.journal.slice(-80);
   renderLog();
 }
 
@@ -3757,12 +3766,30 @@ function isResourceTargetValid(res){
 function isChestTargetValid(chest){
   return !!chest && chests.includes(chest) && !chest.opened;
 }
+function remotePlayerPos(rp){
+  if(!rp) return {x:0,y:0};
+  const source = (rp.id && remotePlayers?.[rp.id]) ? remotePlayers[rp.id] : rp;
+  const p = (typeof remoteRenderPosition === 'function') ? remoteRenderPosition(source) : null;
+  const x = Number(p?.x ?? source.renderX ?? source.x);
+  const y = Number(p?.y ?? source.renderY ?? source.y);
+  return {x:Number.isFinite(x)?x:0, y:Number.isFinite(y)?y:0};
+}
+function isRemotePlayerTargetValid(rp){
+  if(!rp || !rp.id || rp.id === player.userId) return false;
+  const current = remotePlayers?.[rp.id] || rp;
+  return !!current && Date.now() - (current.ts || 0) <= 14000;
+}
+function isPvpBlockedInTown(rp){
+  const p = remotePlayerPos(rp);
+  return isTownArea(player.x, player.y) || isTownArea(p.x, p.y);
+}
 function isTargetLockValid(lock=manualAttackLock){
   if(!lock || !lock.ref || tick > (lock.until||0)) return false;
   if(lock.kind === 'mob') return isMobTargetAlive(lock.ref) && entityScreenAwareDistance(lock.ref) <= 36;
   if(lock.kind === 'npc') return isNpcTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
   if(lock.kind === 'resource') return isResourceTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
   if(lock.kind === 'chest') return isChestTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
+  if(lock.kind === 'player') return isRemotePlayerTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 36;
   return false;
 }
 function clearManualTarget(reason=''){
@@ -3778,6 +3805,7 @@ function targetDisplayName(kind, ref){
   if(kind === 'npc') return ref.name || 'NPC';
   if(kind === 'resource') return resourceActionForKind(ref.kind).label;
   if(kind === 'chest') return ref.locked ? '잠긴 상자' : '상자';
+  if(kind === 'player') return ref.nick || '유저';
   return '대상';
 }
 function selectTarget(kind, ref, beginChase=false){
@@ -3785,6 +3813,7 @@ function selectTarget(kind, ref, beginChase=false){
     : kind === 'npc' ? isNpcTargetValid(ref)
     : kind === 'resource' ? isResourceTargetValid(ref)
     : kind === 'chest' ? isChestTargetValid(ref)
+    : kind === 'player' ? isRemotePlayerTargetValid(ref)
     : false;
   if(!ok) return false;
   manualAttackLock = {ref, kind, until:tick + 9999};
@@ -3802,11 +3831,17 @@ function setTouchedMobTarget(mob){
   return selectTarget('mob', mob, false);
 }
 function startAutoAttackChase(target, kind='mob'){
-  const ok = kind === 'npc' ? isNpcTargetValid(target) : isMobTargetAlive(target);
+  const ok = kind === 'npc' ? isNpcTargetValid(target)
+    : kind === 'player' ? isRemotePlayerTargetValid(target)
+    : isMobTargetAlive(target);
   if(!ok) return false;
+  if(kind === 'player' && isPvpBlockedInTown(target)){
+    toast('마을 안에서는 유저 공격 불가');
+    return false;
+  }
   manualAttackLock = {ref:target, kind, until:tick + 9999};
   stopAutoActionChase();
-  autoAttackChase = {ref:target, kind, until:tick + 360, attackTick:0};
+  autoAttackChase = {ref:target, kind, until:tick + 99999, attackTick:0};
   return true;
 }
 function stopAutoAttackChase(){
@@ -3865,6 +3900,10 @@ function executeAutoActionTarget(type, ref, action=null){
 }
 
 function entityScreenAwareDistance(entity){
+  if(entity && entity.id && remotePlayers?.[entity.id]){
+    const p = remotePlayerPos(entity);
+    return Math.hypot(p.x - player.x, p.y - player.y);
+  }
   const ex = typeof renderX === 'function' ? renderX(entity) : (entity.x || 0);
   const ey = typeof renderY === 'function' ? renderY(entity) : (entity.y || 0);
   return Math.hypot(ex - player.x, ey - player.y);
@@ -3873,6 +3912,7 @@ function entityScreenAwareDistance(entity){
 function attackBodyRadius(entity, kind='mob'){
   if(!entity) return 0.45;
   if(kind === 'npc') return entity.guard ? 0.62 : 0.56;
+  if(kind === 'player') return 0.58;
   if(kind === 'mob'){
     if(entity.boss) return 1.05;
     if(entity.animal) return 0.62;
@@ -3897,6 +3937,10 @@ function canReachAttackTarget(entity, kind='mob', extra=0.55){
 // 중심점 거리만 보지 않고, 캐릭터 앞쪽에 원형 타격 지점을 만든 뒤 대상 몸통 반경까지 포함한다.
 function targetCombatPos(entity, kind='mob'){
   if(!entity) return null;
+  if(kind === 'player'){
+    const p = remotePlayerPos(entity);
+    return {x:p.x, y:p.y, r:attackBodyRadius(entity, kind)};
+  }
   return {
     x: typeof renderX === 'function' ? renderX(entity) : (entity.x || 0),
     y: typeof renderY === 'function' ? renderY(entity) : (entity.y || 0),
@@ -3943,16 +3987,15 @@ function playerFrontStrikeHits(target, kind='mob', zone=null){
   if(Math.abs(normalizeAngle(targetAng - z.facing)) > z.arc * 0.5) return false;
   return Math.hypot(z.x - pos.x, z.y - pos.y) <= z.r + pos.r + 0.22;
 }
-function canAttackCombatTarget(target, kind='mob', extra=0.35){
+function canAttackCombatTarget(target, kind='mob', extra=0.18){
   if(!target) return false;
-  const ranged = isRangedWeapon ? isRangedWeapon() : false;
-  const range = playerHitRange ? playerHitRange() : 1.55;
-  const body = attackBodyRadius(target, kind);
+  // 공격 판정은 상태창의 '사거리' 수치가 곧 실제 타격 범위가 되게 고정한다.
+  // 대상 몸통 반경을 제외한 거리 <= 사거리면 명중 가능 범위다.
+  const range = Math.max(0.75, playerHitRange ? playerHitRange() : 1.55);
   const d = attackDistanceToTarget(target, kind);
-  if(ranged) return d <= range + body + extra;
-  if(d <= range + extra) return true;
-  return playerFrontStrikeHits(target, kind);
+  return d <= range + extra;
 }
+
 function addMeleeSwingEffect(target, kind='mob'){
   const z = playerFrontStrikeZone(target, kind);
   // 실제 히트박스 중심에 베기 이펙트를 띄워서 공격 범위가 눈에 보이게 한다.
@@ -3999,7 +4042,7 @@ function isManualAttackLockedTargetValid(){
 
 function pickManualAttackTarget(){
   // 연타 중에는 직전 전투 대상을 오래 잡고 간다. 자원/상자 타겟은 공격 대상이 아니다.
-  if(isManualAttackLockedTargetValid() && (manualAttackLock.kind === 'mob' || manualAttackLock.kind === 'npc')){
+  if(isManualAttackLockedTargetValid() && (manualAttackLock.kind === 'mob' || manualAttackLock.kind === 'npc' || manualAttackLock.kind === 'player')){
     return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
   }
 
@@ -4063,39 +4106,54 @@ function attack(target=null){
   }
   closeMiniTrade();
 
-  const isAutoChaseSwing = !!(target && autoAttackChase?.ref === target);
   const isManualButtonAttack = !target;
-  const isManualAttack = isManualButtonAttack || isAutoChaseSwing;
   if(isManualButtonAttack && autoAttackChase?.ref){
     stopAutoAttackChase();
     toast('공격 취소');
     draw();
     return;
   }
-  if(isManualAttack) stopAutoActionChase();
 
   let targetKind = 'mob';
-  if(isManualAttack){
+  const isAutoChaseSwing = !!(target && autoAttackChase?.ref === target);
+  const isManualAttack = isManualButtonAttack || isAutoChaseSwing;
+
+  if(isManualAttack) stopAutoActionChase();
+
+  if(isManualButtonAttack){
     const picked = pickManualAttackTarget();
-    if(picked?.kind === 'npc'){
-      attackNpc(picked.ref, {manual:true});
-      return;
-    }
-    if(picked?.kind === 'mob') target = picked.ref;
-    if(!target){
+    if(picked){
+      target = picked.ref;
+      targetKind = picked.kind;
+    }else{
       target = mobs
-        .filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=8.8)
+        .filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=Math.max(3.2, playerHitRange()+2.6))
         .sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0] || null;
-      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 140};
+      targetKind = 'mob';
+      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 9999};
     }
+  }else if(autoAttackChase?.ref === target){
+    targetKind = autoAttackChase.kind || 'mob';
+  }else if(isTargetLockValid(manualAttackLock) && manualAttackLock.ref === target){
+    targetKind = manualAttackLock.kind || 'mob';
   }
 
   if(!target){ toast('주변 적 없음'); return; }
+
+  if(targetKind === 'npc'){
+    attackNpc(target, {manual:true});
+    return;
+  }
+  if(targetKind === 'player'){
+    attackRemotePlayer(target, {manual:true});
+    return;
+  }
+
   facePlayerToTarget(target, targetKind);
 
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
-  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.45 : 0.5);
+  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.16 : 0.18);
 
   if(!inRange){
     if(isManualAttack){
@@ -4107,7 +4165,6 @@ function attack(target=null){
   }
 
   if(tick < (player.attackReadyTick || 0)){
-    // 버튼 쿨타임은 적용하되, 준비중 문구 반복은 없앤다.
     draw();
     return;
   }
@@ -4124,16 +4181,14 @@ function attack(target=null){
   const tactics = player.skills.tactics?.v || 0;
 
   if(ranged){
-    addProjectileEffect({x:player.x, y:player.y}, target, 'arrow');
+    const pos = targetCombatPos(target, targetKind) || target;
+    addProjectileEffect({x:player.x, y:player.y}, {x:pos.x, y:pos.y}, 'arrow');
   }else{
     addMeleeSwingEffect(target, targetKind);
   }
 
-  // 업로드 파일 방식처럼 전방 타격 구역과 대상 몸통을 함께 본다.
-  // 수동 공격은 사용자가 이미 버튼을 눌렀으므로 명중률보다 판정 안정성을 우선한다.
-  const zoneHit = ranged ? true : playerFrontStrikeHits(target, targetKind);
-  const hitRate = isManualAttack ? 0.98 : clamp((ranged ? 0.76 : 0.72) + mainSkill/260 + tactics/420, 0.72, 0.98);
-  const hit = zoneHit && Math.random() < hitRate;
+  const hitRate = isManualAttack ? 0.99 : clamp((ranged ? 0.76 : 0.72) + mainSkill/260 + tactics/420, 0.72, 0.98);
+  const hit = Math.random() < hitRate;
 
   if(hit){
     const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : mainSkill/9) + tactics/16 + Math.random()*8;
@@ -4158,6 +4213,73 @@ function attack(target=null){
     addCombatEffect(target.x, target.y, '빗나감', 'miss');
     addLog(`${target.name} 공격 빗나감.`);
     gainSkill(ranged ? 'archery' : 'sword',0.06);
+  }
+  draw();
+}
+
+function attackRemotePlayer(rp, opts={}){
+  normalizePlayer();
+  const isManualAttack = opts.manual !== false;
+  if(!isRemotePlayerTargetValid(rp)){ toast('대상 유저 없음'); stopAutoAttackChase(); return; }
+  if(isPvpBlockedInTown(rp)){
+    stopAutoAttackChase();
+    toast('마을 안에서는 유저 공격 불가');
+    addLog('마을 안에서는 유저끼리 공격할 수 없다.');
+    draw();
+    return;
+  }
+
+  const kind = 'player';
+  const pos = targetCombatPos(rp, kind);
+  facePlayerToTarget(rp, kind);
+  const weapon = equippedWeaponDef();
+  const ranged = isRangedWeapon();
+
+  if(!canAttackCombatTarget(rp, kind, ranged ? 0.16 : 0.18)){
+    if(isManualAttack){
+      startAutoAttackChase(rp, 'player');
+      addCombatEffect(pos.x, pos.y, '접근', 'guard');
+      draw();
+    }
+    return;
+  }
+
+  if(tick < (player.attackReadyTick || 0)){
+    draw();
+    return;
+  }
+
+  const tiredManual = isManualAttack && player.sta < 3;
+  if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
+  if(ranged && !consumeAmmoForWeapon(weapon)) return;
+
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
+  player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
+
+  ensureDurability(player.weapon);
+  const mainSkill = ranged ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
+  const tactics = player.skills.tactics?.v || 0;
+  if(ranged) addProjectileEffect({x:player.x, y:player.y}, {x:pos.x, y:pos.y}, 'arrow');
+  else addMeleeSwingEffect(rp, kind);
+
+  const hitRate = isManualAttack ? 0.97 : clamp((ranged ? 0.74 : 0.70) + mainSkill/280 + tactics/440, 0.68, 0.96);
+  const hit = Math.random() < hitRate;
+  if(hit){
+    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/11 : mainSkill/10) + tactics/18 + Math.random()*6;
+    const tiredPenalty = tiredManual ? 0.45 : 1;
+    const dmg = Math.max(1, Math.floor(baseDmg * tiredPenalty));
+    damageDurability(player.weapon, ranged ? 0.16 : 0.24);
+    rp.hp = Math.max(0, (rp.hp || rp.maxHp || 100) - dmg);
+    addCombatEffect(pos.x, pos.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
+    addLog(`${rp.nick || '유저'}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.`);
+    gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.18 : 0.13);
+    gainSkill('tactics', isManualAttack ? 0.13 : 0.09);
+    try{
+      onlineChannel?.send?.({type:'broadcast', event:'pvp_hit', payload:{fromId:player.userId, fromNick:displayGameNickname(), toId:rp.id, dmg, x:player.x, y:player.y, ts:Date.now()}});
+    }catch(e){}
+  }else{
+    addCombatEffect(pos.x, pos.y, '빗나감', 'miss');
+    addLog(`${rp.nick || '유저'} 공격 빗나감.`);
   }
   draw();
 }
@@ -4223,9 +4345,8 @@ function attackNpc(npc, opts={}){
 
   const mainSkill = ranged ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
   const tactics = player.skills.tactics?.v || 0;
-  const zoneHit = ranged ? true : playerFrontStrikeHits(npc, kind);
   const hitRate = isManualAttack ? 0.98 : clamp((ranged ? 0.76 : 0.72) + mainSkill/260 + tactics/420, 0.72, 0.98);
-  if(!zoneHit || Math.random() >= hitRate){
+  if(Math.random() >= hitRate){
     addCombatEffect(npc.x, npc.y, '빗나감', 'miss');
     addLog(`${npc.name} 공격 빗나감.`);
     gainSkill(ranged ? 'archery' : 'sword',0.05);
@@ -6635,15 +6756,13 @@ function runAutoMode(){
 function renderLog(){
   const el = document.getElementById('log');
   if(!el) return;
-  const prevTop = el.scrollTop || 0;
-  const prevHeight = el.scrollHeight || 0;
-  const keepTop = prevTop <= 4;
+  const prevBottomGap = (el.scrollHeight || 0) - (el.scrollTop || 0) - (el.clientHeight || 0);
+  const keepBottom = prevBottomGap <= 8;
   el.innerHTML = player.journal.map(x=>`<div>${escapeHtml(x)}</div>`).join('');
-  if(keepTop){
-    el.scrollTop = 0;
+  if(keepBottom){
+    el.scrollTop = el.scrollHeight;
   }else{
-    const nextHeight = el.scrollHeight || 0;
-    el.scrollTop = Math.max(0, prevTop + (nextHeight - prevHeight));
+    el.scrollTop = Math.max(0, (el.scrollHeight || 0) - (el.clientHeight || 0) - prevBottomGap);
   }
 }
 
@@ -8194,6 +8313,17 @@ function setupRealtimeOnline(){
       addLog(`${payload.nick || '유저'}: ${String(payload.text||'').slice(0,60)}`);
       updateOnlineBadge();
     })
+    .on('broadcast', { event: 'pvp_hit' }, ({payload}) => {
+      if(!payload || payload.toId !== player.userId) return;
+      if(isTownArea(player.x, player.y)) return;
+      const dmg = Math.max(0, Math.floor(Number(payload.dmg)||0));
+      if(dmg <= 0) return;
+      player.hp = Math.max(0, (player.hp||0) - dmg);
+      addCombatEffect(player.x, player.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
+      addLog(`${payload.fromNick || '유저'}에게 ${dmg} 피해를 받음.`);
+      if(player.hp <= 0) death();
+      draw();
+    })
     .on('broadcast', { event: 'party_invite' }, ({payload}) => partyHandleBroadcast('party_invite', payload))
     .on('broadcast', { event: 'party_accept' }, ({payload}) => partyHandleBroadcast('party_accept', payload))
     .on('broadcast', { event: 'party_decline' }, ({payload}) => partyHandleBroadcast('party_decline', payload))
@@ -9518,11 +9648,16 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
-  {version:'현재', title:'업로드 전투 액션 로직 이식', items:[
-    '업로드 파일의 전방 타격 구역 방식(actorFrontStrikeZone/actorFrontStrikeHits)을 현재 타일 좌표계에 맞춰 적용했다.',
-    '공격 버튼 입력 시 대상 방향으로 즉시 바라보고, 중심점이 아니라 몸통 반경과 전방 타격 구역을 함께 계산하도록 수정했다.',
-    '자동 접근 전투도 사거리 도달 시 공격 함수가 안정적으로 실행되게 정리했다.'
-  ]},
+  {
+    version:'현재 단계',
+    title:'사거리 기반 전투 흐름·로그 하단 정렬',
+    items:[
+      '타겟팅 후 공격 버튼을 누르면 대상에게 자동 접근하고, 사거리 수치 안에 들어오면 공격을 시작하도록 전투 흐름을 정리했다.',
+      '공격 중 공격 버튼을 다시 누르면 공격 취소로 처리되게 했다.',
+      '몬스터·동물·NPC·원격 유저를 공통 공격 타겟으로 처리하되 마을 안 유저 간 공격은 차단했다.',
+      '로그 기록은 최신 기록이 아래에 붙고 기존 기록이 위로 밀려 올라가도록 변경했다.'
+    ]
+  },
   {version:'현재', title:'공격 판정 개선·로그창 3줄 축소', items:[
     '공격 대상의 몸통 반경을 포함해 판정하도록 바꿔 중심점이 조금 벗어나도 근접/원거리 공격이 들어가게 했다.',
     '자동 추격 중 공격 함수가 공격 취소로 오인되던 경로를 분리해 접근 후 실제 공격이 실행되도록 수정했다.',
@@ -9900,6 +10035,25 @@ function mobAtScreenPoint(clientX, clientY){
     .sort((a,b)=>a.d-b.d)[0]?.mob || null;
 }
 
+function remotePlayerAtScreenPoint(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) * (canvas.width / rect.width);
+  const sy = (clientY - rect.top) * (canvas.height / rect.height);
+  const cam = cameraPixels();
+  return Object.values(remotePlayers || {})
+    .filter(rp=>isRemotePlayerTargetValid(rp))
+    .map(rp=>{
+      const p = remotePlayerPos(rp);
+      const ux = p.x*TILE - cam.x + 16;
+      const uy = p.y*TILE - cam.y + 16;
+      const dx = sx - ux;
+      const dy = sy - uy;
+      return {rp, d:Math.hypot(dx,dy)};
+    })
+    .filter(o=>o.d <= 42)
+    .sort((a,b)=>a.d-b.d)[0]?.rp || null;
+}
+
 function resourceActionForKind(kind){
   if(kind==='tree') return {kind:'wood', label:'벌목'};
   if(kind==='ore') return {kind:'mine', label:'채광'};
@@ -9942,6 +10096,8 @@ function setupCanvasGestures(){
 
     const mob = mobAtScreenPoint(e.clientX, e.clientY);
     if(mob){ canvasPointerTargeted = {kind:'mob', ref:mob}; selectTarget('mob', mob, false); e.preventDefault(); return; }
+    const remoteUser = remotePlayerAtScreenPoint(e.clientX, e.clientY);
+    if(remoteUser){ canvasPointerTargeted = {kind:'player', ref:remoteUser}; selectTarget('player', remoteUser, false); e.preventDefault(); return; }
     const npc = npcAtScreenPoint(e.clientX, e.clientY);
     if(npc){ canvasPointerTargeted = {kind:'npc', ref:npc}; selectTarget('npc', npc, false); e.preventDefault(); return; }
     const res = resourceAtScreenPoint(e.clientX, e.clientY);
@@ -9957,6 +10113,8 @@ function setupCanvasGestures(){
 
     const mob = mobAtScreenPoint(e.clientX, e.clientY);
     if(mob){ selectTarget('mob', mob, false); return; }
+    const remoteUser = remotePlayerAtScreenPoint(e.clientX, e.clientY);
+    if(remoteUser){ selectTarget('player', remoteUser, false); return; }
     const npc = npcAtScreenPoint(e.clientX, e.clientY);
     if(npc){ selectTarget('npc', npc, false); return; }
     const res = resourceAtScreenPoint(e.clientX, e.clientY);
@@ -10063,7 +10221,7 @@ function autoAttackChaseStep(dt){
   if(!chase || !chase.ref) return false;
   const target = chase.ref;
   const kind = chase.kind || 'mob';
-  const valid = kind === 'npc' ? isNpcTargetValid(target) : isMobTargetAlive(target);
+  const valid = kind === 'npc' ? isNpcTargetValid(target) : kind === 'player' ? isRemotePlayerTargetValid(target) : isMobTargetAlive(target);
   if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0)){
     stopAutoAttackChase();
     return false;
@@ -10089,6 +10247,7 @@ function autoAttackChaseStep(dt){
     if(tick >= (player.attackReadyTick || 0)){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
+      else if(kind === 'player') attackRemotePlayer(target, {manual:true, auto:true});
       else attack(target);
     }
     return true;
