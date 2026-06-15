@@ -2172,6 +2172,38 @@ header.topbar,
 }
 #popOnlineList .notice{margin-bottom:8px;}
 
+
+
+/* ==== requested multiplayer/UI fixes ==== */
+.gold.statusGoldLine{display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; line-height:1.15;}
+.pixelStatusBadge{display:inline-flex; align-items:center; gap:4px; white-space:nowrap;}
+.pixelIcon{display:inline-block; width:14px; height:14px; image-rendering:pixelated; position:relative; vertical-align:-2px; flex:0 0 auto;}
+.pixelIcon.day{background:transparent;}
+.pixelIcon.day::before{content:''; position:absolute; left:4px; top:4px; width:6px; height:6px; background:#f1d477; box-shadow:0 -3px 0 #f1d477,0 3px 0 #f1d477,-3px 0 0 #f1d477,3px 0 0 #f1d477, -2px -2px 0 #b98a32, 2px 2px 0 #b98a32;}
+.pixelIcon.night::before{content:''; position:absolute; left:3px; top:2px; width:8px; height:10px; background:#ccd6e8; box-shadow:3px 0 0 #151a12, 1px 7px 0 #8ea0bd; border-radius:50%;}
+.pixelIcon.weather-clear::before{content:''; position:absolute; left:4px; top:4px; width:6px; height:6px; background:#e6c45d; box-shadow:0 -3px 0 #e6c45d,0 3px 0 #e6c45d,-3px 0 0 #e6c45d,3px 0 0 #e6c45d;}
+.pixelIcon.weather-cloud::before{content:''; position:absolute; left:2px; top:6px; width:10px; height:5px; background:#b9c1c7; box-shadow:2px -3px 0 #d8dee4,5px -2px 0 #c8d0d6;}
+.pixelIcon.weather-rain::before{content:''; position:absolute; left:2px; top:4px; width:10px; height:4px; background:#9ca8b3; box-shadow:2px -2px 0 #cbd4dc,2px 6px 0 #5aa2d8,6px 7px 0 #5aa2d8;}
+.pixelIcon.weather-mist::before{content:''; position:absolute; left:1px; top:4px; width:12px; height:2px; background:#c9d2d0; box-shadow:0 4px 0 #9fb0ad,2px 8px 0 #dce3df;}
+.remoteHpBar{position:absolute;}
+.remoteActionList{display:grid; gap:7px; margin-top:8px;}
+.remoteInvGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px; align-content:start;}
+.remoteInvSlot{min-height:58px; border:1px solid #4b5535; border-radius:8px; background:#10140e; display:grid; place-items:center; position:relative; padding:4px; cursor:pointer;}
+.remoteInvSlot .itemName{font-size:9px; text-align:center; line-height:1.05; padding-bottom:12px; word-break:keep-all; overflow-wrap:anywhere;}
+.remoteInvSlot .itemQty{position:absolute; right:3px; bottom:2px; font-size:9px; background:rgba(0,0,0,.58); border-radius:4px; padding:0 3px; color:#f0d47b;}
+.invSlot.rarity-normal,.miniSlot.rarity-normal,.remoteInvSlot.rarity-normal{background:linear-gradient(180deg,rgba(245,245,245,.22),rgba(180,180,180,.10)); border-color:rgba(245,245,245,.58);}
+.invSlot.rarity-advanced,.miniSlot.rarity-advanced,.remoteInvSlot.rarity-advanced{background:linear-gradient(180deg,rgba(50,185,80,.28),rgba(20,80,35,.12)); border-color:rgba(78,210,95,.75);}
+.invSlot.rarity-rare,.miniSlot.rarity-rare,.remoteInvSlot.rarity-rare{background:linear-gradient(180deg,rgba(230,200,55,.30),rgba(105,85,18,.12)); border-color:rgba(240,210,80,.80);}
+.invSlot.rarity-epic,.miniSlot.rarity-epic,.remoteInvSlot.rarity-epic{background:linear-gradient(180deg,rgba(155,85,225,.32),rgba(70,35,120,.16)); border-color:rgba(185,115,245,.82);}
+.invSlot.rarity-legendary,.miniSlot.rarity-legendary,.remoteInvSlot.rarity-legendary{background:linear-gradient(180deg,rgba(240,135,35,.34),rgba(125,62,12,.16)); border-color:rgba(255,160,55,.86);}
+.invSlot.rarity-mythic,.miniSlot.rarity-mythic,.remoteInvSlot.rarity-mythic{background:linear-gradient(180deg,rgba(220,48,48,.36),rgba(110,20,20,.18)); border-color:rgba(255,80,80,.90);}
+.invSlot .invQty{right:3px; bottom:2px; font-size:9px; color:#f0d47b; background:rgba(0,0,0,.62); border-radius:4px; padding:0 3px; z-index:3;}
+.miniSlot .itemName{padding:0 16px 0 2px; font-size:8px; line-height:1.05; max-height:18px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.miniSlot .itemMeta{z-index:3; background:rgba(0,0,0,.62);}
+.messageList{display:grid; gap:8px;}
+.messageCard{border:1px solid #4b5535; border-radius:9px; background:rgba(16,20,14,.88); padding:8px;}
+.messageCard .meta{font-size:11px; color:#b8b08d; margin-bottom:4px;}
+
 </style>
 
 
@@ -2407,12 +2439,39 @@ header.topbar,
           <button onclick="openPop('popBank')">은행</button>
           <button onclick="openQuestFromMenu()">의뢰</button>
           <button onclick="openPop('popParty')">파티</button>
+          <button onclick="openMessagesPopup()">쪽지</button>
           <button onclick="openPop('popShop')">상점</button>
           <button onclick="openPop('popJournal')">저널</button>
           <button onclick="openFenceOrSell()">암시장/판매</button>
           <button onclick="openPop('popSettings')">설정</button>
           <button onclick="openPop('popPatchNotes')">패치노트</button>
         </div>
+      </div>
+    </section>
+
+
+
+    <section class="pop" id="popMessages">
+      <div class="popHead"><b>쪽지</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">온라인 유저에게 짧은 쪽지를 보낸다. 받은 쪽지는 이 창에 기록된다.</div>
+        <div class="card">
+          <h3>접속 유저</h3>
+          <div id="messageOnlineList" class="wideList"></div>
+        </div>
+        <div class="card">
+          <h3>받은 쪽지</h3>
+          <div id="messageInbox" class="messageList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pop" id="popPlayerPeek">
+      <div class="popHead"><b id="playerPeekTitle">상대 가방</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">상대 유저가 온라인으로 보낸 최근 가방 정보만 표시된다. 아이템을 누르면 훔치기를 시도한다.</div>
+        <div id="playerPeekActions" class="remoteActionList"></div>
+        <div id="playerPeekInv" class="remoteInvGrid"></div>
       </div>
     </section>
 
@@ -2632,6 +2691,24 @@ function craftGradeOf(recipe){ return CRAFT_GRADES.includes(recipe?.grade) ? rec
 function gradeClassName(grade){
   return ({'일반':'normal','고급':'advanced','레어':'rare','에픽':'epic','전설':'legendary','신화':'mythic'}[grade] || 'normal');
 }
+
+function itemGrade(id){
+  const def = itemDefs[id] || {};
+  if(def.grade) return def.grade;
+  const recipe = (typeof recipes !== 'undefined' ? recipes : []).find(r=>r.id === id);
+  if(recipe?.grade) return recipe.grade;
+  if(def.type === 'stolen' || def.type === 'special') return '레어';
+  if(def.type === 'weapon' && (def.atk||0) >= 14) return '레어';
+  if(def.type === 'armor' && (def.def||0) >= 6) return '고급';
+  if(def.price >= 260) return '에픽';
+  if(def.price >= 120) return '레어';
+  if(def.price >= 45) return '고급';
+  return '일반';
+}
+function itemRarityClass(id){
+  return 'rarity-' + gradeClassName(itemGrade(id));
+}
+function escapeAttr(v){ return String(v ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function bagSlotBase(){ return 20; }
 function maxBagSlots(){
   normalizePlayer(false);
@@ -3012,6 +3089,7 @@ let remotePlayers = {};
 let partyState = {id:null, leaderId:null, members:{}, invites:[]};
 let localSpeech = {text:'', until:0};
 let lastNetSend = 0;
+let lastOnlineTrack = 0;
 let lastCloudSave = 0;
 let lastPresenceSave = 0;
 let lastPresenceFetch = 0;
@@ -5073,6 +5151,7 @@ function getContextAction(){
       return {type:'resource', label:action.label, res:{...action, res:lock.ref}, targeted:true};
     }
     if(lock.kind === 'chest') return {type:'chest', label:'상자', chest:lock.ref, targeted:true};
+    if(lock.kind === 'player') return {type:'player', label:'훔쳐보기', player:lock.ref, targeted:true};
   }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
@@ -5296,6 +5375,11 @@ function smartUse(){
       return;
     }
     openChest(ctx.chest);
+    return;
+  }
+  if(ctx.type === 'player'){
+    selectTarget('player', ctx.player, false);
+    openRemotePeekPopup(ctx.player?.id);
     return;
   }
   useTile();
@@ -6143,6 +6227,15 @@ function weatherLabel(){
   })[worldWeather] || '맑음';
 }
 
+function dayNightPixelHtml(){
+  const night = isNight();
+  return `<span class="pixelStatusBadge" title="${night?'밤':'낮'}"><span class="pixelIcon ${night?'night':'day'}"></span>${night?'밤':'낮'}</span>`;
+}
+function weatherPixelHtml(){
+  const key = ['clear','cloud','rain','mist'].includes(worldWeather) ? worldWeather : 'clear';
+  return `<span class="pixelStatusBadge" title="${escapeAttr(weatherLabel())}"><span class="pixelIcon weather-${key}"></span>${escapeHtml(weatherLabel())}</span>`;
+}
+
 function weatherGatherBonus(kind){
   if(worldWeather === 'rain') return kind === 'fish' ? 0.08 : kind === 'wood' ? -0.03 : 0;
   if(worldWeather === 'mist') return kind === 'herb' ? 0.06 : 0;
@@ -6603,7 +6696,7 @@ function renderMiniTrade(){
   merchantGrid.innerHTML = merchantCatalog(npc).map(row=>{
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
     const qty = stock[row.id] || 0;
-    return `<div class="miniSlot ${qty<=0?'empty':''}"
+    return `<div class="miniSlot ${qty<=0?'empty':''} ${itemRarityClass(row.id)}"
       onclick="showMiniItemInfo('${row.id}','NPC 소지품',event)">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
@@ -6625,7 +6718,7 @@ function renderMiniBagSlots(){
   const ids = Object.keys(player.inv||{}).slice(0, 15);
   const slots = ids.map(id=>{
     const def = itemDefs[id] || {name:id, type:'기타'};
-    return `<div class="miniSlot" onclick="showMiniItemInfo('${id}','내 가방',event)">
+    return `<div class="miniSlot ${itemRarityClass(id)}" onclick="showMiniItemInfo('${id}','내 가방',event)">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
       <div class="itemMeta">${player.inv[id]}</div>
@@ -7228,7 +7321,7 @@ function renderInventory(){
     const qty = player.inv[id] || 0;
     const equipped = player.weapon===id || player.armor===id;
     const mark = equipped ? '<div class="invEquipMark">착용</div>' : '';
-    return `<div class="invSlot ${equipped?'equipped':''}" title="${escapeHtml(def.name)}" onclick="showInventoryItemPopup(event,'${id}')">
+    return `<div class="invSlot ${equipped?'equipped':''} ${itemRarityClass(id)}" title="${escapeHtml(def.name)}" onclick="showInventoryItemPopup(event,'${id}')">
       ${mark}
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="invQty">${qty}</div>
@@ -8487,6 +8580,148 @@ function renderParty(){
   `;
 }
 
+
+function ensureMailBox(){
+  if(!Array.isArray(player.mail)) player.mail = [];
+  return player.mail;
+}
+function publicInventorySnapshot(){
+  const inv = {};
+  for(const [id, qty] of Object.entries(player.inv || {})){
+    const q = Math.max(0, Math.floor(Number(qty)||0));
+    if(q > 0 && itemDefs[id]) inv[id] = Math.min(q, 9999);
+  }
+  return inv;
+}
+function remotePlayerCurrent(id){
+  return id ? (remotePlayers?.[id] || null) : null;
+}
+function openMessagesPopup(){
+  renderMessagesPopup();
+  openPop('popMessages');
+}
+function renderMessagesPopup(){
+  const list = document.getElementById('messageOnlineList');
+  const inbox = document.getElementById('messageInbox');
+  const users = Object.values(remotePlayers || {}).filter(rp => rp.id && Date.now() - (rp.ts||0) <= 18000).sort((a,b)=>(a.nick||'').localeCompare(b.nick||''));
+  if(list){
+    list.innerHTML = users.length ? users.map(rp=>`<div class="card">
+      <b>Lv.${escapeHtml(rp.level||1)} ${escapeHtml(rp.nick||'유저')}</b><br>
+      <small>${escapeHtml(rp.job||'방랑자')} · ${escapeHtml(regionNameAt(rp.x||0, rp.y||0))} · ${gridX(rp.x||0)}, ${gridY(rp.y||0)}</small><br>
+      <button onclick="sendPrivateNote('${escapeAttr(rp.id)}')">쪽지 보내기</button>
+    </div>`).join('') : '<p>접속 유저 없음</p>';
+  }
+  if(inbox){
+    const rows = ensureMailBox().slice(-30).reverse();
+    inbox.innerHTML = rows.length ? rows.map(m=>`<div class="messageCard"><div class="meta">${escapeHtml(m.fromNick||'유저')} · ${escapeHtml(m.time||'')}</div>${escapeHtml(m.text||'')}</div>`).join('') : '<p>받은 쪽지 없음</p>';
+  }
+}
+function sendPrivateNote(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  const text = prompt(`${rp.nick || '유저'}에게 보낼 쪽지`, '');
+  if(!text) return;
+  const body = String(text).slice(0,160);
+  try{
+    onlineChannel?.send?.({type:'broadcast', event:'private_note', payload:{fromId:player.userId, fromNick:displayGameNickname(), toId:targetId, text:body, ts:Date.now()}});
+    addLog(`${rp.nick || '유저'}에게 쪽지를 보냈다.`, 'system');
+    toast('쪽지 전송');
+  }catch(e){ toast('쪽지 전송 실패'); }
+}
+function receivePrivateNote(payload){
+  if(!payload || payload.toId !== player.userId) return;
+  ensureMailBox().push({fromId:payload.fromId, fromNick:payload.fromNick||'유저', text:String(payload.text||'').slice(0,160), time:new Date(payload.ts||Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})});
+  player.mail = player.mail.slice(-60);
+  addLog(`[쪽지] ${payload.fromNick || '유저'}: ${String(payload.text||'').slice(0,60)}`, 'chat');
+  toast('쪽지 도착');
+  if(document.getElementById('popMessages')?.classList.contains('open')) renderMessagesPopup();
+}
+function openRemotePeekPopup(targetId){
+  const rp = remotePlayerCurrent(targetId || manualAttackLock?.ref?.id);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  if(isTownArea(player.x, player.y) || isTownArea(remotePlayerPos(rp).x, remotePlayerPos(rp).y)){
+    // 훔쳐보기 자체는 가능하게 두되, 훔치기는 함수에서 별도로 제한한다.
+  }
+  const title = document.getElementById('playerPeekTitle');
+  const actions = document.getElementById('playerPeekActions');
+  const grid = document.getElementById('playerPeekInv');
+  if(title) title.textContent = `Lv.${rp.level||1} ${rp.nick || '유저'} 가방`;
+  if(actions) actions.innerHTML = `<button onclick="sendPrivateNote('${escapeAttr(rp.id)}')">쪽지</button><button class="danger" onclick="attackRemoteFromPeek('${escapeAttr(rp.id)}')">공격</button>`;
+  if(grid){
+    const inv = rp.inv || {};
+    const ids = Object.keys(inv).filter(id => (inv[id]||0) > 0 && itemDefs[id]);
+    grid.innerHTML = ids.length ? ids.map(id=>`<div class="remoteInvSlot ${itemRarityClass(id)}" onclick="attemptStealRemoteItem('${escapeAttr(rp.id)}','${escapeAttr(id)}')">
+      <div class="itemIcon">${itemIcon(id)}</div>
+      <div class="itemName">${escapeHtml(itemDefs[id]?.name || id)}</div>
+      <div class="itemQty">${inv[id]}</div>
+    </div>`).join('') : '<p>보이는 아이템 없음</p>';
+  }
+  openPop('popPlayerPeek');
+}
+function attackRemoteFromPeek(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  selectTarget('player', rp, false);
+  closePop();
+  startAutoAttackChase(rp, 'player');
+}
+function attemptStealRemoteItem(targetId, id){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  const p = remotePlayerPos(rp);
+  if(Math.hypot(p.x-player.x, p.y-player.y) > 1.85){ toast('훔치기엔 너무 멀다'); return; }
+  if(isTownArea(player.x, player.y) || isTownArea(p.x, p.y)){ toast('마을 안에서는 유저 소매치기 불가'); return; }
+  const qty = rp.inv?.[id] || 0;
+  if(qty <= 0){ toast('해당 아이템 없음'); return; }
+  const reqId = `${player.userId || 'local'}_${Date.now()}_${Math.floor(Math.random()*9999)}`;
+  try{
+    onlineChannel?.send?.({type:'broadcast', event:'remote_steal_request', payload:{reqId, fromId:player.userId, fromNick:displayGameNickname(), toId:targetId, itemId:id, skill:player.skills?.stealing?.v||0, ts:Date.now()}});
+    addLog(`${rp.nick || '유저'}의 ${itemDefs[id]?.name || id} 훔치기 시도.`, 'system');
+    toast('훔치기 시도');
+  }catch(e){ toast('훔치기 요청 실패'); }
+}
+function handleRemoteStealRequest(payload){
+  if(!payload || payload.toId !== player.userId) return;
+  const itemId = payload.itemId;
+  const qty = player.inv?.[itemId] || 0;
+  const def = itemDefs[itemId] || {};
+  let success = false, caught = false, reason = '';
+  if(qty <= 0){ reason = '아이템 없음'; }
+  else{
+    const pricePenalty = Math.min(0.28, (def.price||10)/900);
+    const chance = clamp(0.28 + (Number(payload.skill)||0)/170 - pricePenalty, 0.06, 0.82);
+    success = Math.random() < chance;
+    caught = !success && Math.random() < 0.65;
+    if(success) removeItem(itemId, 1);
+  }
+  try{
+    onlineChannel?.send?.({type:'broadcast', event:'remote_steal_result', payload:{reqId:payload.reqId, fromId:player.userId, fromNick:displayGameNickname(), toId:payload.fromId, thiefNick:payload.fromNick, itemId, success, caught, reason, ts:Date.now()}});
+  }catch(e){}
+  if(success) addLog(`${payload.fromNick || '누군가'}가 ${def.name || itemId} 1개를 훔쳐갔다.`, 'system');
+  else if(caught) addLog(`${payload.fromNick || '누군가'}가 소매치기를 시도하다 들켰다.`, 'system');
+  updateHud(); renderInventory(); draw();
+}
+function handleRemoteStealResult(payload){
+  if(!payload || payload.toId !== player.userId) return;
+  const name = itemDefs[payload.itemId]?.name || payload.itemId || '아이템';
+  if(payload.success){
+    addItem(payload.itemId, 1);
+    gainSkill('stealing',0.35);
+    addLog(`${payload.fromNick || '유저'}에게서 ${name} 1개를 훔쳤다.`, 'system');
+    toast('훔치기 성공');
+  }else{
+    gainSkill('stealing',0.12);
+    if(payload.caught){
+      player.wanted = clamp((player.wanted||0) + 2, 0, 20);
+      addLog(`${payload.fromNick || '유저'}에게 훔치기를 들켰다. 수배도 +2.`, 'system');
+      toast('발각');
+    }else{
+      addLog(`${payload.fromNick || '유저'} 훔치기 실패.`, 'system');
+      toast('실패');
+    }
+  }
+  renderInventory(); updateHud(); draw();
+}
 function onlineListRows(){
   const now = Date.now();
   const rows = [{
@@ -8564,6 +8799,7 @@ function onlinePayload(){
     partyId: partyState.id || null,
     partyLeaderId: partyState.leaderId || null,
     partyCount: partyMemberCount(),
+    inv: publicInventorySnapshot(),
     ts: Date.now()
   };
 }
@@ -8627,29 +8863,34 @@ function remoteRenderPosition(rp){
   const ty = Number(rp.targetY ?? rp.y ?? 0);
   if(!Number.isFinite(rp.displayX)) rp.displayX = tx;
   if(!Number.isFinite(rp.displayY)) rp.displayY = ty;
+  if(Number.isFinite(rp.lastRenderUpdate) && now - Number(rp.lastRenderUpdate) < 4){
+    return {x:rp.displayX, y:rp.displayY};
+  }
 
-  const dt = Math.max(0.008, Math.min(0.05, (now - Number(rp.lastRenderUpdate || now)) / 1000));
+  const dt = Math.max(0.006, Math.min(0.034, (now - Number(rp.lastRenderUpdate || now)) / 1000));
   rp.lastRenderUpdate = now;
 
-  // 아주 약한 예측만 사용한다. 과한 예측은 순간이동처럼 보일 수 있다.
-  const sinceUpdate = Math.max(0, Math.min(0.10, (now - Number(rp.lastRemoteUpdate || now)) / 1000));
-  const predictedX = tx + clamp(Number(rp.velocityX || 0) * sinceUpdate * 0.18, -0.18, 0.18);
-  const predictedY = ty + clamp(Number(rp.velocityY || 0) * sinceUpdate * 0.18, -0.18, 0.18);
+  const sinceUpdate = Math.max(0, Math.min(0.16, (now - Number(rp.lastRemoteUpdate || now)) / 1000));
+  const predictedX = tx + clamp(Number(rp.velocityX || 0) * sinceUpdate * 0.10, -0.10, 0.10);
+  const predictedY = ty + clamp(Number(rp.velocityY || 0) * sinceUpdate * 0.10, -0.10, 0.10);
 
   const dx = predictedX - rp.displayX;
   const dy = predictedY - rp.displayY;
   const gap = Math.hypot(dx, dy);
 
-  // 실제 텔레포트/지역 이동 수준만 즉시 보정한다. 일반 이동은 절대 즉시 점프하지 않는다.
-  if(gap > 45){
+  // 아주 큰 지역이동만 순간 보정. 일반 이동은 1프레임마다 부드럽게 추적한다.
+  if(gap > 90){
     rp.displayX = predictedX;
     rp.displayY = predictedY;
   }else if(gap > 0.0001){
-    const speed = gap > 6 ? 16 : gap > 2 ? 10 : gap > 0.7 ? 7 : 4.8;
-    const step = Math.min(gap, Math.max(0.015, speed * dt));
+    const ease = gap > 8 ? 0.34 : gap > 3 ? 0.26 : gap > 1 ? 0.20 : 0.15;
+    const maxStep = Math.max(0.018, (gap > 5 ? 18 : 9) * dt);
+    const step = Math.min(gap * ease, maxStep, gap);
     rp.displayX += dx / gap * step;
     rp.displayY += dy / gap * step;
   }
+  rp.renderX = rp.displayX;
+  rp.renderY = rp.displayY;
   return {x:rp.displayX, y:rp.displayY};
 }
 
@@ -8710,6 +8951,9 @@ function setupRealtimeOnline(){
       if(player.hp <= 0) death();
       draw();
     })
+    .on('broadcast', { event: 'private_note' }, ({payload}) => receivePrivateNote(payload))
+    .on('broadcast', { event: 'remote_steal_request' }, ({payload}) => handleRemoteStealRequest(payload))
+    .on('broadcast', { event: 'remote_steal_result' }, ({payload}) => handleRemoteStealResult(payload))
     .on('broadcast', { event: 'party_invite' }, ({payload}) => partyHandleBroadcast('party_invite', payload))
     .on('broadcast', { event: 'party_accept' }, ({payload}) => partyHandleBroadcast('party_accept', payload))
     .on('broadcast', { event: 'party_decline' }, ({payload}) => partyHandleBroadcast('party_decline', payload))
@@ -8737,8 +8981,11 @@ function sendOnlineState(force=false){
   partyEnsureLocalMember();
   const payload = onlinePayload();
   if(onlineChannel){
-    try{ onlineChannel.track(payload); }catch(e){}
     try{ onlineChannel.send({ type:'broadcast', event:'pos', payload }); }catch(e){}
+    if(force || now - (lastOnlineTrack || 0) > 900){
+      lastOnlineTrack = now;
+      try{ onlineChannel.track(payload); }catch(e){}
+    }
   }
   savePresenceRow(false);
   refreshPresenceFallback(false);
@@ -8752,10 +8999,12 @@ function drawRemotePlayers(camPxX, camPxY, vw, vh){
     const y = pos.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
     drawPerson((pos.x*TILE - camPxX)/TILE,(pos.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',`Lv.${rp.level || 1} ${rp.nick || '유저'}`,false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
-    ctx.fillStyle='rgba(0,0,0,.45)';
-    ctx.fillRect(x+5,y+3,22,4);
-    ctx.fillStyle=partySame(rp.id) ? '#ffdf79' : '#74a9d8';
-    ctx.fillRect(x+5,y+3,22*((rp.hp||1)/(rp.maxHp||100)),4);
+    ctx.fillStyle='rgba(0,0,0,.58)';
+    ctx.fillRect(x+4,y-2,24,5);
+    ctx.fillStyle=partySame(rp.id) ? '#ffdf79' : ((rp.hp||1)/(rp.maxHp||100) > .4 ? '#81d36c' : '#d86b5f');
+    ctx.fillRect(x+4,y-2,24*clamp((rp.hp||1)/(rp.maxHp||100),0,1),5);
+    ctx.strokeStyle='rgba(255,255,255,.18)';
+    ctx.strokeRect(x+4,y-2,24,5);
     if(partySame(rp.id)){
       ctx.strokeStyle='rgba(255,223,121,.9)';
       ctx.lineWidth=2;
@@ -9363,7 +9612,11 @@ function updateHud(){
   if(charInfo){
     charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(displayGameNickname())}<small>${escapeHtml(player.job || '방랑자')}</small>`;
   }
-  document.getElementById('gold').textContent = `골드 ${player.gold}g · 수배 ${player.wanted || 0}`;
+  const goldEl = document.getElementById('gold');
+  if(goldEl){
+    goldEl.classList.add('statusGoldLine');
+    goldEl.innerHTML = `골드 ${player.gold}g · 수배 ${player.wanted || 0} ${dayNightPixelHtml()} ${weatherPixelHtml()}`;
+  }
   applyTopHudAdaptiveTone();
 }
 
@@ -9774,6 +10027,33 @@ function drawMobSprite(m, x, y){
   ctx.drawImage(sprite, Math.floor(x), Math.floor(y + bob), TILE, TILE);
 }
 
+
+function targetMarkerScreenPosition(camPxX, camPxY){
+  if(!isTargetLockValid(manualAttackLock)) return null;
+  const kind = manualAttackLock.kind;
+  let target = manualAttackLock.ref;
+  let x = 0, y = 0;
+  if(kind === 'player'){
+    const current = remotePlayers?.[target?.id];
+    if(!current || !isRemotePlayerTargetValid(current)){
+      manualAttackLock = {ref:null, kind:null, until:0};
+      return null;
+    }
+    target = current;
+    const p = remoteRenderPosition(current);
+    x = p.x * TILE - camPxX;
+    y = p.y * TILE - camPxY;
+  }else if(kind === 'mob' || kind === 'npc'){
+    x = renderX(target) * TILE - camPxX;
+    y = renderY(target) * TILE - camPxY;
+  }else if(kind === 'resource' || kind === 'chest'){
+    x = target.x * TILE - camPxX;
+    y = target.y * TILE - camPxY;
+  }else{
+    return null;
+  }
+  return {target, x, y, kind};
+}
 function drawYellowTargetMarker(target, x, y){
   if(!target) return;
   const pulse = 0.5 + Math.sin((performance.now ? performance.now() : Date.now())/140) * 0.5;
@@ -9874,12 +10154,8 @@ function draw(){
 
   drawRemotePlayers(camPxX, camPxY, vw, vh);
 
-  const target = nearestTarget();
-  if(target){
-    const tx = renderX(target)*TILE - camPxX;
-    const ty = renderY(target)*TILE - camPxY;
-    drawYellowTargetMarker(target, tx, ty);
-  }
+  const marker = targetMarkerScreenPosition(camPxX, camPxY);
+  if(marker) drawYellowTargetMarker(marker.target, marker.x, marker.y);
 
   drawPerson((player.x*TILE - camPxX)/TILE,(player.y*TILE - camPxY)/TILE,'#f1d08b','#744a2d',`Lv.${player.level || 1} ${displayGameNickname()}`,true);
   if(localSpeech.text && Date.now() < localSpeech.until){
