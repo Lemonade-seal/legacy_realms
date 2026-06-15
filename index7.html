@@ -2397,8 +2397,6 @@ header.topbar,
   touch-action:manipulation !important;
   -webkit-user-select:none !important;
   user-select:none !important;
-  position:relative !important;
-  z-index:30 !important;
 }
 .topbar .onlineBadge,
 .onlineBadge#onlineBadge{
@@ -2909,7 +2907,6 @@ header.topbar,
 
 function showLoginForm(ev){
   try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
-  loginStartClicked = true;
   const page = document.getElementById('loginPage');
   const form = document.getElementById('loginFormArea');
   const start = document.getElementById('loginStartBtn');
@@ -2926,124 +2923,8 @@ function showLoginForm(ev){
     const nick = document.getElementById('nicknameInput');
     try{ nick?.focus?.(); }catch(e){}
   },80);
-  setTimeout(()=>{ try{ checkSessionAfterStart(); }catch(e){} },120);
 }
 try{ window.showLoginForm = showLoginForm; }catch(e){}
-
-
-const GAME_VERSION = '2026-06-15-gate-update-pk-jail-01';
-let gameEntered = false;
-let gameReadyLoaded = false;
-let loginStartClicked = false;
-
-function gameUpdateNeeded(){
-  try{ return localStorage.getItem('legacyRealmsVersion') !== GAME_VERSION; }catch(e){ return true; }
-}
-function markGameUpdated(){
-  try{ localStorage.setItem('legacyRealmsVersion', GAME_VERSION); }catch(e){}
-}
-function ensureCharacterEnterButton(){
-  let btn = document.getElementById('characterEnterBtn');
-  if(!btn){
-    btn = document.createElement('button');
-    btn.id = 'characterEnterBtn';
-    btn.type = 'button';
-    btn.className = 'characterEnterBtn';
-    btn.addEventListener('click', enterGameFromCharacterButton);
-    const form = document.getElementById('loginFormArea');
-    form?.appendChild(btn);
-  }
-  return btn;
-}
-function showCharacterEnterGate(){
-  const page = document.getElementById('loginPage');
-  const form = document.getElementById('loginFormArea');
-  const start = document.getElementById('loginStartBtn');
-  const btn = ensureCharacterEnterButton();
-  const nick = (typeof displayGameNickname === 'function' ? displayGameNickname() : (player.nickname || '유저')) || '유저';
-  btn.textContent = `Lv.${player.level || 1} ${nick}`;
-  btn.style.display = 'flex';
-  btn.style.alignItems = 'center';
-  btn.style.justifyContent = 'center';
-  if(start) start.style.display = 'none';
-  if(form){
-    form.classList.remove('hidden');
-    form.setAttribute('aria-hidden','false');
-  }
-  if(page){
-    page.classList.remove('hidden','loginStartMode','loginFormMode');
-    page.classList.add('characterReadyMode');
-  }
-  setLoginMsg('캐릭터를 눌러 게임에 입장하세요.');
-  gameReadyLoaded = true;
-}
-function hideCharacterEnterGate(){
-  const page = document.getElementById('loginPage');
-  page?.classList.remove('characterReadyMode');
-}
-function showUpdatePageThenEnter(){
-  return new Promise(resolve=>{
-    const page = document.getElementById('updatePage');
-    const bar = document.getElementById('updateProgressInner');
-    const txt = document.getElementById('updatePercent');
-    if(!page){ resolve(); return; }
-    page.classList.add('open');
-    page.setAttribute('aria-hidden','false');
-    let pct = 0;
-    const step = () => {
-      pct = Math.min(100, pct + Math.max(4, Math.floor(Math.random()*13)+5));
-      if(bar) bar.style.width = pct + '%';
-      if(txt) txt.textContent = pct + '%';
-      if(pct >= 100){
-        markGameUpdated();
-        setTimeout(()=>{
-          page.classList.remove('open');
-          page.setAttribute('aria-hidden','true');
-          resolve();
-        }, 360);
-        return;
-      }
-      setTimeout(step, 120 + Math.random()*120);
-    };
-    step();
-  });
-}
-async function finalEnterGame(){
-  if(gameEntered) return true;
-  gameEntered = true;
-  hideCharacterEnterGate();
-  hideLoginPage();
-  setupRealtimeOnline();
-  try{ await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname }); }catch(e){}
-  toast('서버 접속 완료');
-  setServerDiag?.('SERVER ENTER OK');
-  return true;
-}
-async function enterGameFromCharacterButton(ev=null){
-  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
-  if(!cloudState?.ready || !player?.userId || player.userId === 'guest'){
-    setLoginMsg('서버 데이터 확인 후 입장할 수 있습니다.');
-    return false;
-  }
-  const btn = document.getElementById('characterEnterBtn');
-  if(btn) btn.disabled = true;
-  try{
-    if(gameUpdateNeeded()) await showUpdatePageThenEnter();
-    return await finalEnterGame();
-  }finally{
-    if(btn) btn.disabled = false;
-  }
-}
-async function checkSessionAfterStart(){
-  try{
-    const client = await ensureSupabaseClient(false);
-    const { data } = await client?.auth?.getSession?.() || {};
-    if(data?.session && !gameReadyLoaded){
-      showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
-      await loadCloudStateAndEnter();
-    }
-  }catch(e){ console.error(e); }
-}
 
 
 const TILE = 32;
@@ -3866,40 +3747,6 @@ function isJailTile(x,y){
 function isInsideJailCell(x,y){
   const gx = gridX(x), gy = gridY(y);
   return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
-}
-
-function isNearJailDoor(x=player.x, y=player.y){
-  const gx = gridX(x), gy = gridY(y);
-  const doorInside = {x:JAIL.releaseX, y:JAIL.y1};
-  const doorOuter = {x:JAIL.releaseX, y:JAIL.outerY1};
-  return Math.hypot(gx-doorInside.x, gy-doorInside.y) <= 1.25 || Math.hypot(gx-doorOuter.x, gy-doorOuter.y) <= 1.25;
-}
-function attemptJailEscape(){
-  normalizePlayer();
-  if(tick >= (player.jailUntilTick||0)){ releaseFromJail(); return; }
-  if(!isNearJailDoor(player.x, player.y)){ jailInteraction(); return; }
-  player.jailActionCd = player.jailActionCd || 0;
-  if(tick < player.jailActionCd){ toast(`탈옥 준비 중 ${Math.ceil((player.jailActionCd-tick)*0.45)}초`); return; }
-  player.jailActionCd = tick + 55;
-  const skill = player.skills?.stealing?.v || 0;
-  const hasPick = (player.inv?.lockpick || 0) > 0;
-  const chance = clamp(0.10 + skill/260 + (hasPick ? 0.08 : 0), 0.06, 0.38);
-  gainSkill('stealing', 0.18);
-  if(Math.random() < chance){
-    setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', 0, ONLINE_TIMER_CAPS.jail);
-    player.wanted = clamp((player.wanted||0) + 2, 0, 20);
-    player.x = JAIL.releaseX;
-    player.y = JAIL.releaseY;
-    addLog('탈옥 성공. 수배도가 증가했다.', 'system');
-    toast('탈옥 성공');
-    draw();
-    return;
-  }
-  player.wanted = clamp((player.wanted||0) + 1, 0, 20);
-  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', Math.min(ONLINE_TIMER_CAPS.jail, countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail) + 18), ONLINE_TIMER_CAPS.jail);
-  addLog('탈옥 실패. 수배도와 수감 시간이 증가했다.', 'system');
-  toast('탈옥 실패');
-  draw();
 }
 const ONLINE_TIMER_CAPS = {
   jail: 1800,       // 13분 30초. 저장 오류로 말도 안 되게 늘어나는 것을 막는다.
@@ -4873,28 +4720,44 @@ function isManualAttackLockedTargetValid(){
 }
 
 function pickManualAttackTarget(){
-  // 타겟팅 시스템은 사용하지 않는다. 공격 버튼을 누르는 순간 주변 후보를 즉시 고른다.
+  // index2식 핵앤슬래쉬 방식: 타겟팅 없이 버튼을 누르는 순간 주변 후보를 즉시 고른다.
+  // 이동 중에도 공격이 들어가야 하므로 후보 범위와 판정을 넉넉하게 잡는다.
   const ranged = isRangedWeapon();
-  const searchRange = ranged ? 8.5 : 3.2;
+  const baseRange = playerHitRange ? playerHitRange() : 1.35;
+  const searchRange = ranged ? 9.5 : Math.max(4.4, baseRange + 3.1);
+  const dirX = Array.isArray(player.dir) ? Number(player.dir[0] || 0) : 0;
+  const dirY = Array.isArray(player.dir) ? Number(player.dir[1] || 1) : 1;
   const candidates = [];
+
+  const addCandidate = (kind, ref, basePenalty=0) => {
+    if(!ref || !canAttackByPkMode(kind, ref)) return;
+    const p = targetCombatPos(ref, kind) || ref;
+    const d = attackDistanceToTarget(ref, kind);
+    if(d > searchRange) return;
+    const dx = Number(p.x || 0) - player.x;
+    const dy = Number(p.y || 0) - player.y;
+    const dot = dx * dirX + dy * dirY;
+    const side = Math.abs(dx * dirY - dy * dirX);
+    // 전방, 가까운 대상, 이미 맞은 대상을 우선한다. 뒤쪽 대상도 완전히 제외하지 않아 모바일 조작감을 높인다.
+    const frontBonus = dot >= -0.25 ? -0.55 : 0.35;
+    const hurtBonus = ref.hp < ref.maxHp ? -0.35 : 0;
+    const animalPenalty = kind === 'mob' && ref.animal ? 0.45 : 0;
+    candidates.push({kind, ref, score:d + side*0.18 + frontBonus + hurtBonus + animalPenalty + basePenalty});
+  };
 
   for(const m of mobs){
     if(!isMobTargetAlive(m)) continue;
-    if(!canAttackByPkMode('mob', m)) continue;
-    const d = attackDistanceToTarget(m, 'mob');
-    if(d <= searchRange) candidates.push({kind:'mob', ref:m, score:d + (m.animal ? 0.65 : 0) - (m.hp < m.maxHp ? 0.35 : 0)});
+    addCandidate('mob', m, m.animal ? 0.25 : 0);
   }
 
   if(isPkMode()){
     for(const n of npcs){
       if(!isNpcTargetValid(n)) continue;
-      const d = attackDistanceToTarget(n, 'npc');
-      if(d <= Math.max(2.8, searchRange)) candidates.push({kind:'npc', ref:n, score:d + 0.85});
+      addCandidate('npc', n, 0.9);
     }
     for(const rp of Object.values(remotePlayers || {})){
       if(!isRemotePlayerTargetValid(rp)) continue;
-      const d = attackDistanceToTarget(rp, 'player');
-      if(d <= Math.max(3.2, searchRange)) candidates.push({kind:'player', ref:rp, score:d + 0.35});
+      addCandidate('player', rp, 0.55);
     }
   }
 
@@ -4994,7 +4857,7 @@ function attack(target=null){
 
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
-  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.16 : 0.18);
+  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.35 : 0.95);
 
   if(!inRange){
     if(isManualAttack){
@@ -5082,7 +4945,7 @@ function attackRemotePlayer(rp, opts={}){
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
 
-  if(!canAttackCombatTarget(rp, kind, ranged ? 0.16 : 0.18)){
+  if(!canAttackCombatTarget(rp, kind, ranged ? 0.35 : 0.95)){
     if(isManualAttack){
       startAutoAttackChase(rp, 'player');
       addCombatEffect(pos.x, pos.y, '접근', 'guard');
@@ -5165,7 +5028,7 @@ function attackNpc(npc, opts={}){
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
 
-  if(!canAttackCombatTarget(npc, kind, ranged ? 0.45 : 0.5)){
+  if(!canAttackCombatTarget(npc, kind, ranged ? 0.55 : 1.05)){
     if(isManualAttack){
       startAutoAttackChase(npc, 'npc');
       addCombatEffect(npc.x, npc.y, '접근', 'guard');
@@ -5780,9 +5643,6 @@ function updatePassiveAutoTarget(){
 
 function getContextAction(){
   // 타겟팅 시스템 삭제: 현재 위치 기준으로만 액션 버튼을 바꾼다.
-  if(tick < (player.jailUntilTick||0)){
-    return {type:'jail', label:isNearJailDoor(player.x, player.y) ? '탈옥' : '복역'};
-  }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
@@ -6002,11 +5862,7 @@ function openNpcTradeFromMenu(){
 }
 
 function smartUse(){
-  if(tick < (player.jailUntilTick||0)){
-    if(isNearJailDoor(player.x, player.y)) attemptJailEscape();
-    else jailInteraction();
-    return;
-  }
+  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
@@ -8423,8 +8279,8 @@ async function showKakaoLoginPage(autoCheck=true){
     try{
       const { data } = await client.auth.getSession();
       if(data?.session){
-        // 자동 입장은 막는다. 시작하기를 누른 뒤에만 캐릭터 확인 버튼을 표시한다.
-        setLoginMsg('시작하기를 눌러 캐릭터 확인으로 이동하세요.');
+        showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
+        await loadCloudStateAndEnter();
         return true;
       }
     }catch(e){
@@ -8795,9 +8651,12 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    // 여기서는 바로 게임 화면으로 들어가지 않는다.
-    // 캐릭터 버튼을 눌렀을 때 업데이트 확인 후 입장한다.
-    showCharacterEnterGate();
+    hideLoginPage();
+    setupRealtimeOnline();
+    await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
+
+    toast('서버 접속 완료');
+    setServerDiag?.('SERVER ENTER OK');
     return true;
   }catch(e){
     console.error(e);
@@ -11731,20 +11590,26 @@ function autoActionChaseStep(dt){
   return true;
 }
 
-function autoAttackChaseStep(dt){
+function hasManualMoveInput(){
+  return !!(analog.active
+    || keysDown.has('arrowup') || keysDown.has('w')
+    || keysDown.has('arrowdown') || keysDown.has('s')
+    || keysDown.has('arrowleft') || keysDown.has('a')
+    || keysDown.has('arrowright') || keysDown.has('d'));
+}
+
+function autoAttackChaseStep(dt, opts={}){
   const chase = autoAttackChase;
   if(!chase || !chase.ref) return false;
   const target = chase.ref;
   const kind = chase.kind || 'mob';
   const valid = kind === 'npc' ? isNpcTargetValid(target) : kind === 'player' ? isRemotePlayerTargetValid(target) : isMobTargetAlive(target);
-  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0)){
+  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0) || !canAttackByPkMode(kind, target)){
     stopAutoAttackChase();
     return false;
   }
 
-  const hasManualMove = analog.active || keysDown.has('arrowup') || keysDown.has('w') || keysDown.has('arrowdown') || keysDown.has('s') || keysDown.has('arrowleft') || keysDown.has('a') || keysDown.has('arrowright') || keysDown.has('d');
-  if(hasManualMove) return false;
-
+  const allowMove = opts.allowMove !== false;
   const pos = targetCombatPos(target, kind);
   if(!pos){ stopAutoAttackChase(); return false; }
   const dx = pos.x - player.x;
@@ -11757,7 +11622,8 @@ function autoAttackChaseStep(dt){
   }
 
   facePlayerToTarget(target, kind);
-  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.45 : 0.5)){
+  // 이동 중 공격을 위해 자동 공격 판정도 넉넉하게 잡는다.
+  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.55 : 1.05)){
     if(tick >= (player.attackReadyTick || 0)){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
@@ -11767,20 +11633,28 @@ function autoAttackChaseStep(dt){
     return true;
   }
 
+  if(!allowMove){
+    // 사용자가 직접 이동 중이면 자동 추격 이동은 하지 않고, 사거리 안일 때만 공격한다.
+    return false;
+  }
+
   const len = d || 1;
   player.dir = [dx/len, dy/len];
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.35) * (dt/1000));
-  if(!moved && canAttackCombatTarget(target, kind, 0.85) && tick >= (player.attackReadyTick || 0)){
+  if(!moved && canAttackCombatTarget(target, kind, 1.05) && tick >= (player.attackReadyTick || 0)){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
+    else if(kind === 'player') attackRemotePlayer(target, {manual:true, auto:true});
     else attack(target);
   }
   return true;
 }
 
 function processMovement(dt){
+  // 자원/상자/NPC 자동 행동은 기존처럼 이동을 선점한다.
   if(autoActionChaseStep(dt)) return;
-  if(autoAttackChaseStep(dt)) return;
+
+  const manualMove = hasManualMoveInput();
   let vx = analog.active ? analog.x : 0;
   let vy = analog.active ? analog.y : 0;
   if(keysDown.has('arrowup') || keysDown.has('w')) vy -= 1;
@@ -11788,10 +11662,18 @@ function processMovement(dt){
   if(keysDown.has('arrowleft') || keysDown.has('a')) vx -= 1;
   if(keysDown.has('arrowright') || keysDown.has('d')) vx += 1;
   const mag = Math.hypot(vx,vy);
-  if(mag < 0.05) return;
-  const power = Math.min(1, mag);
-  const step = playerMoveSpeed() * power * (dt/1000);
-  move(vx,vy,step);
+
+  // index2식 처리: 먼저 플레이어 이동을 처리하고, 같은 프레임에서 공격 판정을 별도로 돌린다.
+  if(mag >= 0.05){
+    const power = Math.min(1, mag);
+    const step = playerMoveSpeed() * power * (dt/1000);
+    move(vx,vy,step);
+  }
+
+  // 공격 자동 추격은 수동 이동을 막지 않는다. 수동 이동 중이면 추격 이동은 하지 않고, 사거리 안일 때만 공격한다.
+  if(autoAttackChase?.ref){
+    autoAttackChaseStep(dt, {allowMove:!manualMove});
+  }
 }
 
 
