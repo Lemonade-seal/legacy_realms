@@ -141,6 +141,26 @@
     overflow:hidden;
     text-overflow:ellipsis;
   }
+  .pkModeBadge{
+    grid-column:1;
+    grid-row:2;
+    justify-self:end;
+    align-self:center;
+    min-width:38px;
+    border:1px solid rgba(215,180,90,.38);
+    border-radius:7px;
+    background:rgba(10,12,9,.58);
+    padding:3px 5px;
+    font-size:9px;
+    line-height:1;
+    color:#cfe5ff;
+    pointer-events:auto;
+    white-space:nowrap;
+  }
+  .pkModeBadge.pk{
+    border-color:rgba(216,107,95,.75);
+    color:#ffaaa0;
+  }
 
   .topbar{
     min-height:66px;
@@ -685,7 +705,7 @@
     transform:scaleY(var(--cooldown-fill, 0));
     opacity:var(--cooldown-opacity, 0);
     pointer-events:none;
-    transition:transform .18s linear, opacity .12s linear;
+    transition:transform .06s linear, opacity .08s linear;
   }
   .cooldownShadeBtn.cooling{
     filter:saturate(.7) brightness(.82);
@@ -2050,6 +2070,11 @@
   #log .log-entry.chat{color:#60a5fa !important;}
   #log .log-entry.system{color:#facc15 !important;}
   #log .log-entry.combat{color:#4ade80 !important;}
+  #log .log-entry.npc{color:#fb923c !important;}
+  .log-entry.chat{color:#60a5fa !important;}
+  .log-entry.system{color:#facc15 !important;}
+  .log-entry.combat{color:#4ade80 !important;}
+  .log-entry.npc{color:#fb923c !important;}
 
 
   /* bottom-up log flow: newest records stay at the bottom and older records rise upward */
@@ -2279,6 +2304,7 @@ header.topbar,
       <button onclick="openPop('popMainMenu')">메뉴</button>
     </div>
     <button class="onlineBadge" id="onlineBadge" type="button" onclick="openOnlineListPopup(event)">오프라인</button>
+    <button class="pkModeBadge" id="pkModeBadge" type="button" onclick="togglePkMode(event)">평화</button>
   </div>
 
   <div id="gameWrap">
@@ -2335,7 +2361,7 @@ header.topbar,
     </section>
 
     <section class="pop" id="popJournal">
-      <div class="popHead"><b>저널</b><button onclick="closePop()">닫기</button></div>
+      <div class="popHead"><b>로그기록</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
         <div class="card">
           <h3>샌드박스 방향</h3>
@@ -2453,7 +2479,7 @@ header.topbar,
           <button onclick="openPop('popParty')">파티</button>
           <button onclick="openMessagesPopup()">쪽지</button>
           <button onclick="openPop('popShop')">상점</button>
-          <button onclick="openPop('popJournal')">저널</button>
+          <button onclick="openPop('popJournal')">로그기록</button>
           <button onclick="openFenceOrSell()">암시장/판매</button>
           <button onclick="openPop('popSettings')">설정</button>
           <button onclick="openPop('popPatchNotes')">패치노트</button>
@@ -3002,7 +3028,7 @@ const player = {
   x: 30, y: 22, dir: [0,-1],
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
   exp: 0, nextExp: 100,
-  nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false,
+  nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false, pkMode:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0, attackReadyTick: 0,
   auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
@@ -3077,6 +3103,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     level:1,
     userId:userId || 'guest',
     isOnline:!!isOnline,
+    pkMode:false,
     gold:30, bankGold:0, fame:0, wanted:0, karma:0,
     jailUntilTick:0, jailRemainingTicks:0, criminalUntil:0, restReadyTick:0, restCooldownTicks:0,
     auto:defaultAutoSettings(),
@@ -3659,6 +3686,16 @@ function updateWorldHud(){
 function classifyLogType(msg, explicitType=null){
   if(explicitType) return explicitType;
   const s = String(msg || '');
+  if(/날씨|채광|벌목|낚시|약초채집|채집/.test(s)) return 'system';
+  if(/내구도|수리 도구/.test(s)) return 'system';
+  if(/HP|체력|치료|붕대|포션|회복/.test(s)) return 'combat';
+  try{
+    const colon = s.indexOf(':');
+    if(colon > 0){
+      const speaker = s.slice(0, colon).replace(/^\[[^\]]+\]\s*/, '').trim();
+      if(npcs && npcs.some(n => n && n.name === speaker)) return 'npc';
+    }
+  }catch(e){}
   if(/^\[?파티\]?|^[^:]{1,18}:\s/.test(s)) return 'chat';
   if(/피해|공격|빗나감|처치|원거리|베기|치명|대미지|데미지/.test(s)) return 'combat';
   return 'system';
@@ -4103,8 +4140,41 @@ function isRemotePlayerTargetValid(rp){
   return !!current && Date.now() - (current.ts || 0) <= 14000;
 }
 function isPvpBlockedInTown(rp){
+  if(player?.pkMode) return false;
   const p = remotePlayerPos(rp);
   return isTownArea(player.x, player.y) || isTownArea(p.x, p.y);
+}
+
+function isPkMode(){
+  return !!player?.pkMode;
+}
+
+function canAttackByPkMode(kind, ref){
+  if(isPkMode()) return kind === 'mob' || kind === 'npc' || kind === 'player';
+  return kind === 'mob' && ref && !ref.animal;
+}
+
+function togglePkMode(ev){
+  if(ev){ try{ ev.preventDefault(); ev.stopPropagation(); }catch(e){} }
+  normalizePlayer();
+  player.pkMode = !player.pkMode;
+  if(!player.pkMode){
+    stopAutoAttackChase();
+    if(manualAttackLock && manualAttackLock.kind !== 'mob') manualAttackLock = {ref:null, kind:null, until:0};
+  }
+  updatePkModeBadge();
+  addLog(player.pkMode ? 'PK 모드 전환: 동물, 유저, NPC 공격 가능.' : '평화 모드 전환: 몬스터만 공격 가능.', 'system');
+  toast(player.pkMode ? 'PK 모드' : '평화 모드');
+  draw();
+}
+
+function updatePkModeBadge(){
+  const el = document.getElementById('pkModeBadge');
+  if(!el) return;
+  const pk = !!player?.pkMode;
+  el.textContent = pk ? 'PK' : '평화';
+  el.classList.toggle('pk', pk);
+  el.title = pk ? 'PK 모드: 동물·유저·NPC 공격 가능' : '평화 모드: 몬스터만 공격 가능';
 }
 function isTargetLockValid(lock=manualAttackLock){
   if(!lock || !lock.ref || tick > (lock.until||0)) return false;
@@ -4132,20 +4202,9 @@ function targetDisplayName(kind, ref){
   return '대상';
 }
 function selectTarget(kind, ref, beginChase=false){
-  const ok = kind === 'mob' ? isMobTargetAlive(ref)
-    : kind === 'npc' ? isNpcTargetValid(ref)
-    : kind === 'resource' ? isResourceTargetValid(ref)
-    : kind === 'chest' ? isChestTargetValid(ref)
-    : kind === 'player' ? isRemotePlayerTargetValid(ref)
-    : false;
-  if(!ok) return false;
-  manualAttackLock = {ref, kind, until:tick + 9999};
-  if(kind !== 'mob') stopAutoAttackChase();
-  stopAutoActionChase();
-  if(kind === 'npc') currentNpc = ref;
-  if(kind === 'mob' && beginChase) startAutoAttackChase(ref);
-  draw();
-  return true;
+  // 타겟팅 시스템 삭제: 외부 호출이 남아 있어도 타겟 잠금을 만들지 않는다.
+  if(kind === 'mob' && beginChase && isMobTargetAlive(ref)) return startAutoAttackChase(ref, 'mob');
+  return false;
 }
 function selectMobTarget(mob, beginChase=false){
   return selectTarget('mob', mob, beginChase);
@@ -4158,6 +4217,10 @@ function startAutoAttackChase(target, kind='mob'){
     : kind === 'player' ? isRemotePlayerTargetValid(target)
     : isMobTargetAlive(target);
   if(!ok) return false;
+  if(!canAttackByPkMode(kind, target)){
+    toast('평화 모드에서는 몬스터만 공격 가능');
+    return false;
+  }
   if(kind === 'player' && isPvpBlockedInTown(target)){
     toast('마을 안에서는 유저 공격 불가');
     return false;
@@ -4361,13 +4424,33 @@ function isManualAttackLockedTargetValid(){
 }
 
 function pickManualAttackTarget(){
-  // 연타 중에는 직전 전투 대상을 오래 잡고 간다. 자원/상자 타겟은 공격 대상이 아니다.
-  if(isManualAttackLockedTargetValid() && (manualAttackLock.kind === 'mob' || manualAttackLock.kind === 'npc' || manualAttackLock.kind === 'player')){
-    return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
+  // 타겟팅 시스템은 사용하지 않는다. 공격 버튼을 누르는 순간 주변 후보를 즉시 고른다.
+  const ranged = isRangedWeapon();
+  const searchRange = ranged ? 8.5 : 3.2;
+  const candidates = [];
+
+  for(const m of mobs){
+    if(!isMobTargetAlive(m)) continue;
+    if(!canAttackByPkMode('mob', m)) continue;
+    const d = attackDistanceToTarget(m, 'mob');
+    if(d <= searchRange) candidates.push({kind:'mob', ref:m, score:d + (m.animal ? 0.65 : 0) - (m.hp < m.maxHp ? 0.35 : 0)});
   }
 
-  // 자동 후보 선택은 제거한다. 공격은 반드시 먼저 타겟팅한 대상에게만 시작된다.
-  return null;
+  if(isPkMode()){
+    for(const n of npcs){
+      if(!isNpcTargetValid(n)) continue;
+      const d = attackDistanceToTarget(n, 'npc');
+      if(d <= Math.max(2.8, searchRange)) candidates.push({kind:'npc', ref:n, score:d + 0.85});
+    }
+    for(const rp of Object.values(remotePlayers || {})){
+      if(!isRemotePlayerTargetValid(rp)) continue;
+      const d = attackDistanceToTarget(rp, 'player');
+      if(d <= Math.max(3.2, searchRange)) candidates.push({kind:'player', ref:rp, score:d + 0.35});
+    }
+  }
+
+  candidates.sort((a,b)=>a.score-b.score);
+  return candidates[0] || null;
 }
 
 function pullPlayerTowardManualTarget(target){
@@ -4407,26 +4490,32 @@ function attack(target=null){
   closeMiniTrade();
 
   const isManualButtonAttack = !target;
+  let carriedAutoKind = null;
   if(isManualButtonAttack && autoAttackChase?.ref){
-    stopAutoAttackChase();
-    toast('공격 취소');
-    draw();
-    return;
+    const chaseKind = autoAttackChase.kind || 'mob';
+    const chaseRef = autoAttackChase.ref;
+    const valid = chaseKind === 'npc' ? isNpcTargetValid(chaseRef) : chaseKind === 'player' ? isRemotePlayerTargetValid(chaseRef) : isMobTargetAlive(chaseRef);
+    if(valid && canAttackByPkMode(chaseKind, chaseRef)){
+      target = chaseRef;
+      carriedAutoKind = chaseKind;
+    }else{
+      stopAutoAttackChase();
+    }
   }
 
-  let targetKind = 'mob';
+  let targetKind = carriedAutoKind || 'mob';
   const isAutoChaseSwing = !!(target && autoAttackChase?.ref === target);
   const isManualAttack = isManualButtonAttack || isAutoChaseSwing;
 
   if(isManualAttack) stopAutoActionChase();
 
-  if(isManualButtonAttack){
+  if(isManualButtonAttack && !target){
     const picked = pickManualAttackTarget();
     if(picked){
       target = picked.ref;
       targetKind = picked.kind;
     }else{
-      toast('먼저 대상을 타겟팅하세요');
+      toast(player.pkMode ? '주변 공격 대상 없음' : '주변 몬스터 없음');
       return;
     }
   }else if(autoAttackChase?.ref === target){
@@ -4435,7 +4524,13 @@ function attack(target=null){
     targetKind = manualAttackLock.kind || 'mob';
   }
 
-  if(!target){ toast('주변 적 없음'); return; }
+  if(!target){ toast(player.pkMode ? '주변 공격 대상 없음' : '주변 몬스터 없음'); return; }
+
+  if(!canAttackByPkMode(targetKind, target)){
+    stopAutoAttackChase();
+    toast('평화 모드에서는 몬스터만 공격 가능');
+    return;
+  }
 
   if(targetKind === 'npc'){
     attackNpc(target, {manual:true});
@@ -4518,6 +4613,12 @@ function attackRemotePlayer(rp, opts={}){
   normalizePlayer();
   const isManualAttack = opts.manual !== false;
   if(!isRemotePlayerTargetValid(rp)){ toast('대상 유저 없음'); stopAutoAttackChase(); return; }
+  if(!isPkMode()){
+    stopAutoAttackChase();
+    toast('평화 모드에서는 유저 공격 불가');
+    draw();
+    return;
+  }
   if(isPvpBlockedInTown(rp)){
     stopAutoAttackChase();
     toast('마을 안에서는 유저 공격 불가');
@@ -4600,6 +4701,12 @@ function attackNpc(npc, opts={}){
   normalizePlayer();
   const isManualAttack = opts.manual !== false;
   if(!npc || npc.down){ toast('대상이 없다'); return; }
+  if(!isPkMode()){
+    stopAutoAttackChase();
+    toast('평화 모드에서는 NPC 공격 불가');
+    draw();
+    return;
+  }
   if(npc.guard && player.wanted <= 0 && isManualAttack){
     toast('경비병은 먼저 공격하지 않는 편이 낫다');
   }
@@ -5272,7 +5379,7 @@ function updateContextButtons(){
     const cdTotal = Math.max(1, Math.ceil(playerAttackSpeed ? playerAttackSpeed() : 12));
     const cdRemain = Math.max(0, (player.attackReadyTick || 0) - tick);
     const cdFill = clamp(cdRemain / cdTotal, 0, 1);
-    const baseLabel = autoAttackChase?.ref ? '공격 취소' : '공격';
+    const baseLabel = '공격';
     attackButton.textContent = cdRemain > 0 ? `${baseLabel}\n${(cdRemain*0.45).toFixed(1)}초` : baseLabel;
     attackButton.style.setProperty('--cooldown-fill', cdFill.toFixed(3));
     attackButton.style.setProperty('--cooldown-opacity', cdFill > 0 ? '1' : '0');
@@ -5300,7 +5407,7 @@ function openNpcMenu(npc){
 
   closeMiniTrade();
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
-  addLog(`${npc.name}: ${npc.talk}`);
+  addLog(`${npc.name}: ${npc.talk}`, 'npc');
 
   const title = document.getElementById('npcTitle');
   const role = document.getElementById('npcRole');
@@ -7050,6 +7157,7 @@ function normalizePlayer(){
   if(!player.nickname) player.nickname = '나';
   if(!player.userId) player.userId = 'guest';
   if(typeof player.isOnline !== 'boolean') player.isOnline = false;
+  if(typeof player.pkMode !== 'boolean') player.pkMode = false;
   if(!player.job || player.job === '모험가') player.job = '방랑자';
   if(typeof player.level !== 'number') player.level = 1;
   if(typeof player.wanted !== 'number') player.wanted = 0;
@@ -9859,6 +9967,7 @@ function updateHud(){
     goldEl.classList.add('statusGoldLine');
     goldEl.innerHTML = `골드 ${player.gold}g · 수배 ${player.wanted || 0} ${dayNightPixelHtml()} ${weatherPixelHtml()}`;
   }
+  updatePkModeBadge();
   applyTopHudAdaptiveTone();
 }
 
@@ -11176,7 +11285,7 @@ function autoAttackChaseStep(dt){
   const target = chase.ref;
   const kind = chase.kind || 'mob';
   const valid = kind === 'npc' ? isNpcTargetValid(target) : kind === 'player' ? isRemotePlayerTargetValid(target) : isMobTargetAlive(target);
-  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0)){
+  if(tick > (chase.until||0) || !valid || !canAttackByPkMode(kind, target) || tick < (player.jailUntilTick||0)){
     stopAutoAttackChase();
     return false;
   }
@@ -11212,6 +11321,7 @@ function autoAttackChaseStep(dt){
   if(!moved && canAttackCombatTarget(target, kind, 0.85) && tick >= (player.attackReadyTick || 0)){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
+    else if(kind === 'player') attackRemotePlayer(target, {manual:true, auto:true});
     else attack(target);
   }
   return true;
