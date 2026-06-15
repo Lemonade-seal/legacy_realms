@@ -2547,9 +2547,6 @@ header.topbar,
 
   /* ==== patch: gold/wanted/weather one-line HUD + update gate ==== */
   :root{ --topbar-offset:88px; }
-  #updatePage{
-    z-index:300000 !important;
-  }
   .topbar{
     min-height:86px !important;
     grid-template-rows:30px 23px 18px !important;
@@ -2604,6 +2601,97 @@ header.topbar,
       padding:0 3px !important;
     }
   }
+
+
+  /* ==== patch: place gold/wanted/weather between peace and bag ==== */
+  :root{ --topbar-offset:72px; }
+  .topbar{
+    min-height:68px !important;
+    grid-template-columns:minmax(104px, 118px) minmax(0,1fr) minmax(104px, auto) !important;
+    grid-template-rows:30px 23px !important;
+  }
+  .topbar .gold,
+  #gold.statusGoldLine{
+    grid-column:2 !important;
+    grid-row:2 !important;
+    justify-self:stretch !important;
+    align-self:center !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    height:18px !important;
+    min-height:18px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:4px !important;
+    flex-wrap:nowrap !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+    padding:0 3px !important;
+    font-size:clamp(8px,2.05vw,10px) !important;
+    line-height:1 !important;
+    color:#f0d47b !important;
+    pointer-events:none !important;
+  }
+  #gold.statusGoldLine .hudInlineItem,
+  #gold.statusGoldLine .pixelStatusBadge{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:2px !important;
+    flex:0 1 auto !important;
+    min-width:0 !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+  }
+  #gold.statusGoldLine .hudInlineItem.weatherText{
+    flex:0 1 auto !important;
+    min-width:0 !important;
+    overflow:hidden !important;
+    text-overflow:clip !important;
+  }
+  #gold.statusGoldLine .hudDot{
+    opacity:.65 !important;
+    flex:0 0 auto !important;
+  }
+  #gold.statusGoldLine .pixelIcon{
+    width:10px !important;
+    height:10px !important;
+    transform:scale(.82) !important;
+    transform-origin:center !important;
+  }
+  .topbar .topQuick{
+    grid-column:3 !important;
+    grid-row:2 !important;
+    justify-self:end !important;
+    align-self:center !important;
+  }
+  .topbar .onlineBadge,
+  .onlineBadge#onlineBadge,
+  .topbar .pkModeBadge,
+  .pkModeBadge#pkModeBadge{
+    grid-row:2 !important;
+  }
+  @media(max-width:560px){
+    :root{ --topbar-offset:72px; }
+    .topbar{
+      min-height:70px !important;
+      grid-template-columns:minmax(104px, 118px) minmax(0,1fr) minmax(104px, auto) !important;
+      grid-template-rows:31px 23px !important;
+    }
+    .topbar .gold,
+    #gold.statusGoldLine{
+      font-size:8px !important;
+      gap:2px !important;
+      padding:0 1px !important;
+    }
+    #gold.statusGoldLine .hudInlineItem,
+    #gold.statusGoldLine .pixelStatusBadge{ gap:1px !important; }
+    #gold.statusGoldLine .pixelIcon{ width:9px !important; height:9px !important; transform:scale(.75) !important; }
+  }
+
 </style>
 
 
