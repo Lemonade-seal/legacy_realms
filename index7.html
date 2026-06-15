@@ -1933,6 +1933,27 @@
     :root{--popupControlClearance:calc(126px + env(safe-area-inset-bottom));}
   }
 
+
+
+  /* minimap placement: below top HUD, right aligned */
+  #miniMapBox.minimap,
+  .minimap#miniMapBox{
+    position:fixed !important;
+    right:8px !important;
+    top:calc(var(--topbar-offset, 72px) + 8px) !important;
+    left:auto !important;
+    bottom:auto !important;
+    z-index:86 !important;
+  }
+  @media(max-width:560px){
+    #miniMapBox.minimap,
+    .minimap#miniMapBox{
+      right:6px !important;
+      top:calc(var(--topbar-offset, 72px) + 6px) !important;
+      width:88px !important;
+      height:70px !important;
+    }
+  }
 </style>
 
 
@@ -3619,6 +3640,7 @@ function drawCombatEffects(camPxX, camPxY){
 
 let manualAttackLock = {ref:null, kind:null, until:0};
 let autoAttackChase = {ref:null, until:0, attackTick:0};
+let canvasPointerTargetedMob = null;
 
 function isMobTargetAlive(mob){
   return !!mob && mobs.includes(mob) && (mob.hp||0) > 0;
@@ -3627,6 +3649,14 @@ function selectMobTarget(mob, beginChase=false){
   if(!isMobTargetAlive(mob)) return false;
   manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999};
   if(beginChase) startAutoAttackChase(mob);
+  return true;
+}
+function setTouchedMobTarget(mob){
+  if(!selectMobTarget(mob, false)) return false;
+  currentNpc = null;
+  stopAutoAttackChase();
+  toast(`타겟: ${mob.name}`);
+  draw();
   return true;
 }
 function startAutoAttackChase(mob){
@@ -3937,7 +3967,14 @@ function npcStepToward(npc, target, speed=0.034){
   const canNpcMoveTo = (nx,ny) => {
     if(isBlocked(nx,ny,{ignoreNpc:npc})) return false;
     const blockRadius = npc.guard ? 0.26 : 0.36;
-    return !npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius);
+    if(npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius)) return false;
+
+    // 경비병이 마을 침입 몬스터를 쫓거나 순찰할 때는 플레이어를 관통하지 않는다.
+    // 단, 수배 상태로 플레이어를 직접 추격하는 경우에는 공격 거리까지 접근해야 하므로 예외 처리한다.
+    const chasingPlayer = !!target && target === player;
+    const playerBlockRadius = npc.guard ? 0.54 : 0.46;
+    if(npc.guard && !chasingPlayer && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
+    return true;
   };
 
   const tryMove = (vx,vy, mul=1) => {
@@ -8440,6 +8477,37 @@ function drawMobSprite(m, x, y){
   ctx.drawImage(sprite, Math.floor(x), Math.floor(y + bob), TILE, TILE);
 }
 
+function drawYellowTargetMarker(target, x, y){
+  if(!target) return;
+  const pulse = 0.5 + Math.sin((performance.now ? performance.now() : Date.now())/140) * 0.5;
+  const r = (target.boss ? 20 : 17) + pulse * 2;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,223,90,.96)';
+  ctx.lineWidth=2.4;
+  ctx.beginPath();
+  ctx.ellipse(x+16, y+16, r, r, 0, 0, Math.PI*2);
+  ctx.stroke();
+
+  ctx.strokeStyle='rgba(255,246,166,.98)';
+  ctx.lineWidth=1.4;
+  const cx = x+16, cy = y+16;
+  ctx.beginPath();
+  ctx.moveTo(cx-r-5, cy); ctx.lineTo(cx-r+3, cy);
+  ctx.moveTo(cx+r-3, cy); ctx.lineTo(cx+r+5, cy);
+  ctx.moveTo(cx, cy-r-5); ctx.lineTo(cx, cy-r+3);
+  ctx.moveTo(cx, cy+r-3); ctx.lineTo(cx, cy+r+5);
+  ctx.stroke();
+
+  ctx.font='bold 10px system-ui';
+  ctx.textAlign='center';
+  ctx.lineWidth=3;
+  ctx.strokeStyle='rgba(39,25,0,.9)';
+  ctx.fillStyle='#ffe872';
+  ctx.strokeText('TARGET', cx, y-7);
+  ctx.fillText('TARGET', cx, y-7);
+  ctx.restore();
+}
+
 
 function draw(){
   updateHud();
@@ -8520,12 +8588,7 @@ function draw(){
   if(target){
     const tx = renderX(target)*TILE - camPxX;
     const ty = renderY(target)*TILE - camPxY;
-    ctx.strokeStyle='rgba(255,223,121,.85)';
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.ellipse(tx+16, ty+16, 16, 16, 0, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.lineWidth=1;
+    drawYellowTargetMarker(target, tx, ty);
   }
 
   drawPerson((player.x*TILE - camPxX)/TILE,(player.y*TILE - camPxY)/TILE,'#f1d08b','#744a2d',`Lv.${player.level || 1} ${displayGameNickname()}`,true);
@@ -8685,7 +8748,22 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
-  {version:'현재', title:'미니맵 복구·전체 지도 팝업', items:[
+  {version:'현재', title:'경비병 플레이어 관통 방지', items:[
+    '경비병이 마을 침입 몬스터를 추격할 때 유저 캐릭터를 뚫고 지나가지 않도록 이동 충돌을 추가했다.',
+    '플레이어가 경로에 있으면 경비병은 측면 우회 이동을 먼저 시도하고, 막히면 그 자리에서 대기한다.',
+    '수배 상태로 경비병이 유저를 직접 추격하는 경우에는 기존처럼 공격 거리까지 접근하도록 예외 처리했다.'
+  ]},
+  {title:'미니맵 위치 조정', items:[
+    '미니맵을 상단 HUD와 겹치지 않게 상단 박스 우측 바로 아래로 이동',
+    '미니맵 터치 시 전체 지도 팝업을 여는 기존 기능은 유지',
+    '모바일 화면에서도 상단 박스 아래 여백을 기준으로 위치가 잡히도록 고정'
+  ]},
+  {title:'몬스터 첫 터치 타겟팅 고정', items:[
+    '몬스터를 처음 터치하는 즉시 공격하지 않고 타겟으로만 설정되게 변경',
+    '터치 타겟은 노란색 TARGET 표시와 원형 조준선으로 즉시 확인 가능',
+    '몬스터 터치 판정 반경을 넓혀 이름/스프라이트 주변을 눌러도 타겟팅되게 개선'
+  ]},
+  {title:'미니맵 복구·전체 지도 팝업', items:[
     '월드 화면 우측 상단 미니맵을 다시 표시하고 터치 가능하게 변경',
     '미니맵 터치 시 컨트롤 영역을 침범하지 않는 전체 지도 팝업을 열도록 추가',
     '통합 메뉴의 지도 버튼을 제거해 지도 접근을 미니맵 터치 방식으로 통일'
@@ -8984,9 +9062,16 @@ function mobAtScreenPoint(clientX, clientY){
 
   return mobs
     .filter(m=>m.hp>0)
-    .map(m=>({mob:m, dx:sx-((typeof renderX==='function'?renderX(m):m.x)*TILE - cam.x + 16), dy:sy-((typeof renderY==='function'?renderY(m):m.y)*TILE - cam.y + 16)}))
-    .filter(o=>Math.hypot(o.dx,o.dy)<=28)
-    .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.mob || null;
+    .map(m=>{
+      const mx = (typeof renderX==='function'?renderX(m):m.x)*TILE - cam.x + 16;
+      const my = (typeof renderY==='function'?renderY(m):m.y)*TILE - cam.y + 16;
+      const dx = sx - mx;
+      const dy = sy - my;
+      const radius = m.boss ? 56 : (m.animal ? 42 : 46);
+      return {mob:m, dx, dy, radius, d:Math.hypot(dx, dy)};
+    })
+    .filter(o=>o.d <= o.radius)
+    .sort((a,b)=>a.d-b.d)[0]?.mob || null;
 }
 
 function resourceActionForKind(kind){
@@ -9027,18 +9112,28 @@ function setupCanvasGestures(){
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
     clearTimeout(canvasHoldTimer);
-  }, {passive:true});
+    canvasPointerTargetedMob = null;
+
+    const mob = mobAtScreenPoint(e.clientX, e.clientY);
+    if(mob){
+      canvasPointerTargetedMob = mob;
+      setTouchedMobTarget(mob);
+      e.preventDefault();
+    }
+  }, {passive:false});
 
   canvas.addEventListener('pointerup', e=>{
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
 
+    if(canvasPointerTargetedMob){
+      canvasPointerTargetedMob = null;
+      return;
+    }
+
     const mob = mobAtScreenPoint(e.clientX, e.clientY);
     if(mob){
-      currentNpc = null;
-      selectMobTarget(mob, false);
-      toast(`타겟: ${mob.name}`);
-      draw();
+      setTouchedMobTarget(mob);
       return;
     }
 
@@ -9081,6 +9176,7 @@ function setupCanvasGestures(){
   canvas.addEventListener('pointercancel', ()=>{
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
+    canvasPointerTargetedMob = null;
   });
 }
 
