@@ -2340,6 +2340,26 @@ header.topbar,
   color:#dbcba7 !important;
   font-size:11px !important;
 }
+#loginPage .characterEnterBtn{
+  width:100% !important;
+  min-height:52px !important;
+  margin:10px 0 0 !important;
+  border:1px solid rgba(255,223,121,.88) !important;
+  border-radius:14px !important;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(255,246,188,.28), transparent 44%),
+    linear-gradient(180deg, rgba(77,60,20,.92), rgba(14,15,14,.86)) !important;
+  color:#fff2bd !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+  letter-spacing:.4px !important;
+  text-shadow:0 0 9px rgba(255,223,121,.88), 0 2px 3px rgba(0,0,0,.85) !important;
+  box-shadow:0 0 16px rgba(255,223,121,.36), inset 0 0 14px rgba(255,223,121,.12) !important;
+  animation:startGlowPulse 1.35s ease-in-out infinite !important;
+}
+#loginPage .characterEnterBtn.hidden{
+  display:none !important;
+}
 #loginPage .loginFormArea #serverDiagBox{
   margin-top:8px !important;
   font-size:10px !important;
@@ -2404,6 +2424,7 @@ header.topbar,
         <button id="kakaoLoginBtn" class="primary" type="button" onclick="startKakaoLogin(event)">카카오 로그인</button>
       </div>
       <p id="loginMsg">닉네임을 설정한 뒤 카카오 로그인으로 서버 데이터를 불러옵니다.</p>
+      <button id="characterEnterBtn" class="characterEnterBtn hidden" type="button" onclick="enterGameFromCharacter(event)">Lv.1 유저</button>
       <div id="serverDiagBox" class="serverDiagBox">
         <b>서버 상태</b>
         <div id="serverDiagText">진단 대기</div>
@@ -2767,26 +2788,123 @@ header.topbar,
 <script>
 'use strict';
 
-function showLoginForm(ev){
-  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+let loginStartConfirmed = false;
+let loginCharacterReady = false;
+let loginRealtimeStarted = false;
+
+function setLoginFormMode(){
   const page = document.getElementById('loginPage');
   const form = document.getElementById('loginFormArea');
   const start = document.getElementById('loginStartBtn');
   if(page){
     page.classList.remove('loginStartMode');
     page.classList.add('loginFormMode');
+    page.classList.remove('hidden');
   }
   if(form){
     form.classList.remove('hidden');
     form.setAttribute('aria-hidden','false');
   }
   if(start) start.style.display = 'none';
+}
+
+function setLoginStartMode(){
+  const page = document.getElementById('loginPage');
+  const form = document.getElementById('loginFormArea');
+  const start = document.getElementById('loginStartBtn');
+  loginStartConfirmed = false;
+  loginCharacterReady = false;
+  if(page){
+    page.classList.remove('loginFormMode');
+    page.classList.add('loginStartMode');
+    page.classList.remove('hidden');
+  }
+  if(form){
+    form.classList.add('hidden');
+    form.setAttribute('aria-hidden','true');
+  }
+  if(start) start.style.display = '';
+  updateLoginCharacterButton(false);
+}
+
+function loginCharacterLabel(){
+  const nick = (typeof displayGameNickname === 'function'
+    ? displayGameNickname()
+    : (player?.nickname || storedGameNickname?.() || '유저')
+  ) || '유저';
+  const lv = Math.max(1, Math.floor(Number(player?.level)||1));
+  return `Lv.${lv} ${nick}`;
+}
+
+function updateLoginCharacterButton(show=true){
+  const btn = document.getElementById('characterEnterBtn');
+  if(!btn) return;
+  if(show){
+    btn.textContent = loginCharacterLabel();
+    btn.classList.remove('hidden');
+    btn.disabled = false;
+    btn.style.display = '';
+  }else{
+    btn.classList.add('hidden');
+    btn.disabled = false;
+  }
+}
+
+async function prepareCharacterEntryFromSession(){
+  try{
+    if(!loginStartConfirmed) return false;
+    const client = await ensureSupabaseClient(false);
+    if(!client){
+      setLoginMsg('닉네임 설정 후 카카오 로그인으로 접속하세요.');
+      return false;
+    }
+    const { data } = await client.auth.getSession();
+    if(data?.session){
+      setLoginMsg('서버 캐릭터를 확인하는 중...');
+      await loadCloudStateAndEnter();
+      return true;
+    }
+    setLoginMsg('닉네임 설정 후 카카오 로그인으로 접속하세요.');
+    return false;
+  }catch(e){
+    console.error(e);
+    setLoginMsg('캐릭터 확인 실패: ' + (e.message || String(e)));
+    return false;
+  }
+}
+
+function showLoginForm(ev){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  loginStartConfirmed = true;
+  setLoginFormMode();
   setTimeout(()=>{
     const nick = document.getElementById('nicknameInput');
     try{ nick?.focus?.(); }catch(e){}
   },80);
+  // 기존 카카오 세션이 있으면 자동으로 게임 화면에 들어가지 않고 캐릭터 선택 버튼만 표시한다.
+  setTimeout(()=>prepareCharacterEntryFromSession(), 60);
 }
-try{ window.showLoginForm = showLoginForm; }catch(e){}
+
+async function enterGameFromCharacter(ev){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  loginStartConfirmed = true;
+  if(!loginCharacterReady){
+    const ok = await prepareCharacterEntryFromSession();
+    if(!ok){
+      toast?.('먼저 카카오 로그인으로 캐릭터를 불러오세요.');
+      return false;
+    }
+  }
+  hideLoginPage();
+  if(player.isOnline && !loginRealtimeStarted){
+    loginRealtimeStarted = true;
+    try{ setupRealtimeOnline(); }catch(e){ console.warn(e); }
+  }
+  try{ await recordGameEvent?.('enter_game', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname }); }catch(e){}
+  toast?.('게임 시작');
+  return true;
+}
+try{ window.showLoginForm = showLoginForm; window.enterGameFromCharacter = enterGameFromCharacter; }catch(e){}
 
 
 const TILE = 32;
@@ -8121,7 +8239,7 @@ async function showKakaoLoginPage(autoCheck=true){
 
   setLoginMsg('게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.');
 
-  if(autoCheck){
+  if(autoCheck && loginStartConfirmed){
     try{
       const { data } = await client.auth.getSession();
       if(data?.session){
@@ -8497,12 +8615,15 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    hideLoginPage();
-    setupRealtimeOnline();
-    await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
+    // 여기서 바로 게임 화면으로 넘기지 않는다.
+    // 서버 캐릭터만 불러온 뒤, 로그인 화면에 Lv.닉네임 버튼을 표시한다.
+    loginCharacterReady = true;
+    setLoginFormMode();
+    updateLoginCharacterButton(true);
+    await recordGameEvent('login_ready', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
 
-    toast('서버 접속 완료');
-    setServerDiag?.('SERVER ENTER OK');
+    setLoginMsg('캐릭터 준비 완료. Lv.닉네임 버튼을 누르면 게임 화면으로 들어갑니다.');
+    setServerDiag?.('SERVER CHARACTER READY');
     return true;
   }catch(e){
     console.error(e);
@@ -8510,6 +8631,8 @@ async function loadCloudStateAndEnter(){
     cloudState.ready = false;
     cloudState.status = '서버 오류';
     document.getElementById('loginPage')?.classList.remove('hidden');
+    setLoginFormMode?.();
+    updateLoginCharacterButton?.(false);
     setLoginMsg('서버 접속 실패: ' + (e.message || String(e)));
     setServerDiag?.('SERVER ENTER ERROR: ' + (e.message || String(e)));
     return false;
@@ -8556,6 +8679,9 @@ async function bootAuth(){
   const client = await ensureSupabaseClient(false);
 
   if(client && hasOAuthReturn){
+    // 카카오 인증 복귀 후에도 바로 게임으로 들어가지 않고 캐릭터 선택 버튼만 표시한다.
+    loginStartConfirmed = true;
+    setLoginFormMode();
     await finishOAuthRedirect(client);
     await loadCloudStateAndEnter();
     return true;
@@ -8578,7 +8704,8 @@ async function bootAuth(){
     return true;
   }
 
-  await showKakaoLoginPage(true);
+  // 기존 세션이 있어도 시작하기를 누르기 전에는 자동 입장하지 않는다.
+  await showKakaoLoginPage(false);
   updateOnlineBadge();
   return true;
 }
