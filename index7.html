@@ -1996,19 +1996,22 @@
 
 
   /* log window vertical scroll */
-  :root{--legacy-log-h:76px;}
+  :root{--legacy-log-h:50px;}
   .log,
   #log{
     height:var(--legacy-log-h) !important;
     max-height:var(--legacy-log-h) !important;
     min-height:var(--legacy-log-h) !important;
-    overflow-y:auto !important;
+    overflow-y:scroll !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
-    touch-action:pan-y;
+    touch-action:pan-y !important;
+    pointer-events:auto !important;
+    user-select:text;
+    -webkit-user-select:text;
     padding:5px 8px calc(5px + env(safe-area-inset-bottom)) 8px !important;
-    scroll-behavior:smooth;
+    scroll-behavior:auto;
   }
   .log div,
   #log div{
@@ -2025,6 +2028,20 @@
   .log::-webkit-scrollbar-thumb,
   #log::-webkit-scrollbar-thumb{background:rgba(215,180,90,.35); border-radius:999px;}
   .toolbar{bottom:calc(var(--legacy-log-h) + env(safe-area-inset-bottom)) !important;}
+
+  /* log window compact 3-line view */
+  :root{--legacy-log-h:50px !important;}
+  .log,
+  #log{
+    height:50px !important;
+    max-height:50px !important;
+    min-height:50px !important;
+    font-size:10.5px !important;
+    line-height:1.24 !important;
+    padding-top:4px !important;
+    padding-bottom:4px !important;
+  }
+  .toolbar{bottom:calc(50px + env(safe-area-inset-bottom)) !important;}
 
 </style>
 
@@ -2378,7 +2395,7 @@
     <input id="chatInput" type="text" maxlength="60" placeholder="채팅 입력 후 Enter" autocomplete="off">
     <button onclick="sendChatMessage()">전송</button>
   </div>
-  <div class="log" id="log" title="클릭하면 채팅 입력" onclick="openChatInput()" role="button" aria-label="채팅 입력 열기"></div>
+  <div class="log" id="log" title="탭하면 채팅 입력 / 위아래 스크롤로 로그 확인" role="button" aria-label="로그창, 탭하면 채팅 입력"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3852,16 +3869,41 @@ function entityScreenAwareDistance(entity){
   return Math.hypot(ex - player.x, ey - player.y);
 }
 
+function attackBodyRadius(entity, kind='mob'){
+  if(!entity) return 0.45;
+  if(kind === 'npc') return entity.guard ? 0.62 : 0.56;
+  if(kind === 'mob'){
+    if(entity.boss) return 1.05;
+    if(entity.animal) return 0.62;
+    const type = String(entity.type || '');
+    if(/golem|ogre|bear|treant|knight/i.test(type)) return 0.85;
+    if(/slime|bat|spider|chicken|cat/i.test(type)) return 0.48;
+    return 0.68;
+  }
+  return 0.5;
+}
+function attackDistanceToTarget(entity, kind='mob'){
+  // 중심점만 재면 몸집이 큰 몹/보간 중인 몹을 헛치는 느낌이 강하다.
+  // 몸통 반경과 터치 보정값을 뺀 실제 타격 판정 거리로 계산한다.
+  return Math.max(0, entityScreenAwareDistance(entity) - attackBodyRadius(entity, kind) - 0.28);
+}
+function canReachAttackTarget(entity, kind='mob', extra=0.55){
+  return attackDistanceToTarget(entity, kind) <= playerHitRange() + extra;
+}
+
 function manualAttackCandidateScore(entity, kind){
   if(!entity) return null;
   if(kind === 'mob' && entity.hp <= 0) return null;
   if(kind === 'npc' && entity.down) return null;
 
-  const d = entityScreenAwareDistance(entity);
+  const rawD = entityScreenAwareDistance(entity);
+  const d = attackDistanceToTarget(entity, kind);
 
   // 수동 공격은 조작감 우선. 방향 판정은 완전히 보조값으로만 쓴다.
-  // 근처에 보이는 적이면 공격 버튼이 항상 먹히도록 범위를 넓힌다.
-  const maxRange = kind === 'npc' ? 2.05 : 7.25;
+  // 실제 사거리 + 넉넉한 보정값으로 후보를 잡아 끊김을 줄인다.
+  const baseRange = (typeof playerHitRange === 'function' ? playerHitRange() : 1.6);
+  const maxRange = kind === 'npc' ? Math.max(2.75, baseRange + 1.25) : Math.max(8.25, baseRange + 2.25);
+  if(rawD > 18 && d > maxRange) return null;
   if(d > maxRange) return null;
 
   const dx = (typeof renderX === 'function' ? renderX(entity) : entity.x) - player.x;
@@ -3949,8 +3991,10 @@ function attack(target=null){
   }
   closeMiniTrade();
 
-  const isManualAttack = !target || autoAttackChase?.ref === target;
-  if(isManualAttack && autoAttackChase?.ref){
+  const isAutoChaseSwing = !!(target && autoAttackChase?.ref === target);
+  const isManualButtonAttack = !target;
+  const isManualAttack = isManualButtonAttack || isAutoChaseSwing;
+  if(isManualButtonAttack && autoAttackChase?.ref){
     stopAutoAttackChase();
     toast('공격 취소');
     draw();
@@ -3979,9 +4023,9 @@ function attack(target=null){
 
   if(isManualAttack){
     manualAttackFeedback(target);
-    const d0 = entityScreenAwareDistance(target);
-    if(target && target.hp > 0 && d0 > attackRange + 0.2){
-      if(ranged && d0 <= attackRange + 0.35){
+    const d0 = attackDistanceToTarget(target, 'mob');
+    if(target && target.hp > 0 && d0 > attackRange + 0.65){
+      if(ranged && d0 <= attackRange + 0.95){
         // 활/원거리 무기는 사거리 안이면 제자리에서 즉시 발사한다.
       }else{
         startAutoAttackChase(target);
@@ -3998,7 +4042,7 @@ function attack(target=null){
     }
     if(!ranged) pullPlayerTowardManualTarget(target);
   }
-  if(entityScreenAwareDistance(target) > attackRange + 0.2){
+  if(attackDistanceToTarget(target, 'mob') > attackRange + 0.65){
     if(isManualAttack){
       startAutoAttackChase(target);
       draw();
@@ -4079,12 +4123,12 @@ function attackNpc(npc, opts={}){
     toast('경비병은 먼저 공격하지 않는 편이 낫다');
   }
 
-  const d = entityScreenAwareDistance(npc);
+  const d = attackDistanceToTarget(npc, 'npc');
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
   const attackRange = playerHitRange();
 
-  if(d > attackRange + 0.2){
+  if(d > attackRange + 0.65){
     if(isManualAttack){
       startAutoAttackChase(npc, 'npc');
       const ex = typeof renderX === 'function' ? renderX(npc) : npc.x;
@@ -6525,10 +6569,54 @@ function runAutoMode(){
 function renderLog(){
   const el = document.getElementById('log');
   if(!el) return;
-  const keepTop = el.scrollTop <= 4;
+  const prevTop = el.scrollTop || 0;
+  const prevHeight = el.scrollHeight || 0;
+  const keepTop = prevTop <= 4;
   el.innerHTML = player.journal.map(x=>`<div>${escapeHtml(x)}</div>`).join('');
-  if(keepTop) el.scrollTop = 0;
+  if(keepTop){
+    el.scrollTop = 0;
+  }else{
+    const nextHeight = el.scrollHeight || 0;
+    el.scrollTop = Math.max(0, prevTop + (nextHeight - prevHeight));
+  }
 }
+
+function setupLogScrollBox(){
+  const el = document.getElementById('log');
+  if(!el || el.dataset.scrollFixed === '1') return;
+  el.dataset.scrollFixed = '1';
+  let startX = 0;
+  let startY = 0;
+  let startTop = 0;
+  let moved = false;
+  const stopOnly = ev => { ev.stopPropagation(); };
+  el.addEventListener('pointerdown', ev=>{
+    startX = ev.clientX || 0;
+    startY = ev.clientY || 0;
+    startTop = el.scrollTop || 0;
+    moved = false;
+    ev.stopPropagation();
+  }, {passive:true});
+  el.addEventListener('pointermove', ev=>{
+    const dx = Math.abs((ev.clientX || 0) - startX);
+    const dy = Math.abs((ev.clientY || 0) - startY);
+    if(dx > 6 || dy > 6 || Math.abs((el.scrollTop || 0) - startTop) > 2) moved = true;
+    ev.stopPropagation();
+  }, {passive:true});
+  el.addEventListener('scroll', ()=>{ moved = true; }, {passive:true});
+  el.addEventListener('touchstart', stopOnly, {passive:true});
+  el.addEventListener('touchmove', stopOnly, {passive:true});
+  el.addEventListener('touchend', stopOnly, {passive:true});
+  el.addEventListener('wheel', stopOnly, {passive:true});
+  el.addEventListener('click', ev=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    if(!moved) openChatInput();
+    setTimeout(()=>{ moved = false; }, 0);
+  }, {passive:false});
+}
+
+setupLogScrollBox();
 
 function inventoryItemActionButtons(id, ctx={}){
   const def = itemDefs[id] || {};
@@ -9364,6 +9452,12 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'공격 판정 개선·로그창 3줄 축소', items:[
+    '공격 대상의 몸통 반경을 포함해 판정하도록 바꿔 중심점이 조금 벗어나도 근접/원거리 공격이 들어가게 했다.',
+    '자동 추격 중 공격 함수가 공격 취소로 오인되던 경로를 분리해 접근 후 실제 공격이 실행되도록 수정했다.',
+    '하단 로그창 높이를 3줄 기준으로 줄이고 기존 스크롤 기능은 유지했다.'
+  ]},
+  {title:'로그창 실제 스크롤 입력 수정', body:['로그창 터치/휠 입력이 전역 이동 방지 로직에 막히지 않도록 예외 처리','스크롤 중에는 채팅 입력창이 열리지 않도록 탭/스크롤 판정 분리','새 로그가 들어와도 사용자가 보고 있던 로그 위치를 유지']},
   {version:'현재', title:'로그창 스크롤 기능 추가', items:[
     '하단 로그창에 세로 스크롤을 추가해 누적 로그를 직접 위아래로 확인할 수 있게 했다.',
     '최신 로그는 위쪽에 유지하고, 긴 로그 문장은 줄바꿈되어 잘리지 않도록 수정했다.',
@@ -9912,6 +10006,7 @@ function autoAttackChaseStep(dt){
   const dx = ex - player.x;
   const dy = ey - player.y;
   const d = Math.hypot(dx,dy);
+  const hitD = attackDistanceToTarget(target, kind);
   if(d > 32){
     stopAutoAttackChase();
     toast('대상이 너무 멀다');
@@ -9920,7 +10015,7 @@ function autoAttackChaseStep(dt){
 
   manualAttackLock = {ref:target, kind, until:tick + 9999};
   const attackRange = playerHitRange();
-  if(d <= attackRange){
+  if(hitD <= attackRange + 0.65){
     if(tick - (chase.attackTick||0) >= playerAttackSpeed()){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
@@ -9932,7 +10027,7 @@ function autoAttackChaseStep(dt){
   const len = d || 1;
   player.dir = [dx/len, dy/len];
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.2) * (dt/1000));
-  if(!moved && d <= attackRange + 0.55 && tick - (chase.attackTick||0) >= playerAttackSpeed()){
+  if(!moved && hitD <= attackRange + 0.95 && tick - (chase.attackTick||0) >= playerAttackSpeed()){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
     else attack(target);
@@ -10253,10 +10348,13 @@ document.addEventListener('touchstart', e=>{
   if(e.touches && e.touches.length > 1) e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchmove', e=>{
-  if(e.target && e.target.closest && (e.target.closest('#analogPad') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
+  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log') || e.target.closest('#analogPad') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
   e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchend', e=>{
+  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log'))){
+    return;
+  }
   const now=Date.now();
   if(now-lastTouch<420) e.preventDefault();
   lastTouch=now;
