@@ -2112,19 +2112,25 @@
     <section class="pop" id="popBank">
       <div class="popHead"><b>은행</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <div class="grid2">
-          <button onclick="depositGold()">소지금 전부 입금</button>
-          <button onclick="withdrawGold()">은행금 전부 출금</button>
-        </div>
-        <br>
         <div class="card">
-          <h3>골드</h3>
+          <h3>골드 계좌</h3>
           <p>소지금: <b id="bankPocketGold">0g</b></p>
-          <p>은행금: <b id="bankStoredGold">0g</b></p>
+          <p>은행 예금: <b id="bankStoredGold">0g</b></p>
+          <p>현재 변동금리: <b id="bankInterestRate">0.00%</b></p>
+          <p>다음 이자 정산: <b id="bankInterestTimer">-</b></p>
+          <small class="muted">은행은 아이템을 보관하지 않고 골드만 입출금한다. 금리는 접속 중 게임 시간 기준으로 변동된다.</small>
         </div>
-        <div class="grid2">
-          <div class="card"><h3>가방</h3><div id="bankInvList"></div></div>
-          <div class="card"><h3>은행 보관함</h3><div id="bankStoredList"></div></div>
+        <div class="card">
+          <h3>금액 지정</h3>
+          <input id="bankGoldAmount" type="number" min="1" step="1" inputmode="numeric" placeholder="금액 입력">
+          <div class="grid2" style="margin-top:8px">
+            <button onclick="depositGoldAmount()">입금</button>
+            <button onclick="withdrawGoldAmount()">출금</button>
+          </div>
+          <div class="grid2" style="margin-top:8px">
+            <button onclick="depositGold()">전액 입금</button>
+            <button onclick="withdrawGold()">전액 출금</button>
+          </div>
         </div>
       </div>
     </section>
@@ -2325,9 +2331,9 @@ const keysDown = new Set();
 
 const itemDefs = {
   rustySword:{name:'녹슨 검', type:'weapon', atk:2, price:12, desc:'기본 근접 무기.'},
-  shortBow:{name:'짧은 활', type:'weapon', atk:3, price:18, desc:'가벼운 원거리 무기. 현재는 공격력만 적용.'},
+  shortBow:{name:'짧은 활', type:'weapon', atk:3, range:5.2, price:18, ammo:'arrow', desc:'가벼운 원거리 무기. 화살을 소비해 멀리서 공격한다.'},
   ironSword:{name:'철검', type:'weapon', atk:8, price:85, desc:'채광과 대장기술로 제작하는 표준 검.'},
-  hunterBow:{name:'사냥꾼 활', type:'weapon', atk:7, price:72, desc:'목재와 가죽으로 제작하는 활.'},
+  hunterBow:{name:'사냥꾼 활', type:'weapon', atk:7, range:6.4, price:72, ammo:'arrow', desc:'목재와 가죽으로 제작하는 활. 화살을 소비해 원거리 공격한다.'},
   leatherArmor:{name:'가죽 갑옷', type:'armor', def:3, price:64, desc:'받는 피해를 줄인다.'},
   ironArmor:{name:'철 갑옷', type:'armor', def:6, price:130, desc:'무겁지만 튼튼한 방어구.'},
   fishingRod:{name:'낚싯대', type:'tool', price:35, desc:'낚시 성공률을 조금 높인다.'},
@@ -2344,7 +2350,8 @@ const itemDefs = {
   smokeBomb:{name:'연막탄', type:'tool', price:80, desc:'수배도를 낮추고 경비 추격을 잠시 완화한다.'},
   treasureMap:{name:'낡은 보물지도', type:'special', price:120, desc:'상자의 위치를 짐작하게 해주는 수집품.'},
   repairKit:{name:'수리 도구', type:'tool', price:55, desc:'착용 장비의 내구도를 일부 회복한다.'},
-  silverCoin:{name:'고대 은화', type:'mat', price:22, desc:'상자에서 나오는 오래된 화폐.'}
+  silverCoin:{name:'고대 은화', type:'mat', price:22, desc:'상자에서 나오는 오래된 화폐.'},
+  arrow:{name:'화살', type:'ammo', price:2, desc:'활 공격에 필요한 탄약. 잡화점 구매 또는 목공 제작으로 얻는다.'}
 };
 
 const ITEM_SPRITE_URL = "data:image/png;base64,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";
@@ -2376,19 +2383,20 @@ Object.assign(itemDefs, {
   slimeGel:{name:'슬라임 젤', type:'mat', price:7, desc:'약품과 제작 재료.'},
   ancientRelic:{name:'고대 유물', type:'special', price:190, desc:'던전 깊은 곳의 희귀 수집품.'},
   steelSword:{name:'강철검', type:'weapon', atk:13, price:180, desc:'철검보다 강한 던전 대응 무기.'},
-  rangerBow:{name:'순찰자 활', type:'weapon', atk:11, price:150, desc:'야외 사냥에 좋은 활.'}
+  rangerBow:{name:'순찰자 활', type:'weapon', atk:11, range:7.2, price:150, ammo:'arrow', desc:'야외 사냥에 좋은 장거리 활. 화살을 소비한다.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
   manaPotion:17, healthPotion:17, oakLog:8, copperOre:7, silverOre:13,
   dungeonKey:16, batWing:12, slimeGel:10, ancientRelic:18,
-  steelSword:2, rangerBow:3, relicShard:18, boneCharm:18, frostOre:13, jailToken:16
+  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16
 });
 
 const recipes = [
   {id:'ironSword', name:'철검', skill:'blacksmith', skillName:'대장기술', need:{ore:8, log:2}, gold:15, min:15},
   {id:'ironArmor', name:'철 갑옷', skill:'blacksmith', skillName:'대장기술', need:{ore:16, hide:4}, gold:30, min:24},
   {id:'hunterBow', name:'사냥꾼 활', skill:'carpentry', skillName:'목공', need:{log:10, hide:3}, gold:12, min:12},
+  {id:'arrow', name:'화살 20개', skill:'carpentry', skillName:'목공', need:{log:1, ore:1}, gold:1, min:3, outputQty:20},
   {id:'leatherArmor', name:'가죽 갑옷', skill:'tailoring', skillName:'재봉', need:{hide:10, fang:2}, gold:10, min:10},
   {id:'fishingRod', name:'낚싯대', skill:'carpentry', skillName:'목공', need:{log:7, gem:1}, gold:8, min:8}
 ];
@@ -2399,7 +2407,8 @@ const shopItems = [
   {id:'rustySword', price:18, stock:3, desc:'예비 무기'},
   {id:'fishingRod', price:52, stock:2, desc:'낚시 보너스 도구'},
   {id:'leatherArmor', price:96, stock:2, desc:'초반 방어구'},
-  {id:'shortBow', price:42, stock:2, desc:'가벼운 무기'}
+  {id:'shortBow', price:42, stock:2, desc:'가벼운 무기'},
+  {id:'arrow', price:3, stock:99, desc:'활 공격 탄약'}
 ];
 
 const fenceItems = [
@@ -2590,7 +2599,7 @@ const player = {
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
   exp: 0, nextExp: 100,
   nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false,
-  gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0,
+  gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0, attackReadyTick: 0,
   auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
   durability: {},
@@ -2618,8 +2627,8 @@ const player = {
     lockpicking:{name:'자물쇠', v: 1.0},
     resistance:{name:'저항', v: 1.0}
   },
-  inv: {rustySword:1, herb:2},
-  bank: {},
+  inv: {rustySword:1, herb:2, arrow:10},
+  bank: {}, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
   shopStock: {},
   merchantStock: {},
   questKills: {},
@@ -2674,7 +2683,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     crimeRecord:{steals:0, arrests:0},
     skills:starterSkillSet(),
     inv:{rustySword:1, herb:2},
-    bank:{},
+    bank:{}, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
     shopStock:{},
     merchantStock:{},
     questKills:{},
@@ -2690,7 +2699,7 @@ const npcs = [
   {x:29,y:21,homeX:29,homeY:21,name:'상인 마로', role:'상인', hp:70, maxHp:70, atk:3, loot:['stolenPouch','gold'], talk:'잡화와 재료를 매입한다. [판매] 버튼으로 잡템을 팔 수 있다.'},
   {x:33,y:22,homeX:33,homeY:22,name:'대장장이 로간', role:'대장장이', hp:85, maxHp:85, atk:5, loot:['ore','stolenPouch'], talk:'광석과 가죽으로 장비를 제작한다. [제작] 메뉴를 열어라.'},
   {x:27,y:24,homeX:27,homeY:24,name:'길드 서기', role:'안내', hp:60, maxHp:60, atk:2, loot:['stolenPouch'], talk:'이 게임은 직업보다 행동으로 성장한다. 하고 싶은 일을 계속 하면 된다.'},
-  {x:31,y:24,homeX:31,homeY:24,name:'은행원 세라', role:'은행', hp:65, maxHp:65, atk:2, loot:['stolenRing','gold'], talk:'돈과 물건을 은행에 보관할 수 있다. [은행] 메뉴를 사용해라.'},
+  {x:31,y:24,homeX:31,homeY:24,name:'은행원 세라', role:'은행', hp:65, maxHp:65, atk:2, loot:['stolenRing','gold'], talk:'골드를 금액 지정으로 입금·출금하고 변동금리 이자를 받을 수 있다. [은행] 메뉴를 사용해라.'},
   {x:25,y:21,homeX:25,homeY:21,name:'의뢰 관리인', role:'의뢰', hp:75, maxHp:75, atk:3, loot:['stolenPouch'], talk:'길드 의뢰를 맡긴다. [의뢰하기]로 의뢰를 수락한 뒤에만 퀘스트가 활성화된다.'},
   {x:32,y:20,homeX:32,homeY:20,name:'잡화상 리나', role:'상점', hp:68, maxHp:68, atk:2, loot:['herb','fish','stolenPouch'], talk:'회복품과 기본 장비를 판다. [상점] 메뉴를 열어라.'},
   {x:23,y:23,homeX:23,homeY:23,name:'마을 경비병', role:'경비', guard:true, hp:120, maxHp:120, atk:13, loot:[], talk:'수배 중인 자는 즉시 제압한다.'},
@@ -2732,6 +2741,7 @@ let lastPresenceSave = 0;
 const ONLINE_ROOM = 'legacy-realms-town';
 const DB_SCHEMA_VERSION = 1;
 const combatEffects = [];
+const projectileEffects = [];
 let lastAutoSaveTick = 0;
 const chests = [];
 let simDtSeconds = 0.016;
@@ -3640,24 +3650,62 @@ function drawCombatEffects(camPxX, camPxY){
 
 let manualAttackLock = {ref:null, kind:null, until:0};
 let autoAttackChase = {ref:null, until:0, attackTick:0};
-let canvasPointerTargetedMob = null;
+let canvasPointerTargeted = null;
 
 function isMobTargetAlive(mob){
   return !!mob && mobs.includes(mob) && (mob.hp||0) > 0;
 }
-function selectMobTarget(mob, beginChase=false){
-  if(!isMobTargetAlive(mob)) return false;
-  manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999};
-  if(beginChase) startAutoAttackChase(mob);
-  return true;
+function isNpcTargetValid(npc){
+  return !!npc && npcs.includes(npc) && !npc.down;
 }
-function setTouchedMobTarget(mob){
-  if(!selectMobTarget(mob, false)) return false;
-  currentNpc = null;
+function isResourceTargetValid(res){
+  return !!res && resources.includes(res) && res.amount > 0 && (res.kind !== 'fish' || tileAt(res.x, res.y) === 'water');
+}
+function isChestTargetValid(chest){
+  return !!chest && chests.includes(chest) && !chest.opened;
+}
+function isTargetLockValid(lock=manualAttackLock){
+  if(!lock || !lock.ref || tick > (lock.until||0)) return false;
+  if(lock.kind === 'mob') return isMobTargetAlive(lock.ref) && entityScreenAwareDistance(lock.ref) <= 36;
+  if(lock.kind === 'npc') return isNpcTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
+  if(lock.kind === 'resource') return isResourceTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
+  if(lock.kind === 'chest') return isChestTargetValid(lock.ref) && entityScreenAwareDistance(lock.ref) <= 24;
+  return false;
+}
+function clearManualTarget(reason=''){
+  manualAttackLock = {ref:null, kind:null, until:0};
   stopAutoAttackChase();
-  toast(`타겟: ${mob.name}`);
+  if(reason) toast(reason);
+  draw();
+}
+function targetDisplayName(kind, ref){
+  if(!ref) return '대상';
+  if(kind === 'mob') return ref.name || '몬스터';
+  if(kind === 'npc') return ref.name || 'NPC';
+  if(kind === 'resource') return resourceActionForKind(ref.kind).label;
+  if(kind === 'chest') return ref.locked ? '잠긴 상자' : '상자';
+  return '대상';
+}
+function selectTarget(kind, ref, beginChase=false){
+  const ok = kind === 'mob' ? isMobTargetAlive(ref)
+    : kind === 'npc' ? isNpcTargetValid(ref)
+    : kind === 'resource' ? isResourceTargetValid(ref)
+    : kind === 'chest' ? isChestTargetValid(ref)
+    : false;
+  if(!ok) return false;
+  manualAttackLock = {ref, kind, until:tick + 9999};
+  if(kind !== 'mob') stopAutoAttackChase();
+  if(kind === 'npc') currentNpc = ref;
+  if(kind === 'mob' && beginChase) startAutoAttackChase(ref);
+  toast(`타겟: ${targetDisplayName(kind, ref)}`);
   draw();
   return true;
+}
+function selectMobTarget(mob, beginChase=false){
+  return selectTarget('mob', mob, beginChase);
+}
+function setTouchedMobTarget(mob){
+  return selectTarget('mob', mob, false);
 }
 function startAutoAttackChase(mob){
   if(!isMobTargetAlive(mob)) return false;
@@ -3703,17 +3751,12 @@ function manualAttackCandidateScore(entity, kind){
 }
 
 function isManualAttackLockedTargetValid(){
-  const lock = manualAttackLock;
-  if(!lock || !lock.ref || tick > (lock.until||0)) return false;
-  if(lock.kind === 'mob' && lock.ref.hp <= 0) return false;
-  if(lock.kind === 'npc' && lock.ref.down) return false;
-  const maxKeepRange = lock.kind === 'npc' ? 2.25 : 32;
-  return entityScreenAwareDistance(lock.ref) <= maxKeepRange;
+  return isTargetLockValid(manualAttackLock);
 }
 
 function pickManualAttackTarget(){
-  // 연타 중에는 직전 대상을 오래 잡고 간다. 좌표 보간/몹 이동 때문에 공격이 끊기지 않게 한다.
-  if(isManualAttackLockedTargetValid()){
+  // 연타 중에는 직전 전투 대상을 오래 잡고 간다. 자원/상자 타겟은 공격 대상이 아니다.
+  if(isManualAttackLockedTargetValid() && (manualAttackLock.kind === 'mob' || manualAttackLock.kind === 'npc')){
     return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
   }
 
@@ -3744,7 +3787,7 @@ function pickManualAttackTarget(){
 function pullPlayerTowardManualTarget(target){
   if(!target) return;
   const d = entityScreenAwareDistance(target);
-  if(d <= 1.55) return;
+  if(d <= playerHitRange()) return;
   const ex = typeof renderX === 'function' ? renderX(target) : target.x;
   const ey = typeof renderY === 'function' ? renderY(target) : target.y;
   const dx = ex - player.x;
@@ -3753,7 +3796,7 @@ function pullPlayerTowardManualTarget(target){
   player.dir = [dx/len, dy/len];
 
   // 수동 공격이 멀리서 헛치는 느낌을 줄이기 위한 짧은 보정 이동.
-  const step = Math.min(0.72, Math.max(0, d - 1.05));
+  const step = Math.min(0.72, Math.max(0, d - playerHitRange() + 0.22));
   const nx = player.x + (dx/len)*step;
   const ny = player.y + (dy/len)*step;
   if(!isBlocked(nx, ny)){
@@ -3765,7 +3808,7 @@ function pullPlayerTowardManualTarget(target){
 function manualAttackFeedback(target){
   if(!target) return;
   const d = entityScreenAwareDistance(target);
-  if(d > 2.15 && tick % 9 === 0){
+  if(d > playerHitRange() + 0.55 && tick % 9 === 0){
     addCombatEffect(target.x, target.y, '추격', 'guard');
   }
 }
@@ -3778,6 +3821,13 @@ function attack(target=null){
   closeMiniTrade();
 
   const isManualAttack = !target;
+  if(isManualAttack && autoAttackChase?.ref){
+    const name = autoAttackChase.ref?.name || '대상';
+    stopAutoAttackChase();
+    toast(`${name} 공격 취소`);
+    draw();
+    return;
+  }
   if(isManualAttack){
     const picked = pickManualAttackTarget();
     if(picked?.kind === 'npc'){
@@ -3796,7 +3846,7 @@ function attack(target=null){
 
   if(isManualAttack){
     manualAttackFeedback(target);
-    if(target && target.hp > 0 && entityScreenAwareDistance(target) > 1.62){
+    if(target && target.hp > 0 && entityScreenAwareDistance(target) > playerHitRange()){
       startAutoAttackChase(target);
       const ex = typeof renderX === 'function' ? renderX(target) : target.x;
       const ey = typeof renderY === 'function' ? renderY(target) : target.y;
@@ -3812,31 +3862,52 @@ function attack(target=null){
     pullPlayerTowardManualTarget(target);
   }
 
+  const weapon = equippedWeaponDef();
+  const ranged = isRangedWeapon();
+  const attackRange = playerHitRange();
+  if(entityScreenAwareDistance(target) > attackRange + 0.2){
+    if(isManualAttack){
+      startAutoAttackChase(target);
+      toast(`${target.name}에게 접근 중`);
+      draw();
+      return;
+    }
+    return;
+  }
+
+  if(tick < (player.attackReadyTick || 0)){
+    if(isManualAttack) toast('공격 준비 중');
+    return;
+  }
+
   // 수동 공격은 기력이 낮아도 멈추지 않는다. 대신 지친 공격은 피해가 줄어든다.
   const tiredManual = isManualAttack && player.sta < 3;
   if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
-  player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : 1.2) : 3));
+  if(ranged && !consumeAmmoForWeapon(weapon)) return;
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
+  player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
 
-  const weapon = itemDefs[player.weapon] || itemDefs.rustySword;
   ensureDurability(player.weapon);
-  const sword = player.skills.sword.v;
+  const mainSkill = ranged ? player.skills.archery.v : player.skills.sword.v;
   const tactics = player.skills.tactics.v;
   const hit = isManualAttack
     ? 1
-    : clamp(0.66 + sword/240, 0.66, 0.94);
+    : clamp((ranged ? 0.72 : 0.66) + mainSkill/240, 0.66, 0.96);
+
+  if(ranged) addProjectileEffect({x:player.x, y:player.y}, target, 'arrow');
 
   if(Math.random() < hit){
-    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + tactics/12 + Math.random()*8;
+    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : tactics/12) + tactics/16 + Math.random()*8;
     const manualBonus = isManualAttack ? 1.12 : 1;
     const tiredPenalty = tiredManual ? 0.45 : 1;
     const dmg = Math.max(1, Math.floor(baseDmg * manualBonus * tiredPenalty));
-    damageDurability(player.weapon, isManualAttack ? 0.22 : 0.35);
+    damageDurability(player.weapon, isManualAttack ? (ranged ? 0.16 : 0.22) : (ranged ? 0.24 : 0.35));
     target.hp -= dmg;
     target.aggroUntil = tick + 180;
     if(target.animal) target.fleeUntil = tick + 80;
     addCombatEffect(target.x, target.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-    addLog(`${target.name}에게 ${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
-    gainSkill('sword', isManualAttack ? 0.22 : 0.18);
+    addLog(`${target.name}에게 ${ranged ? '원거리' : ''} ${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
+    gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.22 : 0.18);
     gainSkill('tactics', isManualAttack ? 0.16 : 0.13);
     if(target.hp <= 0){
       manualAttackLock = {ref:null, kind:null, until:0};
@@ -3847,7 +3918,7 @@ function attack(target=null){
   }else{
     addCombatEffect(target.x, target.y, '빗나감', 'miss');
     addLog(`${target.name} 공격 빗나감.`);
-    gainSkill('sword',0.06);
+    gainSkill(isRangedWeapon() ? 'archery' : 'sword',0.06);
   }
   draw();
 }
@@ -4415,6 +4486,15 @@ function nearbyChest(range=1.35){
 }
 
 function getContextAction(){
+  if(isTargetLockValid(manualAttackLock)){
+    const lock = manualAttackLock;
+    if(lock.kind === 'npc') return {type:'npc', label:'말걸기', npc:lock.ref, targeted:true};
+    if(lock.kind === 'resource'){
+      const action = resourceActionForKind(lock.ref.kind);
+      return {type:'resource', label:action.label, res:{...action, res:lock.ref}, targeted:true};
+    }
+    if(lock.kind === 'chest') return {type:'chest', label:'상자', chest:lock.ref, targeted:true};
+  }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'말걸기', npc};
   const res = nearbyResourceKind();
@@ -4435,9 +4515,13 @@ function updateContextButtons(){
   const ctx = getContextAction();
   if(use) use.textContent = ctx.type === 'use' ? '말걸기' : ctx.label;
   if(attackButton){
-    const selectedEnemy = manualAttackLock?.kind === 'mob' && isManualAttackLockedTargetValid() ? manualAttackLock.ref : null;
-    const nearbyEnemy = selectedEnemy || mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
-    attackButton.textContent = nearbyEnemy ? `공격:${nearbyEnemy.name.slice(0,3)}` : '공격';
+    if(autoAttackChase?.ref){
+      attackButton.textContent = '공격 취소';
+    }else{
+      const selectedEnemy = (manualAttackLock?.kind === 'mob' || manualAttackLock?.kind === 'npc') && isManualAttackLockedTargetValid() ? manualAttackLock.ref : null;
+      const nearbyEnemy = selectedEnemy || mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=5.25).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0];
+      attackButton.textContent = nearbyEnemy ? `공격:${(nearbyEnemy.name||'대상').slice(0,3)}` : '공격';
+    }
   }
   if(autoButton){
     autoButton.textContent = player.auto?.enabled ? '오토 ON' : '오토';
@@ -4606,14 +4690,17 @@ function smartUse(){
   if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
+    if(dist(ctx.npc, player) > 1.9){ toast('NPC가 너무 멀다'); return; }
     openNpcMenu(ctx.npc);
     return;
   }
   if(ctx.type === 'resource'){
+    if(dist(ctx.res.res, player) > 1.75){ toast(`${ctx.label} 대상이 너무 멀다`); return; }
     gather(ctx.res.kind, ctx.res.res);
     return;
   }
   if(ctx.type === 'chest'){
+    if(dist(ctx.chest, player) > 1.65){ toast('상자가 너무 멀다'); return; }
     openChest(ctx.chest);
     return;
   }
@@ -4888,7 +4975,7 @@ function craftItem(recipeId){
   const skill = player.skills[r.skill]?.v || 0;
   const chance = clamp(0.45 + (skill-r.min)/100, 0.18, 0.92);
   if(Math.random() < chance){
-    addItem(r.id,1);
+    addItem(r.id, r.outputQty || 1);
     addLog(`제작 성공: ${r.name}.`);
     toast(`${r.name} 제작 성공`);
     gainSkill(r.skill,0.32);
@@ -4921,48 +5008,198 @@ function renderCraft(){
   }).join('');
 }
 
+function parseBankGoldAmount(maxValue){
+  const input = document.getElementById('bankGoldAmount');
+  const raw = input ? Number(input.value) : 0;
+  const amount = Math.floor(raw);
+  if(!Number.isFinite(amount) || amount <= 0){ toast('금액을 입력하세요'); return 0; }
+  return clamp(amount, 1, Math.max(0, Math.floor(maxValue||0)));
+}
+
+function depositGoldAmount(){
+  normalizePlayer();
+  const amount = parseBankGoldAmount(player.gold);
+  if(amount <= 0){ if(player.gold <= 0) toast('입금할 골드 없음'); return; }
+  player.gold -= amount;
+  player.bankGold += amount;
+  addLog(`${amount}g 은행 입금.`);
+  renderBank(); draw();
+}
+
+function withdrawGoldAmount(){
+  normalizePlayer();
+  const amount = parseBankGoldAmount(player.bankGold);
+  if(amount <= 0){ if(player.bankGold <= 0) toast('출금할 골드 없음'); return; }
+  player.bankGold -= amount;
+  player.gold += amount;
+  addLog(`${amount}g 은행 출금.`);
+  renderBank(); draw();
+}
+
 function depositGold(){
   normalizePlayer();
   if(player.gold <= 0){ toast('입금할 골드 없음'); return; }
-  player.bankGold += player.gold;
-  addLog(`${player.gold}g 은행 입금.`);
+  const amount = Math.floor(player.gold);
+  player.bankGold += amount;
   player.gold = 0;
+  addLog(`${amount}g 은행 전액 입금.`);
   renderBank(); draw();
 }
 
 function withdrawGold(){
   normalizePlayer();
   if(player.bankGold <= 0){ toast('출금할 골드 없음'); return; }
-  player.gold += player.bankGold;
-  addLog(`${player.bankGold}g 은행 출금.`);
+  const amount = Math.floor(player.bankGold);
+  player.gold += amount;
   player.bankGold = 0;
+  addLog(`${amount}g 은행 전액 출금.`);
   renderBank(); draw();
 }
 
-function depositItem(id){
+// 은행 아이템 보관은 제거됨. 과거 저장 데이터 호환을 위해 함수만 no-op 처리한다.
+function depositItem(id){ toast('은행은 이제 골드만 보관합니다'); }
+function withdrawItem(id){ toast('은행은 이제 골드만 보관합니다'); }
+
+function bankRatePercent(){
   normalizePlayer();
-  if(!removeItem(id,1)) return;
-  player.bank[id] = (player.bank[id]||0)+1;
-  renderBank(); renderInventory(); draw();
+  return (player.bankRate || 0) * 100;
+}
+function rerollBankRate(){
+  // 접속 중 게임 시간 기준 변동금리. 너무 높아지지 않도록 낮은 폭으로 제한한다.
+  player.bankRate = Math.round((0.0025 + Math.random()*0.0125) * 10000) / 10000;
+  player.bankRateNextTick = tick + 900 + Math.floor(Math.random()*420);
+  addLog(`은행 변동금리 변경: ${(player.bankRate*100).toFixed(2)}%`);
+}
+function applyBankInterest(force=false){
+  normalizePlayer();
+  if(!force && tick < (player.bankInterestNextTick||0)) return;
+  player.bankInterestNextTick = tick + 600;
+  if(player.bankGold > 0){
+    const interest = Math.max(1, Math.floor(player.bankGold * (player.bankRate || 0)));
+    const capped = Math.min(interest, 5000);
+    player.bankGold += capped;
+    addLog(`은행 이자 +${capped}g 적용. 금리 ${(bankRatePercent()).toFixed(2)}%`);
+  }
+}
+function updateBankSystem(){
+  normalizePlayer();
+  if(tick >= (player.bankRateNextTick||0)) rerollBankRate();
+  if(tick >= (player.bankInterestNextTick||0)) applyBankInterest();
 }
 
-function withdrawItem(id){
-  normalizePlayer();
-  if(!player.bank[id]) return;
-  player.bank[id]--;
-  if(player.bank[id] <= 0) delete player.bank[id];
-  addItem(id,1);
-  renderBank(); renderInventory(); draw();
-}
 
+function equippedWeaponDef(){
+  return player.weapon && itemDefs[player.weapon] ? itemDefs[player.weapon] : (itemDefs.rustySword || {atk:1});
+}
+function isRangedWeapon(id=player.weapon){
+  const def = id && itemDefs[id];
+  return !!(def && def.type === 'weapon' && def.range && def.ammo);
+}
+function isArcheryJob(jobName=player.job){
+  const name = String(jobName || '');
+  return /(궁수|궁병|명궁|사수|아처|레인저|레인져|순찰자|사냥꾼|활잡이|Archer|Ranger|Hunter)/i.test(name);
+}
+function archeryRangeBonus(){
+  normalizePlayer();
+  if(!isRangedWeapon()) return 0;
+  if(!isArcheryJob(player.job)) return 0;
+  const archery = player.skills?.archery?.v || 0;
+  const level = player.level || 1;
+  const baseJobBonus = 0.8;
+  const skillBonus = Math.min(1.2, archery / 90);
+  const levelBonus = Math.min(0.6, Math.max(0, level - 1) / 40);
+  return +(baseJobBonus + skillBonus + levelBonus).toFixed(2);
+}
+function playerMoveSpeed(){
+  normalizePlayer();
+  const base = 3.4;
+  const tactics = player.skills?.tactics?.v || 0;
+  const armorPenalty = player.armor && itemDefs[player.armor]?.def ? Math.min(0.42, (itemDefs[player.armor].def || 0) * 0.035) : 0;
+  const weightPenalty = Math.min(0.5, Math.max(0, inventoryWeight() - maxCarryWeight()*0.72) / Math.max(1, maxCarryWeight()) * 0.9);
+  const jobBonus = player.job === '궁수' || player.job === '순찰자' ? 0.22 : 0;
+  return Math.max(2.15, base + tactics/180 + jobBonus - armorPenalty - weightPenalty);
+}
+function playerAttackSpeed(){
+  normalizePlayer();
+  const weapon = equippedWeaponDef();
+  const skill = isRangedWeapon() ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
+  const weaponDelay = isRangedWeapon() ? 7.2 : Math.max(3.8, 6.2 - (weapon.atk || 0) * 0.08);
+  const speedBonus = Math.min(2.25, skill / 55 + (player.skills.tactics?.v || 0) / 90);
+  return Math.max(2.4, weaponDelay - speedBonus);
+}
+function playerHitRange(){
+  const weapon = equippedWeaponDef();
+  if(isRangedWeapon()) return (weapon.range || 5.5) + archeryRangeBonus();
+  const tactics = player.skills?.tactics?.v || 0;
+  return Math.min(2.15, 1.52 + tactics/220);
+}
+function consumeAmmoForWeapon(weapon){
+  if(!weapon?.ammo) return true;
+  const ammo = weapon.ammo;
+  if((player.inv?.[ammo] || 0) <= 0){
+    toast(`${itemDefs[ammo]?.name || ammo} 부족`);
+    addLog(`${weapon.name || '활'}을 사용하려면 ${itemDefs[ammo]?.name || ammo}이 필요하다.`);
+    return false;
+  }
+  removeItem(ammo, 1);
+  return true;
+}
+function addProjectileEffect(from, to, type='arrow'){
+  projectileEffects.push({
+    sx: from.x, sy: from.y,
+    tx: to.x, ty: to.y,
+    type,
+    life:0.34,
+    maxLife:0.34
+  });
+  if(projectileEffects.length > 24) projectileEffects.shift();
+}
+function updateProjectileEffects(dt){
+  const sec = Math.max(0.008, Math.min(0.05, dt/1000));
+  for(const e of projectileEffects) e.life -= sec;
+  for(let i=projectileEffects.length-1;i>=0;i--){
+    if(projectileEffects[i].life <= 0) projectileEffects.splice(i,1);
+  }
+}
+function drawProjectileEffects(camPxX, camPxY){
+  ctx.save();
+  ctx.lineCap = 'round';
+  for(const e of projectileEffects){
+    const p = clamp(1 - e.life/e.maxLife, 0, 1);
+    const x = (e.sx + (e.tx-e.sx)*p) * TILE - camPxX + 16;
+    const y = (e.sy + (e.ty-e.sy)*p) * TILE - camPxY + 16;
+    const px = (e.sx + (e.tx-e.sx)*Math.max(0,p-0.08)) * TILE - camPxX + 16;
+    const py = (e.sy + (e.ty-e.sy)*Math.max(0,p-0.08)) * TILE - camPxY + 16;
+    const a = Math.max(0, e.life/e.maxLife);
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = '#d9c486';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.fillStyle = '#f1e3a5';
+    ctx.fillRect(x-1, y-1, 2, 2);
+  }
+  ctx.restore();
+}
 function combatPower(){
+  const weapon = equippedWeaponDef();
   const weaponAtk = player.weapon && itemDefs[player.weapon] ? (itemDefs[player.weapon].atk || 0) : 0;
   const armorDef = player.armor && itemDefs[player.armor] ? (itemDefs[player.armor].def || 0) : 0;
+  const ranged = isRangedWeapon();
+  const skillAtk = ranged ? (player.skills.archery.v/7 + player.skills.tactics.v/14) : (player.skills.sword.v/8 + player.skills.tactics.v/12);
   return {
-    atk: Math.round(weaponAtk * durabilityFactor(player.weapon) + player.skills.sword.v/8 + player.skills.tactics.v/12),
+    atk: Math.round(weaponAtk * durabilityFactor(player.weapon) + skillAtk),
     def: Math.round(armorDef * durabilityFactor(player.armor) + (tick < (player.guardUntilTick||0) ? 8 : 0)),
     weaponAtk,
-    armorDef
+    armorDef,
+    moveSpeed: playerMoveSpeed(),
+    attackSpeed: playerAttackSpeed(),
+    hitRange: playerHitRange(),
+    rangeBonus: archeryRangeBonus(),
+    ranged,
+    ammo: weapon.ammo || null
   };
 }
 
@@ -5004,6 +5241,11 @@ function renderStatus(){
         ${tile('방어구', `${escapeHtml(player.armor ? (itemDefs[player.armor]?.name || '없음') : '없음')} · ${armorDur}%`)}
         ${tile('공격력', cp.atk)}
         ${tile('방어력', cp.def)}
+        ${tile('이속', cp.moveSpeed.toFixed(2))}
+        ${tile('공속', cp.attackSpeed.toFixed(1)+'틱')}
+        ${tile('사거리', cp.hitRange.toFixed(1)+'칸')}
+        ${tile('사거리 보너스', cp.rangeBonus > 0 ? '+'+cp.rangeBonus.toFixed(1)+'칸' : '-')}
+        ${tile('탄약', cp.ammo ? `${escapeHtml(itemDefs[cp.ammo]?.name || cp.ammo)} ${player.inv[cp.ammo]||0}` : '-')}
       </div>
       <div class="card">
         <h3>주요 스킬</h3>
@@ -5317,6 +5559,7 @@ function merchantCatalog(npc){
       {id:'bandage', price:24, stock:5, desc:'응급 치료용'},
       {id:'rustySword', price:18, stock:3, desc:'초보자용 검'},
       {id:'shortBow', price:42, stock:2, desc:'초보자용 활'},
+      {id:'arrow', price:3, stock:99, desc:'활 공격 탄약'},
       {id:'fishingRod', price:52, stock:2, desc:'낚시 도구'},
       {id:'leatherArmor', price:96, stock:2, desc:'가죽 방어구'},
       {id:'log', price:6, stock:10, desc:'목재'},
@@ -5792,29 +6035,22 @@ function renderBank(){
   normalizePlayer();
   const pocket = document.getElementById('bankPocketGold');
   const stored = document.getElementById('bankStoredGold');
-  if(pocket) pocket.textContent = `${player.gold}g`;
-  if(stored) stored.textContent = `${player.bankGold}g`;
-
-  const invEl = document.getElementById('bankInvList');
-  const bankEl = document.getElementById('bankStoredList');
-  if(invEl){
-    const ids = Object.keys(player.inv);
-    invEl.innerHTML = ids.length ? ids.map(id=>{
-      const def = itemDefs[id] || {name:id};
-      return `<div class="invItem" onclick="showInventoryItemPopup(event,'${id}',{origin:'inventory'})"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.inv[id]}</small></div></div><button onclick="event.stopPropagation(); depositItem('${id}')">입금</button></div>`;
-    }).join('') : '<p class="notice">가방이 비어 있다.</p>';
-  }
-  if(bankEl){
-    const ids = Object.keys(player.bank);
-    bankEl.innerHTML = ids.length ? ids.map(id=>{
-      const def = itemDefs[id] || {name:id};
-      return `<div class="invItem" onclick="showInventoryItemPopup(event,'${id}',{origin:'bank'})"><div style="display:flex; gap:8px; align-items:flex-start"><div class="itemIcon" style="min-width:26px">${itemIcon(id)}</div><div><b>${escapeHtml(def.name)}</b><br><small>수량 ${player.bank[id]}</small></div></div><button onclick="event.stopPropagation(); withdrawItem('${id}')">출금</button></div>`;
-    }).join('') : '<p class="notice">보관함이 비어 있다.</p>';
+  const rate = document.getElementById('bankInterestRate');
+  const timer = document.getElementById('bankInterestTimer');
+  if(pocket) pocket.textContent = `${Math.floor(player.gold)}g`;
+  if(stored) stored.textContent = `${Math.floor(player.bankGold)}g`;
+  if(rate) rate.textContent = `${bankRatePercent().toFixed(2)}%`;
+  if(timer){
+    const left = Math.max(0, (player.bankInterestNextTick||tick) - tick);
+    timer.textContent = `${Math.ceil(left*0.45)}초`;
   }
 }
 
 function normalizePlayer(){
   if(typeof player.bankGold !== 'number') player.bankGold = 0;
+  if(typeof player.bankRate !== 'number') player.bankRate = 0.006;
+  if(typeof player.bankRateNextTick !== 'number' || player.bankRateNextTick <= 0) player.bankRateNextTick = tick + 900;
+  if(typeof player.bankInterestNextTick !== 'number' || player.bankInterestNextTick <= 0) player.bankInterestNextTick = tick + 600;
   if(typeof player.fame !== 'number') player.fame = 0;
   if(typeof player.mana !== 'number') player.mana = 50;
   if(typeof player.maxMana !== 'number') player.maxMana = 50;
@@ -6047,6 +6283,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
   const equip = (player.weapon===id || player.armor===id) && origin !== 'merchant' ? '<span>장착중</span>' : '';
   const statMeta = [
     def.type === 'weapon' ? `<span>공격력 +${def.atk || 0}</span>` : '',
+    def.range ? `<span>사거리 ${def.range}칸</span>` : '',
+    def.ammo ? `<span>탄약 ${escapeHtml(itemDefs[def.ammo]?.name || def.ammo)}</span>` : '',
     def.type === 'armor' ? `<span>방어력 +${def.def || 0}</span>` : '',
     def.heal ? `<span>HP 회복 +${def.heal}</span>` : '',
     def.mana ? `<span>MP 회복 +${def.mana}</span>` : ''
@@ -6058,7 +6296,7 @@ function showInventoryItemPopup(ev, id, ctx={}){
     : '';
   const ownerText = origin === 'merchant' ? `${npc?.name || 'NPC'} 소지품` : origin === 'bank' ? '은행 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
-    ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}.`
+    ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
     : (def.desc || '설명 없음');
   const actions = inventoryItemActionButtons(id, {mode, origin});
 
@@ -8164,11 +8402,13 @@ function isRoadOrTown(x,y){
 }
 
 function nearestTarget(){
-  if(manualAttackLock?.kind === 'mob' && isManualAttackLockedTargetValid()) return manualAttackLock.ref;
+  if(isTargetLockValid(manualAttackLock)) return manualAttackLock.ref;
   const mob = mobs.filter(m=>dist(m, player)<=1.7).sort((a,b)=>dist(a,player)-dist(b,player))[0];
   if(mob) return mob;
   const npc = npcs.filter(n=>!n.down && dist(n, player)<=1.7).sort((a,b)=>dist(a,player)-dist(b,player))[0];
   if(npc) return npc;
+  const res = resources.filter(r=>r.amount>0 && dist(r, player)<=1.55 && (r.kind !== 'fish' || tileAt(r.x, r.y)==='water')).sort((a,b)=>dist(a,player)-dist(b,player))[0];
+  if(res) return res;
   const chest = chests.filter(c=>!c.opened && dist(c, player)<=1.45).sort((a,b)=>dist(a,player)-dist(b,player))[0];
   return chest || null;
 }
@@ -8498,13 +8738,15 @@ function drawYellowTargetMarker(target, x, y){
   ctx.moveTo(cx, cy+r-3); ctx.lineTo(cx, cy+r+5);
   ctx.stroke();
 
+  const lock = manualAttackLock?.ref === target ? manualAttackLock : null;
+  const label = lock ? targetDisplayName(lock.kind, target) : 'TARGET';
   ctx.font='bold 10px system-ui';
   ctx.textAlign='center';
   ctx.lineWidth=3;
   ctx.strokeStyle='rgba(39,25,0,.9)';
   ctx.fillStyle='#ffe872';
-  ctx.strokeText('TARGET', cx, y-7);
-  ctx.fillText('TARGET', cx, y-7);
+  ctx.strokeText(label, cx, y-7);
+  ctx.fillText(label, cx, y-7);
   ctx.restore();
 }
 
@@ -8596,6 +8838,7 @@ function draw(){
     drawSpeechBubble(player.x*TILE - camPxX + 16, player.y*TILE - camPxY - 8, localSpeech.text);
   }
 
+  drawProjectileEffects(camPxX, camPxY);
   drawCombatEffects(camPxX, camPxY);
 
   // Adaptive dark tone now applies only to the top HUD, not the whole canvas.
@@ -8738,6 +8981,7 @@ function gameLoop(){
   if(tick % 4 === 0) updateContextButtons();
   if(tick % 8 === 0) runAutoMode();
   if(tick % 20 === 0) updateWorldHud();
+  if(tick % 10 === 0) updateBankSystem();
   if(tick - lastAutoSaveTick >= 134){
     autoSaveGame();
     lastAutoSaveTick = tick;
@@ -8748,6 +8992,16 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'활 직업군 사거리 보너스 적용', items:[
+    '궁수·레인저·순찰자·사냥꾼 등 활 직업군은 활 장착 시 기본 사거리에 직업 보너스가 더해지도록 했다.',
+    '사거리 보너스는 기본 직업 보정, 궁술 숙련도, 레벨에 따라 증가하며 실제 원거리 공격 판정에 적용된다.',
+    '상태창에 사거리 보너스 항목을 추가해 현재 적용 중인 보너스 값을 확인할 수 있게 했다.'
+  ]},
+  {version:'현재', title:'원거리 전투·화살·전투 보조 스탯 추가</b><br><span>활 장착 시 사거리 안에서 이동 없이 공격, 화살 소모/제작/잡화점 구매, 화살 투사체 이펙트, 이속·공속·사거리 표시를 추가.</span></div><div class="noteItem"><b>공통 타겟팅·공격 취소·은행 금리 개편', items:[
+    '몬스터뿐 아니라 NPC, 나무, 암석, 약초, 낚시 지점, 상자도 첫 터치로 노란색 타겟팅이 되도록 확장했다.',
+    '공격 버튼으로 몬스터에게 자동 접근 중 다시 공격 버튼을 누르면 공격 추격이 취소되게 변경했다.',
+    '은행은 아이템 이동 기능을 제거하고 금액 입력식 골드 입금/출금과 접속 중 변동금리 이자 시스템으로 개편했다.'
+  ]},
   {version:'현재', title:'경비병 플레이어 관통 방지', items:[
     '경비병이 마을 침입 몬스터를 추격할 때 유저 캐릭터를 뚫고 지나가지 않도록 이동 충돌을 추가했다.',
     '플레이어가 경로에 있으면 경비병은 측면 우회 이동을 먼저 시도하고, 막히면 그 자리에서 대기한다.',
@@ -9112,71 +9366,37 @@ function setupCanvasGestures(){
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
     clearTimeout(canvasHoldTimer);
-    canvasPointerTargetedMob = null;
+    canvasPointerTargeted = null;
 
     const mob = mobAtScreenPoint(e.clientX, e.clientY);
-    if(mob){
-      canvasPointerTargetedMob = mob;
-      setTouchedMobTarget(mob);
-      e.preventDefault();
-    }
+    if(mob){ canvasPointerTargeted = {kind:'mob', ref:mob}; selectTarget('mob', mob, false); e.preventDefault(); return; }
+    const npc = npcAtScreenPoint(e.clientX, e.clientY);
+    if(npc){ canvasPointerTargeted = {kind:'npc', ref:npc}; selectTarget('npc', npc, false); e.preventDefault(); return; }
+    const res = resourceAtScreenPoint(e.clientX, e.clientY);
+    if(res){ canvasPointerTargeted = {kind:'resource', ref:res}; selectTarget('resource', res, false); e.preventDefault(); return; }
+    const chest = chestAtScreenPoint(e.clientX, e.clientY);
+    if(chest){ canvasPointerTargeted = {kind:'chest', ref:chest}; selectTarget('chest', chest, false); e.preventDefault(); return; }
   }, {passive:false});
 
   canvas.addEventListener('pointerup', e=>{
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
-
-    if(canvasPointerTargetedMob){
-      canvasPointerTargetedMob = null;
-      return;
-    }
+    if(canvasPointerTargeted){ canvasPointerTargeted = null; return; }
 
     const mob = mobAtScreenPoint(e.clientX, e.clientY);
-    if(mob){
-      setTouchedMobTarget(mob);
-      return;
-    }
-
+    if(mob){ selectTarget('mob', mob, false); return; }
     const npc = npcAtScreenPoint(e.clientX, e.clientY);
-    if(npc){
-      currentNpc = npc;
-      if(dist(npc, player) > 1.9){
-        toast('NPC가 너무 멀다');
-        draw();
-        return;
-      }
-      openNpcMenu(npc);
-      return;
-    }
-
+    if(npc){ selectTarget('npc', npc, false); return; }
     const res = resourceAtScreenPoint(e.clientX, e.clientY);
-    if(res){
-      const action = resourceActionForKind(res.kind);
-      if(dist(res, player) > 1.65){
-        toast(`${action.label} 대상이 너무 멀다`);
-        draw();
-        return;
-      }
-      gather(action.kind, res);
-      return;
-    }
-
+    if(res){ selectTarget('resource', res, false); return; }
     const chest = chestAtScreenPoint(e.clientX, e.clientY);
-    if(chest){
-      if(dist(chest, player) > 1.65){
-        toast('상자가 너무 멀다');
-        draw();
-        return;
-      }
-      openChest(chest);
-      return;
-    }
+    if(chest){ selectTarget('chest', chest, false); return; }
   }, {passive:true});
 
   canvas.addEventListener('pointercancel', ()=>{
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
-    canvasPointerTargetedMob = null;
+    canvasPointerTargeted = null;
   });
 }
 
@@ -9250,20 +9470,21 @@ function autoAttackChaseStep(dt){
   }
 
   manualAttackLock = {ref:target, kind:'mob', until:tick + 9999};
-  if(d <= 1.55){
-    if(tick - (chase.attackTick||0) >= 3){
+  const attackRange = playerHitRange();
+  if(d <= attackRange){
+    if(tick - (chase.attackTick||0) >= playerAttackSpeed()){
       autoAttackChase.attackTick = tick;
-      attack();
+      attack(target);
     }
     return true;
   }
 
   const len = d || 1;
   player.dir = [dx/len, dy/len];
-  const moved = move(dx, dy, 4.2 * (dt/1000));
-  if(!moved && d <= 2.15 && tick - (chase.attackTick||0) >= 3){
+  const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.2) * (dt/1000));
+  if(!moved && d <= attackRange + 0.55 && tick - (chase.attackTick||0) >= playerAttackSpeed()){
     autoAttackChase.attackTick = tick;
-    attack();
+    attack(target);
   }
   return true;
 }
@@ -9279,7 +9500,7 @@ function processMovement(dt){
   const mag = Math.hypot(vx,vy);
   if(mag < 0.05) return;
   const power = Math.min(1, mag);
-  const step = 3.4 * power * (dt/1000);
+  const step = playerMoveSpeed() * power * (dt/1000);
   move(vx,vy,step);
 }
 
@@ -9527,6 +9748,7 @@ function frameLoop(ts){
   processMovement(dt);
   frameWorldAI(dt);
   updateCombatEffects(dt);
+  updateProjectileEffects(dt);
   updateContextButtons();
   sendOnlineState();
   draw();
