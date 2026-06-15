@@ -2058,6 +2058,19 @@
     justify-content:flex-end !important;
   }
 
+
+.invCapacityNotice{grid-column:1/-1; margin-bottom:4px;}
+.invSlot.empty{opacity:.42; border:1px dashed rgba(215,180,90,.25); background:rgba(0,0,0,.10);}
+.invEmptySlot{font-size:10px; color:rgba(230,213,168,.45); display:flex; align-items:center; justify-content:center; height:100%;}
+.craftGradeGroup{margin-bottom:14px; padding:8px; border-radius:14px; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06);}
+.craftGradeGroup>h3{margin:0 0 8px; font-size:15px;}
+.craftCard.normal{border-color:rgba(203,213,225,.14)}
+.craftCard.advanced{border-color:rgba(74,222,128,.22)}
+.craftCard.rare{border-color:rgba(96,165,250,.28)}
+.craftCard.epic{border-color:rgba(168,85,247,.30)}
+.craftCard.legendary{border-color:rgba(251,191,36,.34)}
+.craftCard.mythic{border-color:rgba(244,114,182,.36)}
+
 </style>
 
 
@@ -2438,7 +2451,7 @@ const itemDefs = {
   hunterBow:{name:'사냥꾼 활', type:'weapon', atk:7, range:6.4, price:72, ammo:'arrow', desc:'목재와 가죽으로 제작하는 활. 화살을 소비해 원거리 공격한다.'},
   leatherArmor:{name:'가죽 갑옷', type:'armor', def:3, price:64, desc:'받는 피해를 줄인다.'},
   ironArmor:{name:'철 갑옷', type:'armor', def:6, price:130, desc:'무겁지만 튼튼한 방어구.'},
-  fishingRod:{name:'낚싯대', type:'tool', price:35, desc:'낚시 성공률을 조금 높인다.'},
+  fishingRod:{name:'낚싯대', type:'tool', grade:'일반', price:35, rod:{distance:2.15,power:1.0,luck:0.03}, desc:'일반 낚싯대. 거리 2.15칸, 파워 1.0, 행운 +3%.'},
   ore:{name:'철광석', type:'mat', price:4, desc:'대장 제작 재료.'},
   log:{name:'통나무', type:'mat', price:3, desc:'목공 제작 재료.'},
   fish:{name:'민물고기', type:'food', price:5, heal:10, desc:'먹으면 HP를 회복한다.'},
@@ -2466,7 +2479,7 @@ Object.assign(itemDefs, {
   meat:{name:'고기', type:'food', price:7, heal:14, desc:'동물에게서 얻은 고기. 먹으면 HP를 조금 회복한다.'},
   cookedFish:{name:'구운 생선', type:'food', price:12, heal:24, desc:'구워낸 생선. 약초보다 적지만 안정적으로 회복한다.'},
   bandage:{name:'붕대', type:'food', price:18, heal:32, desc:'즉석 치료용 붕대. 사용 시 HP를 크게 회복한다.'},
-  backpack:{name:'여행 가방', type:'special', price:70, desc:'소지 중이면 최대 적재량이 12 증가한다.'},
+  backpack:{name:'여행 가방', type:'bag', grade:'일반', slotBonus:8, price:70, desc:'사용하면 가방 슬롯이 8칸 증가한다.'},
   shadowCloak:{name:'그림자 망토', type:'armor', def:2, price:140, desc:'은신에 유리한 얇은 망토. 절도 적발 확률이 조금 낮아진다.'},
   trout:{name:'송어', type:'food', price:9, heal:13, desc:'강과 숲 계곡에서 자주 낚이는 생선.'},
   carp:{name:'잉어', type:'food', price:12, heal:16, desc:'마을 남쪽 물가에서 잘 잡히는 튼튼한 생선.'},
@@ -2484,23 +2497,64 @@ Object.assign(itemDefs, {
   batWing:{name:'박쥐 날개', type:'mat', price:9, desc:'던전 몬스터 재료.'},
   slimeGel:{name:'슬라임 젤', type:'mat', price:7, desc:'약품과 제작 재료.'},
   ancientRelic:{name:'고대 유물', type:'special', price:190, desc:'던전 깊은 곳의 희귀 수집품.'},
-  steelSword:{name:'강철검', type:'weapon', atk:13, range:1.35, price:180, desc:'철검보다 강한 던전 대응 무기. 근접 사거리가 짧다.'},
-  rangerBow:{name:'순찰자 활', type:'weapon', atk:11, range:7.2, price:150, ammo:'arrow', desc:'야외 사냥에 좋은 장거리 활. 화살을 소비한다.'}
+  steelSword:{name:'강철검', type:'weapon', grade:'고급', atk:13, range:1.35, price:180, desc:'철검보다 강한 던전 대응 무기. 근접 사거리가 짧다.'},
+  rangerBow:{name:'순찰자 활', type:'weapon', grade:'레어', atk:11, range:7.2, price:150, ammo:'arrow', desc:'야외 사냥에 좋은 장거리 활. 화살을 소비한다.'},
+  sturdyBackpack:{name:'튼튼한 가방', type:'bag', grade:'고급', slotBonus:12, price:150, desc:'사용하면 가방 슬롯이 12칸 증가한다.'},
+  adventurerBackpack:{name:'모험가 가방', type:'bag', grade:'레어', slotBonus:16, price:280, desc:'사용하면 가방 슬롯이 16칸 증가한다.'},
+  epicBackpack:{name:'차원 가방', type:'bag', grade:'에픽', slotBonus:22, price:520, desc:'사용하면 가방 슬롯이 22칸 증가한다.'},
+  legendaryBackpack:{name:'전설의 가방', type:'bag', grade:'전설', slotBonus:30, price:950, desc:'사용하면 가방 슬롯이 30칸 증가한다.'},
+  mythicBackpack:{name:'신화의 가방', type:'bag', grade:'신화', slotBonus:40, price:1600, desc:'사용하면 가방 슬롯이 40칸 증가한다.'},
+  sturdyFishingRod:{name:'튼튼한 낚싯대', type:'tool', grade:'고급', price:96, rod:{distance:2.45,power:1.14,luck:0.06}, desc:'고급 낚싯대. 거리 2.45칸, 파워 1.14, 행운 +6%.'},
+  silverFishingRod:{name:'은장 낚싯대', type:'tool', grade:'레어', price:210, rod:{distance:2.75,power:1.28,luck:0.10}, desc:'레어 낚싯대. 거리 2.75칸, 파워 1.28, 행운 +10%.'},
+  epicFishingRod:{name:'폭풍 낚싯대', type:'tool', grade:'에픽', price:420, rod:{distance:3.05,power:1.45,luck:0.15}, desc:'에픽 낚싯대. 거리 3.05칸, 파워 1.45, 행운 +15%.'},
+  legendaryFishingRod:{name:'용비늘 낚싯대', type:'tool', grade:'전설', price:850, rod:{distance:3.45,power:1.72,luck:0.22}, desc:'전설 낚싯대. 거리 3.45칸, 파워 1.72, 행운 +22%.'},
+  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
   manaPotion:17, healthPotion:17, oakLog:8, copperOre:7, silverOre:13,
   dungeonKey:16, batWing:12, slimeGel:10, ancientRelic:18,
-  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16
+  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16, sturdyBackpack:21, adventurerBackpack:21, epicBackpack:21, legendaryBackpack:21, mythicBackpack:21, sturdyFishingRod:6, silverFishingRod:6, epicFishingRod:6, legendaryFishingRod:6, mythicFishingRod:6
 });
 
+
+const CRAFT_GRADES = ['일반','고급','레어','에픽','전설','신화'];
+function craftGradeOf(recipe){ return CRAFT_GRADES.includes(recipe?.grade) ? recipe.grade : '일반'; }
+function gradeClassName(grade){
+  return ({'일반':'normal','고급':'advanced','레어':'rare','에픽':'epic','전설':'legendary','신화':'mythic'}[grade] || 'normal');
+}
+function bagSlotBase(){ return 20; }
+function maxBagSlots(){
+  if(typeof player === 'undefined' || !player) return bagSlotBase();
+  return clamp(Math.floor(player.bagSlots || bagSlotBase()), bagSlotBase(), 240);
+}
+function usedBagSlots(inv=player.inv){ return Object.keys(inv||{}).filter(id=>(inv[id]||0)>0).length; }
+function hasFreeBagSlotFor(id, qty=1){
+  if((player.inv?.[id] || 0) > 0) return true;
+  return usedBagSlots() < maxBagSlots();
+}
+function bagSlotText(){ return `${usedBagSlots()} / ${maxBagSlots()}`; }
+function rodPowerScore(id){
+  const rod = itemDefs[id]?.rod;
+  if(!rod) return 0;
+  return (rod.distance || 0) * 10 + (rod.power || 1) * 8 + (rod.luck || 0) * 100;
+}
+function bestFishingRodId(){
+  return Object.keys(player.inv || {}).filter(id => (player.inv[id]||0)>0 && itemDefs[id]?.rod).sort((a,b)=>rodPowerScore(b)-rodPowerScore(a))[0] || null;
+}
+function bestFishingRod(){
+  const id = bestFishingRodId();
+  if(!id) return null;
+  return {id, def:itemDefs[id], ...(itemDefs[id].rod || {})};
+}
+
 const recipes = [
-  {id:'ironSword', name:'철검', skill:'blacksmith', skillName:'대장기술', need:{ore:8, log:2}, gold:15, min:15},
-  {id:'ironArmor', name:'철 갑옷', skill:'blacksmith', skillName:'대장기술', need:{ore:16, hide:4}, gold:30, min:24},
-  {id:'hunterBow', name:'사냥꾼 활', skill:'carpentry', skillName:'목공', need:{log:10, hide:3}, gold:12, min:12},
-  {id:'arrow', name:'화살 20개', skill:'carpentry', skillName:'목공', need:{log:1, ore:1}, gold:1, min:3, outputQty:20},
-  {id:'leatherArmor', name:'가죽 갑옷', skill:'tailoring', skillName:'재봉', need:{hide:10, fang:2}, gold:10, min:10},
-  {id:'fishingRod', name:'낚싯대', skill:'carpentry', skillName:'목공', need:{log:7, gem:1}, gold:8, min:8}
+  {id:'ironSword', name:'철검', grade:'일반', skill:'blacksmith', skillName:'대장기술', need:{ore:8, log:2}, gold:15, min:15},
+  {id:'ironArmor', name:'철 갑옷', grade:'일반', skill:'blacksmith', skillName:'대장기술', need:{ore:16, hide:4}, gold:30, min:24},
+  {id:'hunterBow', name:'사냥꾼 활', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:10, hide:3}, gold:12, min:12},
+  {id:'arrow', name:'화살 20개', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:1, ore:1}, gold:1, min:3, outputQty:20},
+  {id:'leatherArmor', name:'가죽 갑옷', grade:'일반', skill:'tailoring', skillName:'재봉', need:{hide:10, fang:2}, gold:10, min:10},
+  {id:'fishingRod', name:'낚싯대', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:7, gem:1}, gold:8, min:8}
 ];
 
 const shopItems = [
@@ -2523,11 +2577,12 @@ const fenceItems = [
 
 shopItems.push(
   {id:'bandage', price:26, stock:8, desc:'응급 치료용 소모품'},
-  {id:'backpack', price:96, stock:2, desc:'소지 중 적재량 +12'},
+  {id:'backpack', price:96, stock:2, desc:'사용 시 가방 슬롯 +8'},
   {id:'cookedFish', price:18, stock:6, desc:'중간 회복 음식'},
   {id:'healthPotion', price:42, stock:6, desc:'체력 회복 물약'},
   {id:'manaPotion', price:34, stock:6, desc:'마나 회복 물약'},
-  {id:'rangerBow', price:170, stock:1, desc:'원거리 사냥용 고급 활'}
+  {id:'rangerBow', price:170, stock:1, desc:'원거리 사냥용 고급 활'},
+  {id:'sturdyFishingRod', price:120, stock:1, desc:'고급 낚싯대'}
 );
 fenceItems.push(
   {id:'shadowCloak', price:168, stock:1, desc:'은신용 희귀 방어구'}
@@ -2545,15 +2600,25 @@ const questDefs = [
   {id:'frostOre6', title:'빙원 광석 납품', type:'collect', target:'frostOre', targetName:'빙결 광석', need:6, rewardGold:240, rewardFame:5, rewardItems:{steelSword:1}}
 ];
 recipes.push(
-  {id:'bandage', name:'붕대', skill:'healing', skillName:'회복', need:{herb:3, hide:1}, gold:6, min:10},
-  {id:'cookedFish', name:'구운 생선', skill:'fishing', skillName:'낚시', need:{fish:2, herb:1}, gold:4, min:10},
-  {id:'backpack', name:'여행 가방', skill:'carpentry', skillName:'목공', need:{log:8, hide:6}, gold:16, min:18},
-  {id:'shadowCloak', name:'그림자 망토', skill:'tailoring', skillName:'재봉', need:{hide:12, fang:3, gem:1}, gold:28, min:30},
-  {id:'steelSword', name:'강철검', skill:'blacksmith', skillName:'대장기술', need:{ironSword:1, silverOre:5, fang:4}, gold:55, min:38},
-  {id:'frostOre', name:'빙결 광석 정제', skill:'blacksmith', skillName:'대장기술', need:{silverOre:2, gem:1}, gold:20, min:28},
-  {id:'rangerBow', name:'순찰자 활', skill:'carpentry', skillName:'목공', need:{hunterBow:1, oakLog:8, hide:5}, gold:42, min:34},
-  {id:'healthPotion', name:'체력 물약', skill:'healing', skillName:'회복', need:{herb:5, slimeGel:2}, gold:12, min:22},
-  {id:'manaPotion', name:'마나 물약', skill:'healing', skillName:'회복', need:{herb:3, batWing:1}, gold:10, min:18}
+  {id:'bandage', name:'붕대', grade:'일반', skill:'healing', skillName:'회복', need:{herb:3, hide:1}, gold:6, min:10},
+  {id:'cookedFish', name:'구운 생선', grade:'일반', skill:'fishing', skillName:'낚시', need:{fish:2, herb:1}, gold:4, min:10},
+  {id:'backpack', name:'여행 가방', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:8, hide:6}, gold:16, min:18},
+  {id:'healthPotion', name:'체력 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:5, slimeGel:2}, gold:12, min:22},
+  {id:'manaPotion', name:'마나 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:3, batWing:1}, gold:10, min:18},
+  {id:'sturdyBackpack', name:'튼튼한 가방', grade:'고급', skill:'carpentry', skillName:'목공', need:{backpack:1, oakLog:6, hide:4}, gold:28, min:26},
+  {id:'sturdyFishingRod', name:'튼튼한 낚싯대', grade:'고급', skill:'carpentry', skillName:'목공', need:{fishingRod:1, oakLog:5, ore:3}, gold:24, min:22},
+  {id:'shadowCloak', name:'그림자 망토', grade:'레어', skill:'tailoring', skillName:'재봉', need:{hide:12, fang:3, gem:1}, gold:28, min:30},
+  {id:'silverFishingRod', name:'은장 낚싯대', grade:'레어', skill:'carpentry', skillName:'목공', need:{sturdyFishingRod:1, silverOre:4, gem:1}, gold:46, min:34},
+  {id:'adventurerBackpack', name:'모험가 가방', grade:'레어', skill:'carpentry', skillName:'목공', need:{sturdyBackpack:1, oakLog:8, silverCoin:3}, gold:52, min:36},
+  {id:'steelSword', name:'강철검', grade:'에픽', skill:'blacksmith', skillName:'대장기술', need:{ironSword:1, silverOre:5, fang:4}, gold:55, min:38},
+  {id:'frostOre', name:'빙결 광석 정제', grade:'에픽', skill:'blacksmith', skillName:'대장기술', need:{silverOre:2, gem:1}, gold:20, min:28},
+  {id:'rangerBow', name:'순찰자 활', grade:'에픽', skill:'carpentry', skillName:'목공', need:{hunterBow:1, oakLog:8, hide:5}, gold:42, min:34},
+  {id:'epicFishingRod', name:'폭풍 낚싯대', grade:'에픽', skill:'carpentry', skillName:'목공', need:{silverFishingRod:1, oakLog:10, slimeGel:6, gem:2}, gold:82, min:46},
+  {id:'epicBackpack', name:'차원 가방', grade:'에픽', skill:'tailoring', skillName:'재봉', need:{adventurerBackpack:1, shadowCloak:1, gem:2}, gold:95, min:48},
+  {id:'legendaryFishingRod', name:'용비늘 낚싯대', grade:'전설', skill:'carpentry', skillName:'목공', need:{epicFishingRod:1, ancientRelic:1, goldenFish:1, frostOre:4}, gold:180, min:62},
+  {id:'legendaryBackpack', name:'전설의 가방', grade:'전설', skill:'tailoring', skillName:'재봉', need:{epicBackpack:1, ancientRelic:1, boneCharm:4}, gold:220, min:64},
+  {id:'mythicFishingRod', name:'별빛 낚싯대', grade:'신화', skill:'carpentry', skillName:'목공', need:{legendaryFishingRod:1, ancientRelic:2, goldenFish:2, relicShard:8}, gold:420, min:82},
+  {id:'mythicBackpack', name:'신화의 가방', grade:'신화', skill:'tailoring', skillName:'재봉', need:{legendaryBackpack:1, ancientRelic:2, boneCharm:8, relicShard:8}, gold:480, min:84}
 );
 
 questDefs.push(
@@ -2702,7 +2767,7 @@ const player = {
   exp: 0, nextExp: 100,
   nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0, attackReadyTick: 0,
-  auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:false, wood:false, mine:false, fish:false, herb:false},
+  auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
   durability: {},
   discoveredRegions: {},
@@ -2730,7 +2795,7 @@ const player = {
     resistance:{name:'저항', v: 1.0}
   },
   inv: {rustySword:1, herb:2, arrow:10},
-  bank: {}, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
+  bank: {}, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
   shopStock: {},
   merchantStock: {},
   questKills: {},
@@ -3352,7 +3417,7 @@ function updateWorldHud(){
 function classifyLogType(msg, explicitType=null){
   if(explicitType) return explicitType;
   const s = String(msg || '');
-  if(/^\[?파티\]?/.test(s)) return 'chat';
+  if(/^\[?파티\]?|^[^:]{1,18}:\s/.test(s)) return 'chat';
   if(/피해|공격|빗나감|처치|원거리|베기|치명|대미지|데미지/.test(s)) return 'combat';
   return 'system';
 }
@@ -3430,7 +3495,7 @@ function initMap(){
       if(t==='ruins') kind = Math.random()<0.55 ? 'ore' : 'herb';
       if(t==='graveyard') kind = Math.random()<0.45 ? 'herb' : 'ore';
       if(t==='ice') kind = Math.random()<0.65 ? 'ore' : 'herb';
-      resources.push({x,y,kind,amount: 2+rand(5), respawn:0});
+      resources.push({x,y,kind,amount: 2+rand(5), respawn:0, cooldown:0});
     }
   }
 
@@ -3871,7 +3936,7 @@ function actionRangeForTarget(type, ref){
   if(type === 'npc') return 1.85;
   if(type === 'chest') return 1.65;
   if(type === 'resource'){
-    if(ref?.kind === 'fish') return 2.05;
+    if(ref?.kind === 'fish') return bestFishingRod()?.distance || 2.05;
     return 1.75;
   }
   return 1.75;
@@ -3891,7 +3956,7 @@ function startAutoActionChase(type, ref, action=null){
   if(!ok) return false;
   stopAutoAttackChase();
   manualAttackLock = {ref, kind:type, until:tick + 9999};
-  autoActionChase = {type, ref, action, until:tick + 700, actionTick:0};
+  autoActionChase = {type, ref, action, until:tick + 9999, actionTick:0};
   draw();
   return true;
 }
@@ -4861,24 +4926,32 @@ function death(){
   toast('마을에서 부활');
 }
 
-function nearbyNpc(range=1.55){
+function nearbyNpc(range=2.15){
   return npcs.filter(n=>!n.down && dist(n, player)<=range).sort((a,b)=>dist(a,player)-dist(b,player))[0] || null;
 }
 
-function nearbyResourceKind(range=1.35){
+function nearbyResourceKind(range=2.75){
+  // 버튼 자동 전환용 탐색 범위. 실제 행동 가능 거리는 actionRangeForTarget에서 따로 판정한다.
   const candidates = resources
     .filter(r=>r.amount>0 && dist(r, player)<=range && (r.kind !== 'fish' || tileAt(r.x, r.y) === 'water'))
-    .sort((a,b)=>dist(a,player)-dist(b,player));
-  const r = candidates[0];
-  if(!r) return null;
-  if(r.kind==='tree') return {kind:'wood', label:'벌목', res:r};
-  if(r.kind==='ore') return {kind:'mine', label:'채광', res:r};
-  if(r.kind==='fish') return {kind:'fish', label:'낚시', res:r};
-  if(r.kind==='herb') return {kind:'herb', label:'약초', res:r};
-  return null;
+    .map(r=>{
+      const action = resourceActionForKind(r.kind);
+      const actionRange = actionRangeForTarget('resource', r);
+      const d = dist(r, player);
+      const kindPriority = r.kind === 'tree' ? 1 : r.kind === 'ore' ? 2 : r.kind === 'herb' ? 3 : r.kind === 'fish' ? 4 : 9;
+      return {r, action, d, actionRange, kindPriority};
+    })
+    .sort((a,b)=>{
+      const aReady = a.d <= a.actionRange ? 0 : 1;
+      const bReady = b.d <= b.actionRange ? 0 : 1;
+      return aReady - bReady || a.d - b.d || a.kindPriority - b.kindPriority;
+    });
+  const hit = candidates[0];
+  if(!hit) return null;
+  return {kind:hit.action.kind, label:hit.action.label, res:hit.r, near:true};
 }
 
-function nearbyChest(range=1.35){
+function nearbyChest(range=2.45){
   return chests.filter(c=>!c.opened && dist(c, player)<=range).sort((a,b)=>dist(a,player)-dist(b,player))[0] || null;
 }
 
@@ -4942,7 +5015,7 @@ function openNpcMenu(npc){
 
   closeMiniTrade();
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
-  addLog(`${npc.name}: ${npc.talk}`, 'system');
+  addLog(`${npc.name}: ${npc.talk}`);
 
   const title = document.getElementById('npcTitle');
   const role = document.getElementById('npcRole');
@@ -5088,6 +5161,7 @@ function smartUse(){
   if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
+    selectTarget('npc', ctx.npc, false);
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
       startAutoActionChase('npc', ctx.npc);
       return;
@@ -5096,14 +5170,18 @@ function smartUse(){
     return;
   }
   if(ctx.type === 'resource'){
+    selectTarget('resource', ctx.res.res, false);
     if(dist(ctx.res.res, player) > actionRangeForTarget('resource', ctx.res.res)){
       startAutoActionChase('resource', ctx.res.res, {kind:ctx.res.kind, label:ctx.label});
       return;
     }
-    gather(ctx.res.kind, ctx.res.res, {noChase:true});
+    // 가까운 자원은 버튼 한 번으로 타겟팅과 행동을 동시에 실행한다.
+    const acted = gather(ctx.res.kind, ctx.res.res, {noChase:true, autoRepeat:true});
+    if(acted === true || acted === 'cooldown') startAutoActionChase('resource', ctx.res.res, {kind:ctx.res.kind, label:ctx.label});
     return;
   }
   if(ctx.type === 'chest'){
+    selectTarget('chest', ctx.chest, false);
     if(dist(ctx.chest, player) > actionRangeForTarget('chest', ctx.chest)){
       startAutoActionChase('chest', ctx.chest);
       return;
@@ -5197,6 +5275,32 @@ function openChest(chest){
   draw();
 }
 
+
+function resourceActionCooldownTicks(kind){
+  const map = {wood:5, mine:7, herb:4, fish:6};
+  return map[kind] || 5;
+}
+function resourceCooldownLeft(res){
+  return Math.max(0, Math.ceil(Number(res?.cooldown || 0)));
+}
+function setResourceCooldown(res, kind){
+  if(!res) return;
+  res.cooldown = resourceActionCooldownTicks(kind);
+}
+function normalizeResourceCooldowns(){
+  for(const r of resources){
+    if(!Number.isFinite(Number(r.cooldown)) || Number(r.cooldown) < 0) r.cooldown = 0;
+    r.cooldown = Math.min(Math.ceil(Number(r.cooldown || 0)), 60);
+  }
+}
+function resourceCooldownLabel(res, kind){
+  const left = resourceCooldownLeft(res);
+  if(left <= 0) return '';
+  const sec = Math.max(1, Math.ceil(left * 0.45));
+  const label = {wood:'벌목', mine:'채광', herb:'채집', fish:'낚시'}[kind] || '자원';
+  return `${label} 쿨타임 ${sec}초`;
+}
+
 function fishLootTable(){
   return [
     {id:'fish', min:0, weight:32},
@@ -5255,6 +5359,13 @@ function gather(kind, forced=null, opts={}){
     toast('낚시는 물가에서만 가능');
     return false;
   }
+  const cdLeft = resourceCooldownLeft(res);
+  if(cdLeft > 0){
+    if(!opts.autoRepeat){
+      toast(resourceCooldownLabel(res, kind));
+    }
+    return 'cooldown';
+  }
   if(player.sta < 4){ toast('기력이 부족하다'); return false; }
   const regionHere = regionNameAt(player.x,player.y);
   const resultItem = kind === 'fish' ? pickFishCatch() :
@@ -5265,14 +5376,17 @@ function gather(kind, forced=null, opts={}){
     kind === 'wood' && Math.random()<0.24 ? 'oakLog' : itemMap[kind];
   if(!canCarryItem(resultItem,1)){ toast('가방 무게 초과'); return false; }
   player.sta -= 4;
+  setResourceCooldown(res, kind);
   const sk = player.skills[skillMap[kind]].v;
-  let toolBonus = kind==='fish' && player.inv.fishingRod ? 0.08 : 0;
+  let rod = kind==='fish' ? bestFishingRod() : null;
+  let toolBonus = rod ? (rod.luck || 0.03) : 0;
   if(kind==='mine' && player.weapon==='ironSword') toolBonus += 0.02;
   if(kind==='herb' && player.skills.herb.v > 30) toolBonus += 0.03;
   const weatherBonus = weatherGatherBonus(kind);
   const chance = clamp(0.48 + sk/160 + toolBonus + weatherBonus, .1, .94);
   if(Math.random() < chance){
-    const qty = Math.random()<0.18 && resultItem !== 'goldenFish' ? 2 : 1;
+    const powerBonus = kind === 'fish' && rod ? Math.max(0, (rod.power || 1) - 1) * 0.18 : 0;
+    const qty = Math.random() < (0.18 + powerBonus) && resultItem !== 'goldenFish' ? 2 : 1;
     addItem(resultItem, qty);
     res.amount--;
     if(res.amount<=0) res.respawn = 20 + rand(40);
@@ -5357,6 +5471,23 @@ function useRepairKit(){
   draw();
 }
 
+
+function useBagItem(id){
+  normalizePlayer();
+  const def = itemDefs[id];
+  if(!def || def.type !== 'bag') return;
+  const bonus = Math.max(1, Math.floor(def.slotBonus || 0));
+  if(!bonus){ toast('가방 확장 수치 없음'); return; }
+  if(!removeItem(id,1)){ toast('가방에 없음'); return; }
+  player.bagSlots = clamp((player.bagSlots || bagSlotBase()) + bonus, bagSlotBase(), 240);
+  addLog(`${def.name} 사용. 가방 슬롯 +${bonus}칸. 현재 ${maxBagSlots()}칸.`);
+  toast(`가방 +${bonus}칸`);
+  renderInventory();
+  renderStatus();
+  saveGame();
+  draw();
+}
+
 function consumeItem(id){
   const def = itemDefs[id];
   if(!def || !['food','potion'].includes(def.type)) return;
@@ -5387,6 +5518,7 @@ function craftItem(recipeId){
   if(!r) return;
   if(player.gold < r.gold){ toast('골드 부족'); return; }
   if(!canPayNeed(r.need)){ toast('재료 부족'); return; }
+  if(!canCarryItem(r.id, r.outputQty || 1)){ toast(carryBlockReason(r.id, r.outputQty || 1) || '가방 부족'); return; }
 
   Object.entries(r.need).forEach(([id,qty])=>removeItem(id,qty));
   player.gold -= r.gold;
@@ -5412,19 +5544,31 @@ function renderCraft(){
   normalizePlayer();
   const el = document.getElementById('craftList');
   if(!el) return;
-  el.innerHTML = recipes.map(r=>{
-    const def = itemDefs[r.id];
-    const skill = player.skills[r.skill]?.v || 0;
-    const chance = Math.round(clamp(0.45 + (skill-r.min)/100, 0.18, 0.92)*100);
-    const ok = player.gold >= r.gold && canPayNeed(r.need);
-    return `<div class="card">
-      <h3>${escapeHtml(r.name)} <span class="tag">${escapeHtml(def.type)}</span></h3>
-      <p>${escapeHtml(def.desc||'')}</p>
-      <p>필요: ${escapeHtml(needText(r.need))} · ${r.gold}g</p>
-      <p>스킬: ${r.skillName} ${skill.toFixed(1)} · 성공률 ${chance}%</p>
-      <button class="${ok?'primary':'danger'}" onclick="craftItem('${r.id}')">${ok?'제작':'재료 부족'}</button>
+  const groups = CRAFT_GRADES.map(grade => {
+    const rows = recipes.filter(r => craftGradeOf(r) === grade);
+    if(!rows.length) return '';
+    return `<div class="craftGradeGroup ${gradeClassName(grade)}">
+      <h3>${grade}</h3>
+      ${rows.map(r=>{
+        const def = itemDefs[r.id] || {type:'기타', desc:''};
+        const skill = player.skills[r.skill]?.v || 0;
+        const chance = Math.round(clamp(0.45 + (skill-r.min)/100, 0.18, 0.92)*100);
+        const ok = player.gold >= r.gold && canPayNeed(r.need) && canCarryItem(r.id, r.outputQty || 1);
+        const qtyText = r.outputQty ? ` x${r.outputQty}` : '';
+        const rodText = def.rod ? `<p>낚싯대 성능: 거리 ${def.rod.distance}칸 · 파워 ${def.rod.power} · 행운 +${Math.round((def.rod.luck||0)*100)}%</p>` : '';
+        const bagText = def.slotBonus ? `<p>사용 효과: 가방 슬롯 +${def.slotBonus}칸</p>` : '';
+        return `<div class="card craftCard ${gradeClassName(grade)}">
+          <h3>${escapeHtml(r.name)}${qtyText} <span class="tag">${escapeHtml(grade)}</span> <span class="tag">${escapeHtml(def.type)}</span></h3>
+          <p>${escapeHtml(def.desc||'')}</p>
+          ${rodText}${bagText}
+          <p>필요: ${escapeHtml(needText(r.need))} · ${r.gold}g</p>
+          <p>스킬: ${r.skillName} ${skill.toFixed(1)} · 성공률 ${chance}%</p>
+          <button class="${ok?'primary':'danger'}" onclick="craftItem('${r.id}')">${ok?'제작':'재료/가방 부족'}</button>
+        </div>`;
+      }).join('')}
     </div>`;
   }).join('');
+  el.innerHTML = groups || '<div class="notice">제작식 없음</div>';
 }
 
 function parseBankGoldAmount(maxValue){
@@ -5729,6 +5873,7 @@ function renderStatus(){
         ${tile('평판/카르마', `${player.fame} / ${player.karma}`)}
         ${tile('수배도', player.wanted)}
         ${tile('평판명', escapeHtml(notorietyTitle()))}
+        ${tile('가방 칸', bagSlotText())}
         ${tile('가방 무게', `${inventoryWeight().toFixed(1)} / ${maxCarryWeight()}`)}
         ${tile('절도/체포', `${player.crimeRecord?.steals||0} / ${player.crimeRecord?.arrests||0}`)}
         ${tile('상태', tick < (player.jailUntilTick||0) ? '체포 대기' : player.wanted > 0 ? '수배 중' : '일반 시민')}
@@ -5843,7 +5988,8 @@ function itemWeight(id){
   if(def.type === 'armor') return 8;
   if(def.type === 'weapon') return 5;
   if(def.type === 'tool') return 2;
-  if(def.type === 'special') return id==='backpack' ? 2.5 : 1.5;
+  if(def.type === 'bag') return 2.5;
+  if(def.type === 'special') return 1.5;
   if(def.type === 'food') return id==='bandage' ? 0.6 : 1;
   if(def.type === 'potion') return 0.8;
   if(def.type === 'stolen') return 1.5;
@@ -5859,12 +6005,18 @@ function inventoryWeight(inv=player.inv){
 
 function maxCarryWeight(){
   const base = 52 + Math.floor((player.skills.tactics?.v || 0) / 5);
-  const backpackBonus = player.inv?.backpack ? 12 : 0;
-  return base + backpackBonus;
+  return base;
 }
 
 function canCarryItem(id, qty=1){
+  if(!hasFreeBagSlotFor(id, qty)) return false;
   return inventoryWeight() + itemWeight(id)*qty <= maxCarryWeight();
+}
+
+function carryBlockReason(id, qty=1){
+  if(!hasFreeBagSlotFor(id, qty)) return '가방 칸 부족';
+  if(inventoryWeight() + itemWeight(id)*qty > maxCarryWeight()) return '가방 무게 초과';
+  return '';
 }
 
 function stealthGearBonus(){
@@ -6610,6 +6762,8 @@ function normalizePlayer(){
   if(player.attackReadyTick > tick + 80 || player.attackReadyTick < tick - 500) player.attackReadyTick = tick;
   if(typeof player.lastOnlineTimerTick !== 'number') player.lastOnlineTimerTick = tick;
   refreshOnlineCountdownSnapshots();
+  if(typeof player.bagSlots !== 'number' || !Number.isFinite(player.bagSlots)) player.bagSlots = bagSlotBase();
+  player.bagSlots = clamp(Math.floor(player.bagSlots), bagSlotBase(), 240);
   if(!player.bank) player.bank = {};
   if(!player.shopStock) player.shopStock = {};
   if(!player.merchantStock) player.merchantStock = {};
@@ -6691,6 +6845,7 @@ function renderSettings(){
       ${check('potion','물약 자동사용')}
       ${check('skill','스킬 자동사용')}
       ${check('attack','자동 공격')}
+      ${check('rest','자동 휴식')}
       ${check('wood','벌목 자동')}
       ${check('mine','채광 자동')}
       ${check('fish','낚시 자동')}
@@ -6716,6 +6871,11 @@ function runAutoMode(){
   const a = ensureAutoSettings();
   if(!a.enabled) return;
   if(a.food || a.potion) autoConsumeEmergency();
+
+  if(a.rest && player.hp <= player.maxHp * (a.hpPercent/100) && tick >= (player.restReadyTick||0)){
+    rest();
+    return;
+  }
 
   if(a.skill && player.hp <= player.maxHp * ((a.hpPercent + 10)/100) && meetsReq({healing:12}) && player.mana >= 6){
     useActiveSkill('mend');
@@ -6828,6 +6988,9 @@ function inventoryItemActionButtons(id, ctx={}){
     if(def.type === 'food' || def.type === 'potion'){
       actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">사용</button>`);
     }
+    if(def.type === 'bag'){
+      actions.push(`<button onclick="useBagItem('${id}'); closeInventoryItemPopup()">가방 사용</button>`);
+    }
     if(id === 'repairKit'){
       actions.push(`<button onclick="useRepairKit(); closeInventoryItemPopup()">수리</button>`);
     }
@@ -6869,6 +7032,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
     def.type === 'weapon' ? `<span>공격력 +${def.atk || 0}</span>` : '',
     def.range ? `<span>사거리 ${def.range}칸</span>` : '',
     def.ammo ? `<span>탄약 ${escapeHtml(itemDefs[def.ammo]?.name || def.ammo)}</span>` : '',
+    def.rod ? `<span>거리 ${def.rod.distance}칸</span><span>파워 ${def.rod.power}</span><span>행운 +${Math.round((def.rod.luck||0)*100)}%</span>` : '',
+    def.slotBonus ? `<span>가방칸 +${def.slotBonus}</span>` : '',
     def.type === 'armor' ? `<span>방어력 +${def.def || 0}</span>` : '',
     def.heal ? `<span>HP 회복 +${def.heal}</span>` : '',
     def.mana ? `<span>MP 회복 +${def.mana}</span>` : ''
@@ -6881,6 +7046,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
   const ownerText = origin === 'merchant' ? `${npc?.name || 'NPC'} 소지품` : origin === 'bank' ? '은행 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
     ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
+    : def.rod ? `${def.desc || '설명 없음'} 거리 ${def.rod.distance}칸, 파워 ${def.rod.power}, 행운 +${Math.round((def.rod.luck||0)*100)}%.`
+    : def.slotBonus ? `${def.desc || '설명 없음'} 사용 시 가방 슬롯이 ${def.slotBonus}칸 증가한다.`
     : (def.desc || '설명 없음');
   const actions = inventoryItemActionButtons(id, {mode, origin});
   let tradeQtyBlock = '';
@@ -6939,15 +7106,15 @@ function renderInventory(){
   normalizePlayer();
   closeInventoryItemPopup();
   const el = document.getElementById('invList');
-  const ids = Object.keys(player.inv || {});
-  if(!ids.length){
-    el.className = 'notice';
-    el.innerHTML = '가방이 비어 있다.';
-    return;
-  }
-
+  if(!el) return;
+  const ids = Object.keys(player.inv || {}).filter(id => (player.inv[id]||0)>0);
+  const cap = Math.max(maxBagSlots(), ids.length);
+  const slots = Array.from({length:cap}, (_,i)=>ids[i] || null);
   el.className = 'invGrid';
-  el.innerHTML = ids.map(id=>{
+  el.innerHTML = `<div class="notice invCapacityNotice">가방 칸 ${bagSlotText()} · 무게 ${inventoryWeight().toFixed(1)} / ${maxCarryWeight()}</div>` + slots.map((id, i)=>{
+    if(!id){
+      return `<div class="invSlot empty" title="빈 가방칸"><div class="invEmptySlot">${i+1}</div></div>`;
+    }
     const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
     const qty = player.inv[id] || 0;
     const equipped = player.weapon===id || player.armor===id;
@@ -8403,6 +8570,7 @@ function applySaveState(data){
   if(Array.isArray(state.resources)){
     resources.length = 0;
     resources.push(...state.resources);
+    normalizeResourceCooldowns();
   }
   if(Array.isArray(state.chests)){
     chests.length = 0;
@@ -9603,9 +9771,13 @@ function gameLoop(){
   // 이동 AI는 frameWorldAI에서 매 프레임 처리한다.
   if(tick % 10 === 0){
     for(const r of resources){
+      if(Number(r.cooldown || 0) > 0) r.cooldown = Math.max(0, Number(r.cooldown || 0) - 1);
       if(r.amount<=0 && r.respawn>0){
         r.respawn--;
-        if(r.respawn<=0) r.amount = 2+rand(4);
+        if(r.respawn<=0){
+          r.amount = 2+rand(4);
+          r.cooldown = 0;
+        }
       }
     }
     for(const c of chests){
@@ -9639,6 +9811,22 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'가방 슬롯·등급 제작·낚싯대 성능 복구', items:[
+    '기본 가방을 20칸으로 고정하고, 제작한 가방 아이템을 사용하면 슬롯이 영구 증가하도록 변경했다.',
+    '제작식을 일반·고급·레어·에픽·전설·신화 등급으로 분리하고 이전 제작 아이템과 확장 제작식을 다시 정리했다.',
+    '낚싯대 등급별 거리·파워·행운 수치를 추가하고 낚시 거리/성공률/추가 획득 판정에 반영했다.'
+  ]},
+  {version:'현재', title:'근처 오브젝트 액션 자동 전환', items:[
+    '나무·광석·약초·낚시 지점 근처에 가면 사용 버튼이 벌목·채광·약초·낚시로 자동 전환되게 했다.',
+    '전환된 액션 버튼을 누르면 대상이 자동 타겟팅되고, 거리가 멀면 근처까지 이동한 뒤 자원이 소진될 때까지 행동을 이어가게 했다.',
+    '상자와 NPC도 같은 방식으로 버튼 입력 시 자동 타겟팅 후 상호작용하도록 정리했다.'
+  ]},
+
+  {version:'현재', title:'자원별 개별 쿨타임 적용', items:[
+    '벌목·채광·약초채집·낚시에 자원 오브젝트별 개별 쿨타임을 적용했다.',
+    '자동 자원수집 중에도 쿨타임이 남은 대상은 기다렸다가 다시 시도하도록 수정했다.',
+    '저장/불러오기 시 비정상 쿨타임 값은 안전 범위로 보정한다.'
+  ]},
   {version:'현재', title:'로그 색상·무기 사거리·자원 자동수집·대화 버튼 정리', items:[
     '로그창 색상을 채팅 파랑, 시스템 노랑, 전투 초록으로 분리했다.',
     '모든 무기에 사거리 수치를 부여하고 검 계열은 짧은 근접 사거리로 조정했다.',
@@ -10200,7 +10388,11 @@ function autoActionChaseStep(dt){
     if(chase.type === 'resource'){
       if(tick >= (chase.actionTick || 0)){
         const acted = executeAutoActionTarget(chase.type, target, chase.action);
-        chase.actionTick = tick + 2;
+        if(acted === 'cooldown'){
+          chase.actionTick = tick + Math.max(1, resourceCooldownLeft(target));
+        }else{
+          chase.actionTick = tick + 2;
+        }
         if(!acted || !isResourceTargetValid(target)){
           stopAutoActionChase();
           draw();
@@ -10220,7 +10412,11 @@ function autoActionChaseStep(dt){
     if(chase.type === 'resource'){
       if(tick >= (chase.actionTick || 0)){
         const acted = executeAutoActionTarget(chase.type, target, chase.action);
-        chase.actionTick = tick + 2;
+        if(acted === 'cooldown'){
+          chase.actionTick = tick + Math.max(1, resourceCooldownLeft(target));
+        }else{
+          chase.actionTick = tick + 2;
+        }
         if(!acted || !isResourceTargetValid(target)) stopAutoActionChase();
       }
       draw();
