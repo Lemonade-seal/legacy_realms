@@ -3141,9 +3141,8 @@ let partyState = {id:null, leaderId:null, members:{}, invites:[]};
 let localSpeech = {text:'', until:0};
 let lastNetSend = 0;
 let lastOnlineTrack = 0;
-let lastOnlinePayloadX = null;
-let lastOnlinePayloadY = null;
-let lastOnlinePayloadField = '';
+let lastOnlinePayloadX = 0;
+let lastOnlinePayloadY = 0;
 let lastOnlinePayloadAt = 0;
 let onlineMoveSeq = 0;
 let lastCloudSave = 0;
@@ -3151,15 +3150,6 @@ let lastPresenceSave = 0;
 let lastPresenceFetch = 0;
 let lastLocalRealtimeSave = 0;
 const ONLINE_ROOM = 'legacy-realms-town';
-// index6 네트워크 셋팅 이식: 이동 중 50ms, 대기 650ms, 강제 80ms, presence 2500ms.
-const ONLINE_SEND_MOVING_GAP = 50;
-const ONLINE_SEND_IDLE_GAP = 650;
-const ONLINE_SEND_FORCE_GAP = 80;
-const ONLINE_PRESENCE_TRACK_MS = 2500;
-const ONLINE_REMOTE_ACTIVE_MS = 30000;
-const ONLINE_REMOTE_DRAW_MS = 30000;
-const ONLINE_REMOTE_PRUNE_MS = 45000;
-const ONLINE_TILE_MAX_SPEED = 20; // index6 620px/s ≈ TILE(32) 기준 19.4칸/s
 const DB_SCHEMA_VERSION = 1;
 const combatEffects = [];
 const projectileEffects = [];
@@ -8469,7 +8459,7 @@ function partyActiveRemoteMembers(range=Infinity){
   const now = Date.now();
   return Object.values(remotePlayers || {}).filter(rp => {
     if(!rp || !partySame(rp.id)) return false;
-    if(now - (rp.ts || 0) > ONLINE_REMOTE_ACTIVE_MS) return false;
+    if(now - (rp.ts || 0) > 9000) return false;
     if(range !== Infinity && dist(rp, player) > range) return false;
     return true;
   });
@@ -8674,7 +8664,7 @@ function renderParty(){
   partyEnsureLocalMember();
   const invites = partyState.invites || [];
   const members = partyMemberArray();
-  const online = Object.values(remotePlayers || {}).filter(rp => Date.now() - (rp.ts || 0) <= ONLINE_REMOTE_ACTIVE_MS);
+  const online = Object.values(remotePlayers || {}).filter(rp => Date.now() - (rp.ts || 0) <= 9000);
   const leaderMark = partyIsLeader() ? '내가 파티장' : (partyState.id ? '파티원' : '파티 없음');
   const inviteHtml = invites.length ? invites.map((inv,i)=>`
     <div class="row">
@@ -8731,7 +8721,7 @@ function openMessagesPopup(){
 function renderMessagesPopup(){
   const list = document.getElementById('messageOnlineList');
   const inbox = document.getElementById('messageInbox');
-  const users = Object.values(remotePlayers || {}).filter(rp => rp.id && Date.now() - (rp.ts||0) <= ONLINE_REMOTE_ACTIVE_MS).sort((a,b)=>(a.nick||'').localeCompare(b.nick||''));
+  const users = Object.values(remotePlayers || {}).filter(rp => rp.id && Date.now() - (rp.ts||0) <= 18000).sort((a,b)=>(a.nick||'').localeCompare(b.nick||''));
   if(list){
     list.innerHTML = users.length ? users.map(rp=>`<div class="card">
       <b>Lv.${escapeHtml(rp.level||1)} ${escapeHtml(rp.nick||'유저')}</b><br>
@@ -8882,7 +8872,7 @@ function onlineListRows(){
     me:true
   }];
   for(const rp of Object.values(remotePlayers || {})){
-    if(!rp || now - (rp.ts || 0) > ONLINE_REMOTE_ACTIVE_MS) continue;
+    if(!rp || now - (rp.ts || 0) > 18000) continue;
     const pos = remoteRenderPosition(rp);
     rows.push({...rp, x:pos.x, y:pos.y, me:false});
   }
@@ -8968,54 +8958,47 @@ function partyInviteFromOnlineList(targetId){
 function updateOnlineBadge(){
   const el = document.getElementById('onlineBadge');
   if(!el) return;
-  const count = Object.values(remotePlayers||{}).filter(rp => Date.now() - (rp.ts || 0) <= ONLINE_REMOTE_ACTIVE_MS).length;
+  const count = Object.values(remotePlayers||{}).filter(rp => Date.now() - (rp.ts || 0) <= 18000).length;
   el.textContent = player.isOnline ? `온라인 ${count+1}` : '오프라인';
   if(document.getElementById('popOnlineList')?.classList.contains('open')) renderOnlineList();
 }
 
-function onlineNowMs(){
-  try{ return performance.now ? performance.now() : Date.now(); }catch(_){ return Date.now(); }
-}
-function currentOnlineField(){
-  // index7은 단일 월드 좌표계라 index6의 currentField 대신 고정 필드를 사용한다.
-  return 'world';
-}
-function limitRemoteVelocity(vx, vy, max=ONLINE_TILE_MAX_SPEED){
-  vx = Number(vx) || 0;
-  vy = Number(vy) || 0;
-  const sp = Math.hypot(vx, vy);
-  if(!Number.isFinite(sp) || sp <= 0) return {vx:0, vy:0};
-  if(sp > max){
-    const k = max / sp;
-    return {vx:vx*k, vy:vy*k};
-  }
-  return {vx, vy};
-}
 function onlinePayload(){
-  const nick = displayGameNickname ? displayGameNickname() : (player.nickname || '유저');
+  const nowPerf = performance.now ? performance.now() : Date.now();
+  if(!lastOnlinePayloadAt){
+    lastOnlinePayloadAt = nowPerf;
+    lastOnlinePayloadX = player.x;
+    lastOnlinePayloadY = player.y;
+  }
+  const dt = Math.max(0.016, Math.min(0.35, (nowPerf - lastOnlinePayloadAt) / 1000));
+  let vx = (player.x - lastOnlinePayloadX) / dt;
+  let vy = (player.y - lastOnlinePayloadY) / dt;
+  if(!Number.isFinite(vx)) vx = 0;
+  if(!Number.isFinite(vy)) vy = 0;
+  vx = clamp(vx, -8, 8);
+  vy = clamp(vy, -8, 8);
+  const moving = Math.hypot(player.x - lastOnlinePayloadX, player.y - lastOnlinePayloadY) > 0.004 || Math.hypot(vx, vy) > 0.025;
+  lastOnlinePayloadX = player.x;
+  lastOnlinePayloadY = player.y;
+  lastOnlinePayloadAt = nowPerf;
+  onlineMoveSeq++;
   return {
-    id: String(player.userId || ''),
-    userId: String(player.userId || ''),
-    nick,
-    name: nick,
+    id: player.userId,
+    nick: displayGameNickname(),
     job: player.job || '방랑자',
-    jobName: player.job || '방랑자',
     level: player.level || 1,
-    field: currentOnlineField(),
-    x: Math.round(Number(player.x || 0) * 100) / 100,
-    y: Math.round(Number(player.y || 0) * 100) / 100,
-    dir: Array.isArray(player.dir) ? Math.atan2(Number(player.dir[1]) || 0, Number(player.dir[0]) || 1) : Number(player.dir || 0),
-    hp: Math.ceil(player.hp || 0),
-    maxHp: Math.ceil(player.maxHp || 100),
+    x: player.x,
+    y: player.y,
+    hp: player.hp,
+    maxHp: player.maxHp,
     wanted: player.wanted || 0,
     partyId: partyState.id || null,
     partyLeaderId: partyState.leaderId || null,
-    partyOwnerId: partyState.leaderId || null,
     partyCount: partyMemberCount(),
     inv: publicInventorySnapshot(),
-    vx:0,
-    vy:0,
-    moving:false,
+    vx,
+    vy,
+    moving,
     seq: onlineMoveSeq,
     ts: Date.now()
   };
@@ -9027,173 +9010,134 @@ function remotePayloadStamp(payload){
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
 function smoothRemotePayload(old, payload){
-  const now = onlineNowMs();
-  if(!payload) return old || null;
-  const id = String(payload.id || payload.userId || payload.user_id || old?.id || '');
-  if(!id || id === String(player.userId || '')) return old || null;
-
-  const incomingUserId = String(payload.userId || payload.user_id || '');
-  if(incomingUserId && incomingUserId === String(player.userId || '')) return old || null;
-
-  const targetX = Number(payload.x ?? old?.targetX ?? old?.x);
-  const targetY = Number(payload.y ?? old?.targetY ?? old?.y);
-  if(!Number.isFinite(targetX) || !Number.isFinite(targetY)) return old || null;
-
-  const field = String(payload.field || old?.field || currentOnlineField());
-  const prevField = String(old?.field || field);
+  const now = performance.now ? performance.now() : Date.now();
   const stamp = remotePayloadStamp(payload);
   const oldStamp = Number(old?.netStamp || old?.ts || 0);
 
   // 오래된 presence/DB fallback 좌표가 최신 실시간 좌표를 덮지 않게 한다.
-  if(old && oldStamp && stamp + 700 < oldStamp){
-    return {...old, seenAt:now, ts:Math.max(Number(old.ts||0), stamp), staleIgnored:true};
+  if(old && oldStamp && stamp + 500 < oldStamp){
+    return {...old, ts:Math.max(Number(old.ts||0), stamp), staleIgnored:true};
   }
 
-  const oldDrawX = Number.isFinite(Number(old?.drawX)) ? Number(old.drawX)
-    : (Number.isFinite(Number(old?.displayX)) ? Number(old.displayX) : targetX);
-  const oldDrawY = Number.isFinite(Number(old?.drawY)) ? Number(old.drawY)
-    : (Number.isFinite(Number(old?.displayY)) ? Number(old.displayY) : targetY);
-  const oldTargetX = Number.isFinite(Number(old?.targetX)) ? Number(old.targetX)
-    : (Number.isFinite(Number(old?.x)) ? Number(old.x) : targetX);
-  const oldTargetY = Number.isFinite(Number(old?.targetY)) ? Number(old.targetY)
-    : (Number.isFinite(Number(old?.y)) ? Number(old.y) : targetY);
+  const targetX = Number(payload?.x ?? old?.targetX ?? old?.x ?? 0);
+  const targetY = Number(payload?.y ?? old?.targetY ?? old?.y ?? 0);
+  const prevTargetX = Number(old?.targetX ?? old?.x ?? targetX);
+  const prevTargetY = Number(old?.targetY ?? old?.y ?? targetY);
+  const prevDisplayX = Number.isFinite(Number(old?.displayX)) ? Number(old.displayX) : prevTargetX;
+  const prevDisplayY = Number.isFinite(Number(old?.displayY)) ? Number(old.displayY) : prevTargetY;
+  const prevUpdate = Number(old?.lastRemoteUpdate || now);
+  const dt = Math.max(0.025, Math.min(0.35, (now - prevUpdate) / 1000));
 
-  const moved = old ? Math.hypot(targetX - oldTargetX, targetY - oldTargetY) : 0;
-  // index6 기준 360/440px를 TILE(32) 좌표로 환산했다.
-  const snap = !old || field !== prevField || moved > 11.25 || Math.hypot(targetX - oldDrawX, targetY - oldDrawY) > 13.75;
-  const drawX = snap ? targetX : oldDrawX;
-  const drawY = snap ? targetY : oldDrawY;
+  let vx = Number(payload?.vx);
+  let vy = Number(payload?.vy);
+  if(!Number.isFinite(vx)) vx = (targetX - prevTargetX) / dt;
+  if(!Number.isFinite(vy)) vy = (targetY - prevTargetY) / dt;
+  vx = clamp(vx, -8, 8);
+  vy = clamp(vy, -8, 8);
 
-  const prevTs = Number(old?.netStamp || old?.ts || 0);
-  const dtRemote = prevTs ? Math.max(.06, Math.min(1.0, (stamp - prevTs) / 1000)) : .24;
-  let vx = Number(payload.vx);
-  let vy = Number(payload.vy);
-  if(!Number.isFinite(vx) || !Number.isFinite(vy)){
-    vx = (!snap && dtRemote > 0) ? (targetX - oldTargetX) / dtRemote : 0;
-    vy = (!snap && dtRemote > 0) ? (targetY - oldTargetY) / dtRemote : 0;
+  const bigWarp = Math.hypot(targetX - prevDisplayX, targetY - prevDisplayY) > 28;
+  const next = {...(old||{}), ...(payload||{})};
+  next.x = targetX;
+  next.y = targetY;
+  next.targetX = targetX;
+  next.targetY = targetY;
+  next.velocityX = vx;
+  next.velocityY = vy;
+  // 이동 판단 기준을 완화한다. 너무 작은 값을 사용하면 거의 항상 moving으로 처리되어 불필요한 예측이 발생한다.
+  next.remoteMoving = !!payload?.moving || Math.hypot(vx, vy) > 0.5;
+  next.netStamp = stamp;
+  next.lastRemoteUpdate = now;
+  next.lastRenderUpdate = Number(old?.lastRenderUpdate || now);
+  next.ts = stamp || Date.now();
+  next.seq = Number(payload?.seq || old?.seq || 0);
+
+  if(!old || !Number.isFinite(prevDisplayX) || !Number.isFinite(prevDisplayY) || bigWarp){
+    next.displayX = targetX;
+    next.displayY = targetY;
+    next.segmentStartX = targetX;
+    next.segmentStartY = targetY;
+    next.segmentStartAt = now;
+    next.segmentDuration = 0.05;
+  }else{
+    // 새 좌표를 받으면 현재 화면 좌표에서 새 목표 좌표까지의 짧은 보간 구간을 만든다.
+    next.displayX = prevDisplayX;
+    next.displayY = prevDisplayY;
+    next.segmentStartX = prevDisplayX;
+    next.segmentStartY = prevDisplayY;
+    next.segmentStartAt = now;
+    next.segmentDuration = Math.max(0.045, Math.min(0.16, dt * 0.92));
   }
-  const limited = limitRemoteVelocity(vx, vy, ONLINE_TILE_MAX_SPEED);
-  vx = limited.vx;
-  vy = limited.vy;
-
-  const speed = Math.hypot(vx, vy);
-  const dirByMove = (!snap && moved > 0.07) ? Math.atan2(targetY - oldTargetY, targetX - oldTargetX) : Number(old?.dir || 0);
-  const moving = !!payload.moving || (!snap && moved > 0.03) || speed > 0.25;
-  const lastMoveAt = moving ? now : Number(old?.lastMoveAt || now);
-  const visualMoving = moving || !!(old?.visualMoving && now - Number(old.lastMoveAt || 0) < 620);
-
-  const next = {
-    ...(old || {}),
-    ...(payload || {}),
-    id,
-    userId: incomingUserId || String(payload.userId || payload.user_id || old?.userId || id),
-    nick: String(payload.nick || payload.name || old?.nick || old?.name || '유저'),
-    name: String(payload.name || payload.nick || old?.name || old?.nick || '유저'),
-    job: String(payload.job || old?.job || '방랑자'),
-    jobName: String(payload.jobName || payload.job || old?.jobName || old?.job || '방랑자'),
-    level: Math.max(1, Math.floor(Number(payload.level || old?.level || 1))),
-    field,
-    hp: Math.max(0, Number(payload.hp ?? old?.hp ?? 0)),
-    maxHp: Math.max(1, Number(payload.maxHp ?? payload.max_hp ?? old?.maxHp ?? 100)),
-    wanted: Number(payload.wanted ?? old?.wanted ?? 0),
-    x: targetX,
-    y: targetY,
-    targetX,
-    targetY,
-    drawX,
-    drawY,
-    displayX: drawX,
-    displayY: drawY,
-    renderX: drawX,
-    renderY: drawY,
-    prevTargetX: oldTargetX,
-    prevTargetY: oldTargetY,
-    vx,
-    vy,
-    velocityX: vx,
-    velocityY: vy,
-    speed,
-    dir: Number.isFinite(Number(payload.dir)) ? Number(payload.dir) : dirByMove,
-    moving,
-    visualMoving,
-    remoteMoving: visualMoving,
-    lastMoveAt,
-    lastRemoteUpdate: now,
-    lastRenderUpdate: Number(old?.lastRenderUpdate || now),
-    netStamp: stamp,
-    ts: stamp || Date.now(),
-    seq: Number(payload.seq || old?.seq || 0),
-    seenAt: now
-  };
   return next;
 }
-function smoothRemotePeerPosition(p, dt){
-  if(!p) return;
-  const now = onlineNowMs();
-  const baseX = Number.isFinite(Number(p.targetX)) ? Number(p.targetX) : Number(p.x || 0);
-  const baseY = Number.isFinite(Number(p.targetY)) ? Number(p.targetY) : Number(p.y || 0);
-  let dx = Number.isFinite(Number(p.drawX)) ? Number(p.drawX)
-    : (Number.isFinite(Number(p.displayX)) ? Number(p.displayX) : baseX);
-  let dy = Number.isFinite(Number(p.drawY)) ? Number(p.drawY)
-    : (Number.isFinite(Number(p.displayY)) ? Number(p.displayY) : baseY);
-  const gapBase = Math.hypot(baseX - dx, baseY - dy);
-  if(!Number.isFinite(gapBase) || gapBase > 16.25){
-    p.drawX = baseX;
-    p.drawY = baseY;
-    p.displayX = baseX;
-    p.displayY = baseY;
-    p.renderX = baseX;
-    p.renderY = baseY;
-    p.visualMoving = false;
-    p.remoteMoving = false;
-    p.lastRenderUpdate = now;
-    return;
+function remoteRenderPosition(rp){
+  // 향상된 부드러운 동작: 최근 좌표들로부터 약간 뒤에 있는 시점을 따라가며 예측을 적용한다.
+  // 이를 통해 실시간 패킷 간격이 흔들려도 캐릭터가 자연스럽게 움직인다.
+  const now = performance.now ? performance.now() : Date.now();
+  // 기본 좌표는 받은 목표 좌표(targetX/targetY)가 있으면 그것을, 없으면 x/y를 사용한다.
+  const baseX = Number(rp.targetX ?? rp.x ?? 0);
+  const baseY = Number(rp.targetY ?? rp.y ?? 0);
+  // 초기 렌더 좌표가 없으면 바로 기본 좌표로 설정한다.
+  if(!Number.isFinite(Number(rp.displayX))) rp.displayX = baseX;
+  if(!Number.isFinite(Number(rp.displayY))) rp.displayY = baseY;
+  // 이동량이 너무 크면 즉시 스냅한다.
+  const gapToBase = Math.hypot(baseX - rp.displayX, baseY - rp.displayY);
+  if(!Number.isFinite(gapToBase) || gapToBase > 520){
+    rp.displayX = baseX;
+    rp.displayY = baseY;
+    rp.remoteMoving = false;
+    rp.lastRenderUpdate = now;
+    rp.renderX = rp.displayX;
+    rp.renderY = rp.displayY;
+    return {x: rp.displayX, y: rp.displayY};
   }
-  const vx = Number(p.vx ?? p.velocityX) || 0;
-  const vy = Number(p.vy ?? p.velocityY) || 0;
-  const sp = Math.hypot(vx, vy);
-  const moving = !!p.moving || sp > 0.25 || gapBase > 0.03;
-  let tx = baseX, ty = baseY;
-  if(moving && sp > 0.25){
-    const age = Math.max(0, Math.min(.16, (now - Number(p.seenAt || now)) / 1000));
-    const predictSec = Math.min(.105, .028 + age * .42);
+  // 예상 속도. 이동 패킷에 명시된 vx/vy가 없으면 기존 값 사용.
+  let vx = Number(rp.velocityX || 0);
+  let vy = Number(rp.velocityY || 0);
+  const speed = Math.hypot(vx, vy);
+  // 마지막 리모트 갱신 이후 경과 시간.
+  const lastUpdate = Number(rp.lastRemoteUpdate || now);
+  const age = Math.max(0, Math.min(0.16, (now - lastUpdate) / 1000));
+  // 기본 목적지는 현재 받은 좌표. 움직임이면 약한 예측을 적용하여 부드럽게 이어간다.
+  let tx = baseX;
+  let ty = baseY;
+  // remoteMoving 플래그나 속도 기준으로 이동 여부 판단.
+  const moving = !!rp.remoteMoving || speed > 6 || gapToBase > 0.35;
+  if(moving && speed > 6){
+    // 예측 시간. 최근 업데이트가 오래됐다면 조금 더 길게 예측한다.
+    const predictSec = Math.min(0.105, 0.028 + age * 0.42);
     let ox = vx * predictSec;
     let oy = vy * predictSec;
     const off = Math.hypot(ox, oy);
-    if(off > 0.82){
-      const k = 0.82 / off;
+    if(off > 26){
+      const k = 26 / off;
       ox *= k;
       oy *= k;
     }
-    tx = baseX + ox;
-    ty = baseY + oy;
+    tx += ox;
+    ty += oy;
   }
-  const safeDt = Math.max(0.001, Math.min(0.08, Number(dt) || 0.016));
-  const follow = 1 - Math.exp(-safeDt * (moving ? 30 : 22));
-  p.drawX = dx + (tx - dx) * follow;
-  p.drawY = dy + (ty - dy) * follow;
-  const left = Math.hypot(tx - p.drawX, ty - p.drawY);
-  p.visualMoving = left > 0.02 || gapBase > 0.02 || now - Number(p.lastMoveAt || 0) < 520;
-  p.remoteMoving = p.visualMoving;
-  if(left <= 0.018 && !moving){
-    p.drawX = baseX;
-    p.drawY = baseY;
+  // 마지막 렌더 이후 경과 시간.
+  const lastRender = Number(rp.lastRenderUpdate || now);
+  const dt = Math.max(0.001, (now - lastRender) / 1000);
+  // 움직임 여부에 따라 더 빠르게 혹은 천천히 따라간다.
+  const follow = 1 - Math.exp(-dt * (moving ? 30 : 22));
+  // 부드럽게 따라가기.
+  rp.displayX = rp.displayX + (tx - rp.displayX) * follow;
+  rp.displayY = rp.displayY + (ty - rp.displayY) * follow;
+  // 남은 거리 계산.
+  const left = Math.hypot(tx - rp.displayX, ty - rp.displayY);
+  // remoteMoving 플래그 업데이트.
+  rp.remoteMoving = left > 0.28 || gapToBase > 0.28 || (now - lastUpdate) < 520;
+  // 충분히 가까우면 스냅.
+  if(left <= 0.22 && !moving){
+    rp.displayX = baseX;
+    rp.displayY = baseY;
   }
-  p.displayX = p.drawX;
-  p.displayY = p.drawY;
-  p.renderX = p.drawX;
-  p.renderY = p.drawY;
-  p.lastRenderUpdate = now;
-}
-function remoteRenderPosition(rp){
-  if(!rp) return {x:0, y:0};
-  const now = onlineNowMs();
-  const prev = Number(rp.lastRenderUpdate || now);
-  const dt = Math.max(0.001, Math.min(0.08, (now - prev) / 1000));
-  smoothRemotePeerPosition(rp, dt);
-  const x = Number.isFinite(Number(rp.drawX)) ? Number(rp.drawX) : Number(rp.x || 0);
-  const y = Number.isFinite(Number(rp.drawY)) ? Number(rp.drawY) : Number(rp.y || 0);
-  return {x, y};
+  // 렌더 정보 업데이트.
+  rp.lastRenderUpdate = now;
+  rp.renderX = rp.displayX;
+  rp.renderY = rp.displayY;
+  return {x: rp.displayX, y: rp.displayY};
 }
 
 function setupRealtimeOnline(){
@@ -9207,16 +9151,6 @@ function setupRealtimeOnline(){
     config: { presence: { key: player.userId } }
   });
 
-  const applyRemoteNetworkPayload = (payload, source='broadcast') => {
-    if(!payload) return;
-    const id = String(payload.id || payload.userId || payload.user_id || '');
-    if(!id || id === String(player.userId || '')) return;
-    const old = remotePlayers[id] || {};
-    const merged = smoothRemotePayload(old, {...payload, source});
-    if(merged && merged.id) remotePlayers[merged.id] = merged;
-    updateOnlineBadge();
-  };
-
   onlineChannel
     .on('presence', { event: 'sync' }, () => {
       const state = onlineChannel.presenceState();
@@ -9224,28 +9158,25 @@ function setupRealtimeOnline(){
       const seen = new Set();
       for(const key of Object.keys(state)){
         for(const item of state[key]){
-          const id = String(item.id || item.userId || item.user_id || '');
-          if(id && id !== String(player.userId || '')){
-            seen.add(id);
-            const merged = smoothRemotePayload(remotePlayers[id] || {}, {...item, source:'presence'});
-            if(merged && merged.id) next[merged.id] = merged;
+          if(item.id && item.id !== player.userId){
+            seen.add(item.id);
+            next[item.id] = smoothRemotePayload(remotePlayers[item.id], item);
           }
         }
       }
       const nowMs = Date.now();
       for(const id of Object.keys(next)){
-        if(!seen.has(id) && nowMs - (next[id].ts || 0) > ONLINE_REMOTE_PRUNE_MS) delete next[id];
+        if(!seen.has(id) && nowMs - (next[id].ts || 0) > 18000) delete next[id];
       }
       remotePlayers = next;
       updateOnlineBadge();
       if(document.getElementById('popOnlineList')?.classList.contains('open')) renderOnlineList();
     })
-    // index6 방식 이벤트명. pos는 기존 index7 클라이언트 호환용으로 같이 받는다.
-    .on('broadcast', { event: 'online_state' }, ({payload}) => {
-      applyRemoteNetworkPayload(payload, 'online_state');
-    })
     .on('broadcast', { event: 'pos' }, ({payload}) => {
-      applyRemoteNetworkPayload(payload, 'pos');
+      if(!payload || payload.id === player.userId) return;
+      const old = remotePlayers[payload.id] || {};
+      remotePlayers[payload.id] = smoothRemotePayload(old, payload);
+      updateOnlineBadge();
     })
     .on('broadcast', { event: 'chat' }, ({payload}) => {
       if(!payload || payload.id === player.userId) return;
@@ -9288,66 +9219,33 @@ function setupRealtimeOnline(){
 }
 
 function sendOnlineState(force=false){
-  if(!player.isOnline) return false;
-  const now = onlineNowMs();
+  if(!player.isOnline) return;
+  const now = performance.now ? performance.now() : Date.now();
   realtimeLocalSnapshot(false);
-
-  const px = Number(player.x) || 0;
-  const py = Number(player.y) || 0;
-  const prevX = Number.isFinite(Number(lastOnlinePayloadX)) ? Number(lastOnlinePayloadX) : px;
-  const prevY = Number.isFinite(Number(lastOnlinePayloadY)) ? Number(lastOnlinePayloadY) : py;
-  const hasPrev = Number.isFinite(Number(lastOnlinePayloadX)) && Number.isFinite(Number(lastOnlinePayloadY)) && !!lastOnlinePayloadAt;
-  const movedSince = hasPrev ? Math.hypot(px - prevX, py - prevY) : Infinity;
-  const field = currentOnlineField();
-  const fieldChanged = !!lastOnlinePayloadField && lastOnlinePayloadField !== field;
-  const movingNow = !hasPrev || movedSince > 0.03 || fieldChanged;
-  const minGap = force ? ONLINE_SEND_FORCE_GAP : (movingNow ? ONLINE_SEND_MOVING_GAP : ONLINE_SEND_IDLE_GAP);
-  if(now - (lastNetSend || 0) < minGap) return false;
-
+  if(!force && now - lastNetSend < 33) return;
   lastNetSend = now;
   partyEnsureLocalMember();
   const payload = onlinePayload();
-  let vx = 0, vy = 0;
-  if(!fieldChanged && hasPrev){
-    const dtSec = Math.max(.05, Math.min(1.2, (now - Number(lastOnlinePayloadAt || now)) / 1000));
-    vx = (payload.x - prevX) / dtSec;
-    vy = (payload.y - prevY) / dtSec;
-    const limited = limitRemoteVelocity(vx, vy, ONLINE_TILE_MAX_SPEED);
-    vx = limited.vx;
-    vy = limited.vy;
-  }
-  payload.vx = Math.round(vx * 100) / 100;
-  payload.vy = Math.round(vy * 100) / 100;
-  payload.moving = movingNow || Math.hypot(payload.vx, payload.vy) > 0.25;
-  payload.seq = (onlineMoveSeq = (Number(onlineMoveSeq) || 0) + 1);
-  payload.ts = Date.now();
-
   if(onlineChannel){
-    try{ onlineChannel.send({ type:'broadcast', event:'online_state', payload }); }catch(e){}
-    if(force || !lastOnlineTrack || now - (lastOnlineTrack || 0) > ONLINE_PRESENCE_TRACK_MS){
+    try{ onlineChannel.send({ type:'broadcast', event:'pos', payload }); }catch(e){}
+    if(force || now - (lastOnlineTrack || 0) > 900){
       lastOnlineTrack = now;
       try{ onlineChannel.track(payload); }catch(e){}
     }
   }
-
-  lastOnlinePayloadX = payload.x;
-  lastOnlinePayloadY = payload.y;
-  lastOnlinePayloadField = payload.field || field;
-  lastOnlinePayloadAt = now;
-
-  savePresenceRow(force);
+  savePresenceRow(false);
   refreshPresenceFallback(false);
-  return true;
 }
 
 function drawRemotePlayers(camPxX, camPxY, vw, vh){
   for(const rp of Object.values(remotePlayers||{})){
-    if(Date.now() - (rp.ts||0) > ONLINE_REMOTE_DRAW_MS) continue;
+    if(Date.now() - (rp.ts||0) > 13000) continue;
     const pos = remoteRenderPosition(rp);
     const x = pos.x*TILE - camPxX;
     const y = pos.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
-    const remoteMoving = !!rp.remoteMoving || Math.hypot(Number(rp.velocityX||0), Number(rp.velocityY||0)) > 0.025;
+    // remoteMoving 플래그와 속도 기준을 같이 사용한다. 너무 작은 속도는 움직임으로 보지 않는다.
+    const remoteMoving = !!rp.remoteMoving || Math.hypot(Number(rp.velocityX||0), Number(rp.velocityY||0)) > 0.5;
     drawPixelPerson(x, y, '#c7d6ff', '#315c9c', `Lv.${rp.level || 1} ${rp.nick || '유저'}`, false, {pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler',remote:true,remoteMoving});
     ctx.fillStyle='rgba(0,0,0,.58)';
     ctx.fillRect(x+4,y-2,24,5);
@@ -9832,7 +9730,7 @@ function realtimeLocalSnapshot(force=false){
 async function refreshPresenceFallback(force=false){
   if(!supabaseClient || !player.isOnline) return false;
   const now = performance.now ? performance.now() : Date.now();
-  if(!force && now - lastPresenceFetch < 3500) return false;
+  if(!force && now - lastPresenceFetch < 2200) return false;
   lastPresenceFetch = now;
   const user = await currentAuthUser();
   if(!user) return false;
@@ -9861,7 +9759,6 @@ async function refreshPresenceFallback(force=false){
       maxHp: Number(row.max_hp || 100),
       wanted: Number(row.wanted || 0),
       ts: Date.parse(row.last_seen || '') || Date.now(),
-      field: currentOnlineField(),
       fallback:true
     };
     const current = remotePlayers[id];
@@ -9878,7 +9775,7 @@ async function refreshPresenceFallback(force=false){
 async function savePresenceRow(force=false){
   if(!supabaseClient || !player.isOnline) return false;
   const now = performance.now ? performance.now() : Date.now();
-  if(!force && now - lastPresenceSave < ONLINE_PRESENCE_TRACK_MS) return false;
+  if(!force && now - lastPresenceSave < 900) return false;
   lastPresenceSave = now;
 
   const user = await currentAuthUser();
