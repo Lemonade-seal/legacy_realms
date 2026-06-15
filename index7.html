@@ -906,10 +906,37 @@
   .toast.show{opacity:1;}
   .minimap{
     position:absolute; right:8px; top:8px; width:106px; height:86px;
-    border:1px solid rgba(215,180,90,.45); border-radius:8px; background:rgba(8,9,7,.62);
-    padding:5px; pointer-events:none;
+    border:1px solid rgba(215,180,90,.55); border-radius:8px; background:rgba(8,9,7,.68);
+    padding:5px; pointer-events:auto; cursor:pointer; touch-action:manipulation;
+    z-index:24;
   }
-  #mini{width:100%; height:100%; image-rendering:pixelated;}
+  .minimap:active{filter:brightness(1.18); transform:translateY(1px);}
+  #mini{width:100%; height:100%; image-rendering:pixelated; display:block;}
+  .fullMapWrap{
+    border:1px solid rgba(215,180,90,.35);
+    border-radius:10px;
+    background:rgba(8,9,7,.72);
+    padding:8px;
+    overflow:auto;
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--popupControlClearance, 136px) - 96px);
+    touch-action:pan-x pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
+  #fullMap{
+    display:block;
+    image-rendering:pixelated;
+    width:max(100%, 840px);
+    height:auto;
+    background:#080907;
+  }
+  .mapLegend{
+    display:flex; flex-wrap:wrap; gap:5px;
+    margin-top:8px; font-size:10px; color:#d9d0ad;
+  }
+  .mapLegend span{
+    border:1px solid rgba(215,180,90,.25); border-radius:999px;
+    background:rgba(10,12,9,.45); padding:3px 7px;
+  }
   .questBox{
     position:absolute; left:8px; top:96px; width:210px;
     border:1px solid rgba(143,209,106,.35); border-radius:8px; background:rgba(10,12,9,.62);
@@ -1865,6 +1892,47 @@
     color:#e5edf0 !important;
   }
 
+
+
+  /* all popup windows must stay above bottom control box */
+  :root{
+    --popupControlClearance:calc(136px + env(safe-area-inset-bottom));
+  }
+  .pop,
+  section.pop,
+  [id^="pop"].pop{
+    bottom:var(--popupControlClearance) !important;
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--popupControlClearance) - 8px) !important;
+    min-height:0 !important;
+  }
+  .pop.open{display:flex !important; flex-direction:column !important;}
+  .popBody{
+    min-height:0 !important;
+    max-height:none !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+  }
+  .miniTrade,
+  .miniNpcMenu,
+  .invDetailPopup{
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--popupControlClearance) - 8px) !important;
+  }
+  .miniTradeBody,
+  .miniNpcBody,
+  .invDetailBody{
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--popupControlClearance) - 54px) !important;
+    overflow:auto !important;
+    overscroll-behavior:contain !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .chatPanel{
+    bottom:var(--popupControlClearance) !important;
+  }
+  @media(max-width:560px){
+    :root{--popupControlClearance:calc(126px + env(safe-area-inset-bottom));}
+  }
+
 </style>
 
 
@@ -1964,7 +2032,7 @@
         <div id="miniNpcActions" class="miniNpcActions"></div>
       </div>
     </div>
-    <div class="minimap"><canvas id="mini" width="96" height="76"></canvas></div>
+    <div class="minimap" id="miniMapBox" onclick="openMapPopup()" title="전체 지도"><canvas id="mini" width="96" height="76"></canvas></div>
     <div class="toast" id="toast"></div>
 
     <section class="pop" id="popInv">
@@ -2001,13 +2069,13 @@
     </section>
 
     <section class="pop" id="popMap">
-      <div class="popHead"><b>지도</b><button onclick="closePop()">닫기</button></div>
+      <div class="popHead"><b>전체 지도</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
-        <div class="grid2">
-          <div class="card"><h3>브라이트헤이븐</h3><p>안전 마을. 상인, 대장간, 은행.</p></div>
-          <div class="card"><h3>서부 숲</h3><p>벌목·약초·늑대 출현.</p></div>
-          <div class="card"><h3>북부 광산</h3><p>채광·고블린 출현.</p></div>
-          <div class="card"><h3>남부 강가</h3><p>낚시·상자 발견 예정.</p></div>
+        <div class="fullMapWrap">
+          <canvas id="fullMap" width="840" height="600"></canvas>
+        </div>
+        <div class="mapLegend">
+          <span>노랑: 내 위치</span><span>하늘색: 온라인/파티 유저</span><span>빨강: 보스/위험</span><span>흰색: 마을 NPC</span>
         </div>
       </div>
     </section>
@@ -2096,7 +2164,6 @@
           <button onclick="openQuestFromMenu()">의뢰</button>
           <button onclick="openPop('popParty')">파티</button>
           <button onclick="openPop('popShop')">상점</button>
-          <button onclick="openPop('popMap')">지도</button>
           <button onclick="openPop('popJournal')">저널</button>
           <button onclick="openFenceOrSell()">암시장/판매</button>
           <button onclick="openPop('popSettings')">설정</button>
@@ -2901,18 +2968,32 @@ function drawPixelObject(kind,x,y,extra={}){
 function rand(n){ return Math.floor(Math.random()*n); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function bottomControlClearancePx(){
+  const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--popupControlClearance') || '132px';
+  const parsed = parseFloat(cssVal);
+  if(Number.isFinite(parsed) && parsed > 0) return parsed;
+  return window.innerWidth <= 560 ? 126 : 136;
+}
+function clampPopupTop(top, height, topPad=6){
+  const bottomLimit = Math.max(topPad, window.innerHeight - bottomControlClearancePx() - height - 6);
+  return clamp(top, topPad, bottomLimit);
+}
+function clampPopupTopInWrap(top, height, wrapHeight, topPad=6){
+  const bottomLimit = Math.max(topPad, wrapHeight - bottomControlClearancePx() - height - 6);
+  return clamp(top, topPad, bottomLimit);
+}
 function gridX(v){ return Math.round(v); }
 function gridY(v){ return Math.round(v); }
-const JAIL = {x1:16, y1:29, x2:26, y2:38, cellX:21, cellY:34, releaseX:22, releaseY:27};
+const JAIL = {x1:19, y1:32, x2:22, y2:35, outerX1:18, outerY1:31, outerX2:23, outerY2:36, cellX:20, cellY:34, releaseX:21, releaseY:30};
 function isJailTile(x,y){
   const gx = gridX(x), gy = gridY(y);
-  return gx>=15 && gx<=27 && gy>=28 && gy<=39;
+  return gx>=JAIL.outerX1 && gx<=JAIL.outerX2 && gy>=JAIL.outerY1 && gy<=JAIL.outerY2;
 }
 function isInsideJailCell(x,y){
   const gx = gridX(x), gy = gridY(y);
   return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
 }
-var ONLINE_TIMER_CAPS = {
+const ONLINE_TIMER_CAPS = {
   jail: 1800,       // 13분 30초. 저장 오류로 말도 안 되게 늘어나는 것을 막는다.
   rest: 90,         // 휴식/회복 쿨타임 최대 40.5초.
   jailAction: 90
@@ -2923,11 +3004,13 @@ function clampCountdownTicks(v, maxTicks){
   return Math.max(0, Math.min(Math.ceil(v), maxTicks));
 }
 function countdownRemainingTicks(deadlineProp, remainingProp, maxTicks){
+  // 온라인 접속 시간만 카운트한다. 저장된 remaining 값을 절대 기준으로 삼고,
+  // legacy deadline 값은 예전 저장 복구용 보조값으로만 사용한다.
+  const fromStored = clampCountdownTicks(Number(player[remainingProp] || 0), maxTicks);
+  if(fromStored > 0) return fromStored;
   const deadline = Number(player[deadlineProp] || 0);
-  const fromDeadline = deadline > tick ? deadline - tick : 0;
-  const fromStored = Number(player[remainingProp] || 0);
-  const raw = fromDeadline > 0 ? fromDeadline : fromStored;
-  return clampCountdownTicks(raw, maxTicks);
+  const fromLegacyDeadline = deadline > tick ? deadline - tick : 0;
+  return clampCountdownTicks(fromLegacyDeadline, maxTicks);
 }
 function setOnlineCountdown(deadlineProp, remainingProp, ticksLeft, maxTicks){
   const left = clampCountdownTicks(ticksLeft, maxTicks);
@@ -2936,26 +3019,61 @@ function setOnlineCountdown(deadlineProp, remainingProp, ticksLeft, maxTicks){
   return left;
 }
 function refreshOnlineCountdownSnapshots(){
-  if(!player || !ONLINE_TIMER_CAPS) return;
-  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail), ONLINE_TIMER_CAPS.jail);
-  setOnlineCountdown('restReadyTick', 'restCooldownTicks', countdownRemainingTicks('restReadyTick', 'restCooldownTicks', ONLINE_TIMER_CAPS.rest), ONLINE_TIMER_CAPS.rest);
+  if(!player) return;
+  const jailLeft = clampCountdownTicks(Number(player.jailRemainingTicks || 0), ONLINE_TIMER_CAPS.jail);
+  player.jailRemainingTicks = jailLeft;
+  player.jailUntilTick = jailLeft > 0 ? tick + jailLeft : 0;
+  const restLeft = clampCountdownTicks(Number(player.restCooldownTicks || 0), ONLINE_TIMER_CAPS.rest);
+  player.restCooldownTicks = restLeft;
+  player.restReadyTick = restLeft > 0 ? tick + restLeft : 0;
+  player.lastOnlineTimerTick = tick;
+}
+function advanceOnlineCountdowns(){
+  if(!player) return;
+  const wasJailed = countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail) > 0;
+  let jailLeft = clampCountdownTicks(Number(player.jailRemainingTicks || 0), ONLINE_TIMER_CAPS.jail);
+  if(jailLeft <= 0 && Number(player.jailUntilTick || 0) > tick){
+    jailLeft = clampCountdownTicks(Number(player.jailUntilTick || 0) - tick, ONLINE_TIMER_CAPS.jail);
+  }
+  if(jailLeft > 0) jailLeft = Math.max(0, jailLeft - 1);
+  player.jailRemainingTicks = jailLeft;
+  player.jailUntilTick = jailLeft > 0 ? tick + jailLeft : 0;
+
+  let restLeft = clampCountdownTicks(Number(player.restCooldownTicks || 0), ONLINE_TIMER_CAPS.rest);
+  if(restLeft <= 0 && Number(player.restReadyTick || 0) > tick){
+    restLeft = clampCountdownTicks(Number(player.restReadyTick || 0) - tick, ONLINE_TIMER_CAPS.rest);
+  }
+  if(restLeft > 0) restLeft = Math.max(0, restLeft - 1);
+  player.restCooldownTicks = restLeft;
+  player.restReadyTick = restLeft > 0 ? tick + restLeft : 0;
+
+  if(typeof player.jailActionRemainingTicks === 'number'){
+    player.jailActionRemainingTicks = clampCountdownTicks(player.jailActionRemainingTicks - 1, ONLINE_TIMER_CAPS.jailAction);
+    player.jailActionCd = player.jailActionRemainingTicks > 0 ? tick + player.jailActionRemainingTicks : 0;
+  }
+
+  if(wasJailed && jailLeft <= 0){
+    releaseFromJail();
+  }
   player.lastOnlineTimerTick = tick;
 }
 function restoreOnlineCountdownsAfterLoad(){
   // 저장된 남은 틱을 우선 사용한다. 예전 저장처럼 deadline tick만 있으면 현재 세션 tick 기준으로 환산하되 상한을 둔다.
-  const storedJail = Number(player.jailRemainingTicks || 0);
+  const storedJail = clampCountdownTicks(Number(player.jailRemainingTicks || 0), ONLINE_TIMER_CAPS.jail);
   const legacyJail = Number(player.jailUntilTick || 0) > tick ? Number(player.jailUntilTick || 0) - tick : 0;
   const jailLeft = clampCountdownTicks(storedJail > 0 ? storedJail : legacyJail, ONLINE_TIMER_CAPS.jail);
   player.jailRemainingTicks = jailLeft;
   player.jailUntilTick = jailLeft > 0 ? tick + jailLeft : 0;
 
-  const storedRest = Number(player.restCooldownTicks || 0);
+  const storedRest = clampCountdownTicks(Number(player.restCooldownTicks || 0), ONLINE_TIMER_CAPS.rest);
   const legacyRest = Number(player.restReadyTick || 0) > tick ? Number(player.restReadyTick || 0) - tick : 0;
   const restLeft = clampCountdownTicks(storedRest > 0 ? storedRest : legacyRest, ONLINE_TIMER_CAPS.rest);
   player.restCooldownTicks = restLeft;
   player.restReadyTick = restLeft > 0 ? tick + restLeft : 0;
 
-  player.jailActionCd = tick + clampCountdownTicks(Number(player.jailActionRemainingTicks || 0), ONLINE_TIMER_CAPS.jailAction);
+  const jailActionLeft = clampCountdownTicks(Number(player.jailActionRemainingTicks || 0), ONLINE_TIMER_CAPS.jailAction);
+  player.jailActionRemainingTicks = jailActionLeft;
+  player.jailActionCd = jailActionLeft > 0 ? tick + jailActionLeft : 0;
   player.lastOnlineTimerTick = tick;
 }
 function jailRemainingSeconds(){ return Math.max(0, Math.ceil(countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail)*0.45)); }
@@ -2969,7 +3087,7 @@ function playerTile(){ return {x:gridX(player.x), y:gridY(player.y)}; }
 function regionNameAt(x,y){
   const gx = gridX(x), gy = gridY(y);
   const t = map[gy]?.[gx];
-  if(t==='jail' || t==='jailWall' || (gx>=15 && gx<=27 && gy>=28 && gy<=39)) return '브라이트헤이븐 감옥';
+  if(t==='jail' || t==='jailWall' || isJailTile(gx, gy)) return '브라이트헤이븐 감옥';
   if(gx>20 && gx<39 && gy>16 && gy<28) return '브라이트헤이븐';
   if(t==='dungeon') return '검은동굴 던전';
   if(t==='ruins') return '동부 고대 유적';
@@ -3142,13 +3260,11 @@ function initMap(){
       if(x>2 && x<48 && y>1 && y<12) t='ice';
       if(rand(100)<4 && t==='grass') t='darkGrass';
 
-      // 브라이트헤이븐 북서쪽 감옥. 벽은 충돌, 내부는 이동 가능.
-      if(x>=15 && x<=27 && y>=28 && y<=39){
+      // 브라이트헤이븐 북서쪽 소형 감옥. 기존 면적의 약 1/4 크기.
+      if(x>=JAIL.outerX1 && x<=JAIL.outerX2 && y>=JAIL.outerY1 && y<=JAIL.outerY2){
         t = 'jail';
-        if(x===15 || x===27 || y===28 || y===39) t = 'jailWall';
-        if(x===21 && y===28) t = 'jail'; // 출입문/석방 지점
-        if((x===18 || x===24) && y>30 && y<38) t = 'jailWall';
-        if((x===18 || x===24) && (y===34 || y===37)) t = 'jail';
+        if(x===JAIL.outerX1 || x===JAIL.outerX2 || y===JAIL.outerY1 || y===JAIL.outerY2) t = 'jailWall';
+        if(x===JAIL.releaseX && y===JAIL.outerY1) t = 'jail'; // 출입문/석방 지점
       }
 
       map[y][x] = t;
@@ -3208,8 +3324,8 @@ function ensureWorldSize(){
   }
 }
 
-function isBlocked(x,y){
-  // 자유 이동 느낌을 위해 작은 원형 충돌만 사용한다.
+function isBlocked(x,y, options={}){
+  // 자유 이동 느낌을 위해 작은 원형 충돌만 사용하되, NPC/나무 오브젝트는 실제 장애물로 처리한다.
   const radius = 0.22;
   const samples = [[x,y],[x-radius,y],[x+radius,y],[x,y-radius],[x,y+radius]];
   for(const [px,py] of samples){
@@ -3218,7 +3334,16 @@ function isBlocked(x,y){
     const t = map[gy][gx];
     if(t==='water' || t==='jailWall') return true;
   }
-  if(resources.some(r=>r.kind==='tree' && r.amount>0 && Math.hypot(r.x-x, r.y-y)<0.42)) return true;
+
+  // 나무는 기존처럼 통과 불가. 광석은 바위형 오브젝트라 약하게 충돌 처리한다.
+  if(resources.some(r=>r.amount>0 && (r.kind==='tree' || r.kind==='ore') && Math.hypot(r.x-x, r.y-y)<0.42)) return true;
+
+  // NPC도 동물/몬스터처럼 통과할 수 없는 실체로 처리한다.
+  // NPC 본인이 이동 판정할 때는 options.ignoreNpc로 자기 자신만 제외한다.
+  if(!options.ignoreNpcs){
+    const ignoreNpc = options.ignoreNpc || null;
+    if(npcs.some(n=>n!==ignoreNpc && !n.down && Math.hypot(n.x-x, n.y-y)<0.46)) return true;
+  }
   return false;
 }
 
@@ -3810,7 +3935,7 @@ function npcStepToward(npc, target, speed=0.034){
   const ux = dx/len, uy = dy/len;
 
   const canNpcMoveTo = (nx,ny) => {
-    if(isBlocked(nx,ny)) return false;
+    if(isBlocked(nx,ny,{ignoreNpc:npc})) return false;
     const blockRadius = npc.guard ? 0.26 : 0.36;
     return !npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius);
   };
@@ -4419,7 +4544,7 @@ function renderMiniNpcMenu(npc){
     if(top + bh > wrap.height - 6) top = wrap.height - bh - 6;
 
     left = clamp(left, 6, Math.max(6, wrap.width - bw - 6));
-    top = clamp(top, 6, Math.max(6, wrap.height - bh - 6));
+    top = clampPopupTopInWrap(top, bh, wrap.height, 6);
 
     box.style.left = `${left}px`;
     box.style.top = `${top}px`;
@@ -5365,7 +5490,7 @@ function openMiniTrade(npc){
 
     if(left + bw > wrap.width - 6) left = pt.x - wrap.left - bw - 24;
     left = clamp(left, 6, Math.max(6, wrap.width - bw - 6));
-    top = clamp(top, 6, Math.max(6, wrap.height - bh - 6));
+    top = clampPopupTopInWrap(top, bh, wrap.height, 6);
 
     box.style.left = `${left}px`;
     box.style.top = `${top}px`;
@@ -5934,10 +6059,10 @@ function showInventoryItemPopup(ev, id, ctx={}){
     let top = clickY - 28;
 
     if(left + bw > window.innerWidth - 8) left = clickX - bw - 10;
-    if(top + bh > window.innerHeight - 8) top = window.innerHeight - bh - 8;
+    if(top + bh > window.innerHeight - bottomControlClearancePx() - 8) top = window.innerHeight - bottomControlClearancePx() - bh - 8;
 
     left = clamp(left, 8, Math.max(8, window.innerWidth - bw - 8));
-    top = clamp(top, 8, Math.max(8, window.innerHeight - bh - 8));
+    top = clampPopupTop(top, bh, 8);
 
     box.style.left = `${left}px`;
     box.style.top = `${top}px`;
@@ -7246,6 +7371,38 @@ function onlinePayload(){
   };
 }
 
+function smoothRemotePayload(old, payload){
+  const now = performance.now ? performance.now() : Date.now();
+  const next = {...(old||{}), ...(payload||{})};
+  const targetX = Number(payload?.x ?? next.x ?? 0);
+  const targetY = Number(payload?.y ?? next.y ?? 0);
+  if(!Number.isFinite(next.displayX)) next.displayX = Number(old?.displayX ?? targetX);
+  if(!Number.isFinite(next.displayY)) next.displayY = Number(old?.displayY ?? targetY);
+  if(Math.hypot(next.displayX - targetX, next.displayY - targetY) > 7){
+    next.displayX = targetX;
+    next.displayY = targetY;
+  }
+  next.targetX = targetX;
+  next.targetY = targetY;
+  next.lastRemoteUpdate = now;
+  return next;
+}
+function remoteRenderPosition(rp){
+  const tx = Number(rp.targetX ?? rp.x ?? 0);
+  const ty = Number(rp.targetY ?? rp.y ?? 0);
+  if(!Number.isFinite(rp.displayX)) rp.displayX = tx;
+  if(!Number.isFinite(rp.displayY)) rp.displayY = ty;
+  const gap = Math.hypot(rp.displayX - tx, rp.displayY - ty);
+  if(gap > 7){
+    rp.displayX = tx;
+    rp.displayY = ty;
+  }else{
+    const alpha = gap > 1.2 ? 0.36 : 0.24;
+    rp.displayX += (tx - rp.displayX) * alpha;
+    rp.displayY += (ty - rp.displayY) * alpha;
+  }
+  return {x:rp.displayX, y:rp.displayY};
+}
 function setupRealtimeOnline(){
   if(!supabaseClient || !player.isOnline) return;
   if(onlineChannel){
@@ -7263,7 +7420,7 @@ function setupRealtimeOnline(){
       const next = {};
       for(const key of Object.keys(state)){
         for(const item of state[key]){
-          if(item.id !== player.userId) next[item.id] = item;
+          if(item.id !== player.userId) next[item.id] = smoothRemotePayload(remotePlayers[item.id], item);
         }
       }
       remotePlayers = next;
@@ -7272,13 +7429,13 @@ function setupRealtimeOnline(){
     .on('broadcast', { event: 'pos' }, ({payload}) => {
       if(!payload || payload.id === player.userId) return;
       const old = remotePlayers[payload.id] || {};
-      remotePlayers[payload.id] = {...old, ...payload};
+      remotePlayers[payload.id] = smoothRemotePayload(old, payload);
       updateOnlineBadge();
     })
     .on('broadcast', { event: 'chat' }, ({payload}) => {
       if(!payload || payload.id === player.userId) return;
       const old = remotePlayers[payload.id] || {};
-      remotePlayers[payload.id] = {...old, ...payload, chatText:String(payload.text||'').slice(0,60), chatUntil:Date.now()+4200};
+      remotePlayers[payload.id] = smoothRemotePayload(old, {...payload, chatText:String(payload.text||'').slice(0,60), chatUntil:Date.now()+4200});
       addLog(`${payload.nick || '유저'}: ${String(payload.text||'').slice(0,60)}`);
       updateOnlineBadge();
     })
@@ -7315,10 +7472,11 @@ function sendOnlineState(force=false){
 function drawRemotePlayers(camPxX, camPxY, vw, vh){
   for(const rp of Object.values(remotePlayers||{})){
     if(Date.now() - (rp.ts||0) > 8000) continue;
-    const x = rp.x*TILE - camPxX;
-    const y = rp.y*TILE - camPxY;
+    const pos = remoteRenderPosition(rp);
+    const x = pos.x*TILE - camPxX;
+    const y = pos.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
-    drawPerson((rp.x*TILE - camPxX)/TILE,(rp.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',`Lv.${rp.level || 1} ${rp.nick || '유저'}`,false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
+    drawPerson((pos.x*TILE - camPxX)/TILE,(pos.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',`Lv.${rp.level || 1} ${rp.nick || '유저'}`,false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(x+5,y+3,22,4);
     ctx.fillStyle=partySame(rp.id) ? '#ffdf79' : '#74a9d8';
@@ -8394,14 +8552,72 @@ function ellipse(x,y,rx,ry){ ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*
 function poly(points){ ctx.beginPath(); points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); ctx.fill(); }
 
 function drawMini(){
+  if(!mini || !mctx) return;
   mctx.clearRect(0,0,mini.width,mini.height);
   const sx = mini.width / W, sy = mini.height / H;
   for(let y=0;y<H;y++) for(let x=0;x<W;x++){
     mctx.fillStyle = colors[map[y][x]] || colors.grass;
     mctx.fillRect(x*sx,y*sy,Math.ceil(sx),Math.ceil(sy));
   }
+  mctx.fillStyle='#f2f2f2';
+  for(const n of npcs){
+    if(isTownArea(n.x,n.y)) mctx.fillRect(n.x*sx, n.y*sy, 2, 2);
+  }
+  mctx.fillStyle='#ff6b5f';
+  for(const m of mobs){
+    if(m.boss) mctx.fillRect(m.x*sx-1, m.y*sy-1, 3, 3);
+  }
   mctx.fillStyle='#ffef88';
   mctx.fillRect(player.x*sx-1, player.y*sy-1, 4, 4);
+}
+
+function openMapPopup(){
+  openPop('popMap');
+}
+
+function drawMapMarker(ctx2, x, y, scale, color, size=4){
+  ctx2.fillStyle = color;
+  ctx2.fillRect(Math.round(x*scale - size/2), Math.round(y*scale - size/2), size, size);
+}
+
+function renderFullMap(){
+  const canvas = document.getElementById('fullMap');
+  if(!canvas) return;
+  const scale = Math.max(4, Math.min(8, Math.floor(840 / Math.max(W, 1))));
+  canvas.width = W * scale;
+  canvas.height = H * scale;
+  const c = canvas.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    c.fillStyle = colors[map[y][x]] || colors.grass;
+    c.fillRect(x*scale, y*scale, scale, scale);
+  }
+  c.globalAlpha = .9;
+  c.fillStyle='rgba(0,0,0,.16)';
+  for(let x=0;x<=W;x+=10) c.fillRect(x*scale,0,1,canvas.height);
+  for(let y=0;y<=H;y+=10) c.fillRect(0,y*scale,canvas.width,1);
+  c.globalAlpha = 1;
+  for(const n of npcs){
+    drawMapMarker(c, n.x, n.y, scale, '#f2f2f2', 3);
+  }
+  for(const ch of chests){
+    if(!ch.opened) drawMapMarker(c, ch.x, ch.y, scale, '#d7b45a', 3);
+  }
+  for(const m of mobs){
+    if(m.boss) drawMapMarker(c, m.x, m.y, scale, '#ff655a', 5);
+  }
+  if(typeof remotePlayers === 'object'){
+    for(const rp of Object.values(remotePlayers)){
+      const rx = Number(rp.renderX ?? rp.x);
+      const ry = Number(rp.renderY ?? rp.y);
+      if(Number.isFinite(rx) && Number.isFinite(ry)) drawMapMarker(c, rx, ry, scale, '#74d8ff', 4);
+    }
+  }
+  drawMapMarker(c, player.x, player.y, scale, '#ffef88', 7);
+  c.strokeStyle='#151107';
+  c.lineWidth=2;
+  c.strokeRect(Math.round(player.x*scale-4), Math.round(player.y*scale-4), 8, 8);
 }
 
 function restockNpcBags(){
@@ -8420,7 +8636,7 @@ function restockNpcBags(){
 
 function gameLoop(){
   tick++;
-  refreshOnlineCountdownSnapshots();
+  advanceOnlineCountdowns();
   worldMinutes += 2;
   if(tick % 7 === 0){
     player.sta = clamp(player.sta + 2.0, 0, player.maxSta);
@@ -8469,6 +8685,16 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'미니맵 복구·전체 지도 팝업', items:[
+    '월드 화면 우측 상단 미니맵을 다시 표시하고 터치 가능하게 변경',
+    '미니맵 터치 시 컨트롤 영역을 침범하지 않는 전체 지도 팝업을 열도록 추가',
+    '통합 메뉴의 지도 버튼을 제거해 지도 접근을 미니맵 터치 방식으로 통일'
+  ]},
+  {
+    title:'팝업·실시간 이동·감옥 타이머 안정화',
+    body:'모든 팝업창이 하단 컨트롤 구역을 침범하지 않도록 제한하고, 타 유저 위치를 보간해 부드럽게 표시한다. 감옥 수감 시간은 남은 시간 기준으로 접속 중에만 감소하도록 재수정했으며, 감옥 크기를 기존의 약 1/4로 축소했다.'
+  },
+  {title:'NPC·오브젝트 터치 상호작용·NPC 충돌 추가', body:['NPC, 몬스터, 나무, 광석, 약초, 물고기, 상자를 캔버스에서 직접 터치해 상호작용할 수 있게 변경했다.','NPC를 동물/몬스터처럼 실체가 있는 충돌 대상으로 처리해 플레이어가 NPC를 뚫고 지나가지 못하게 했다.','NPC 본인의 이동 판정에서는 자기 자신을 제외하도록 처리해 경비병 순찰과 NPC 이동 충돌 오류를 방지했다.']},
   {title:'감금·회복 쿨타임 접속 중 카운트 고정', body:['감옥 수감 시간과 휴식/회복 쿨타임을 절대시간이 아닌 남은 틱으로 저장하도록 변경했다.','재접속 시 오프라인 시간은 차감되지 않고 마지막 접속 중 저장된 남은 시간부터 이어진다.','기존 저장 데이터의 과도한 deadline 값은 상한으로 보정해 말도 안 되게 시간이 늘어나는 현상을 방지했다.']},
   {
     title:'이름표 배경 제거·유저 레벨 표시',
@@ -8622,12 +8848,16 @@ function renderPatchNotes(){
   const el = document.getElementById('patchNotesList');
   if(!el) return;
   const list = PATCH_NOTES.slice(0,5);
-  el.innerHTML = list.map(p=>`
-    <div class="card">
-      <h3>${escapeHtml(p.version)} · ${escapeHtml(p.title)}</h3>
-      <ul>${p.items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
-    </div>
-  `).join('');
+  el.innerHTML = list.map(p=>{
+    const rows = Array.isArray(p.items) ? p.items : (Array.isArray(p.body) ? p.body : [p.body || '']);
+    const ver = p.version ? `${escapeHtml(p.version)} · ` : '';
+    return `
+      <div class="card">
+        <h3>${ver}${escapeHtml(p.title)}</h3>
+        <ul>${rows.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>
+      </div>
+    `;
+  }).join('');
 }
 
 
@@ -8648,6 +8878,7 @@ function openPop(id){
   if(id==='popQuest') renderQuests();
   if(id==='popParty') renderParty();
   if(id==='popFence') renderFence();
+  if(id==='popMap') renderFullMap();
 }
 function closePop(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
@@ -8758,6 +8989,40 @@ function mobAtScreenPoint(clientX, clientY){
     .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.mob || null;
 }
 
+function resourceActionForKind(kind){
+  if(kind==='tree') return {kind:'wood', label:'벌목'};
+  if(kind==='ore') return {kind:'mine', label:'채광'};
+  if(kind==='fish') return {kind:'fish', label:'낚시'};
+  if(kind==='herb') return {kind:'herb', label:'약초'};
+  return {kind, label:'채집'};
+}
+
+function resourceAtScreenPoint(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) * (canvas.width / rect.width);
+  const sy = (clientY - rect.top) * (canvas.height / rect.height);
+  const cam = cameraPixels();
+
+  return resources
+    .filter(r=>r.amount>0 && (r.kind !== 'fish' || tileAt(r.x, r.y) === 'water'))
+    .map(r=>({res:r, dx:sx-(r.x*TILE - cam.x + 16), dy:sy-(r.y*TILE - cam.y + 16)}))
+    .filter(o=>Math.hypot(o.dx,o.dy)<=30)
+    .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.res || null;
+}
+
+function chestAtScreenPoint(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) * (canvas.width / rect.width);
+  const sy = (clientY - rect.top) * (canvas.height / rect.height);
+  const cam = cameraPixels();
+
+  return chests
+    .filter(c=>!c.opened)
+    .map(c=>({chest:c, dx:sx-(c.x*TILE - cam.x + 16), dy:sy-(c.y*TILE - cam.y + 16)}))
+    .filter(o=>Math.hypot(o.dx,o.dy)<=28)
+    .sort((a,b)=>Math.hypot(a.dx,a.dy)-Math.hypot(b.dx,b.dy))[0]?.chest || null;
+}
+
 function setupCanvasGestures(){
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
@@ -8765,9 +9030,10 @@ function setupCanvasGestures(){
   }, {passive:true});
 
   canvas.addEventListener('pointerup', e=>{
-    const mob = mobAtScreenPoint(e.clientX, e.clientY);
     clearTimeout(canvasHoldTimer);
     canvasHoldTimer = null;
+
+    const mob = mobAtScreenPoint(e.clientX, e.clientY);
     if(mob){
       currentNpc = null;
       selectMobTarget(mob, false);
@@ -8777,14 +9043,39 @@ function setupCanvasGestures(){
     }
 
     const npc = npcAtScreenPoint(e.clientX, e.clientY);
-    if(!npc) return;
-    currentNpc = npc;
-    if(dist(npc, player) > 1.9){
-      toast('NPC가 너무 멀다');
+    if(npc){
+      currentNpc = npc;
+      if(dist(npc, player) > 1.9){
+        toast('NPC가 너무 멀다');
+        draw();
+        return;
+      }
+      openNpcMenu(npc);
       return;
     }
 
-    openNpcMenu(npc);
+    const res = resourceAtScreenPoint(e.clientX, e.clientY);
+    if(res){
+      const action = resourceActionForKind(res.kind);
+      if(dist(res, player) > 1.65){
+        toast(`${action.label} 대상이 너무 멀다`);
+        draw();
+        return;
+      }
+      gather(action.kind, res);
+      return;
+    }
+
+    const chest = chestAtScreenPoint(e.clientX, e.clientY);
+    if(chest){
+      if(dist(chest, player) > 1.65){
+        toast('상자가 너무 멀다');
+        draw();
+        return;
+      }
+      openChest(chest);
+      return;
+    }
   }, {passive:true});
 
   canvas.addEventListener('pointercancel', ()=>{
@@ -9128,7 +9419,7 @@ function ultimaDynamicWorldTick(){
 
 function frameWorldAI(dt){
   simDtSeconds = Math.max(0.008, Math.min(0.05, dt/1000));
-  if((player.jailUntilTick||0) > 0 && tick >= player.jailUntilTick && isJailTile(player.x, player.y)) releaseFromJail();
+  if((player.jailRemainingTicks||0) <= 0 && (player.jailUntilTick||0) <= tick && isJailTile(player.x, player.y)) releaseFromJail();
   mobAI();
   guardAI();
   ultimaDynamicWorldTick();
