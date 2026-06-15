@@ -2502,7 +2502,7 @@ const player = {
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
   exp: 0, nextExp: 100,
   nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false,
-  gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, criminalUntil: 0, restReadyTick: 0,
+  gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0,
   auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
   durability: {},
@@ -2577,7 +2577,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     userId:userId || 'guest',
     isOnline:!!isOnline,
     gold:30, bankGold:0, fame:0, wanted:0, karma:0,
-    jailUntilTick:0, criminalUntil:0, restReadyTick:0,
+    jailUntilTick:0, jailRemainingTicks:0, criminalUntil:0, restReadyTick:0, restCooldownTicks:0,
     auto:defaultAutoSettings(),
     weapon:'rustySword',
     armor:null,
@@ -2912,7 +2912,53 @@ function isInsideJailCell(x,y){
   const gx = gridX(x), gy = gridY(y);
   return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
 }
-function jailRemainingSeconds(){ return Math.max(0, Math.ceil(((player.jailUntilTick||0)-tick)*0.45)); }
+var ONLINE_TIMER_CAPS = {
+  jail: 1800,       // 13분 30초. 저장 오류로 말도 안 되게 늘어나는 것을 막는다.
+  rest: 90,         // 휴식/회복 쿨타임 최대 40.5초.
+  jailAction: 90
+};
+function clampCountdownTicks(v, maxTicks){
+  v = Number(v);
+  if(!Number.isFinite(v) || v <= 0) return 0;
+  return Math.max(0, Math.min(Math.ceil(v), maxTicks));
+}
+function countdownRemainingTicks(deadlineProp, remainingProp, maxTicks){
+  const deadline = Number(player[deadlineProp] || 0);
+  const fromDeadline = deadline > tick ? deadline - tick : 0;
+  const fromStored = Number(player[remainingProp] || 0);
+  const raw = fromDeadline > 0 ? fromDeadline : fromStored;
+  return clampCountdownTicks(raw, maxTicks);
+}
+function setOnlineCountdown(deadlineProp, remainingProp, ticksLeft, maxTicks){
+  const left = clampCountdownTicks(ticksLeft, maxTicks);
+  player[remainingProp] = left;
+  player[deadlineProp] = left > 0 ? tick + left : 0;
+  return left;
+}
+function refreshOnlineCountdownSnapshots(){
+  if(!player || !ONLINE_TIMER_CAPS) return;
+  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail), ONLINE_TIMER_CAPS.jail);
+  setOnlineCountdown('restReadyTick', 'restCooldownTicks', countdownRemainingTicks('restReadyTick', 'restCooldownTicks', ONLINE_TIMER_CAPS.rest), ONLINE_TIMER_CAPS.rest);
+  player.lastOnlineTimerTick = tick;
+}
+function restoreOnlineCountdownsAfterLoad(){
+  // 저장된 남은 틱을 우선 사용한다. 예전 저장처럼 deadline tick만 있으면 현재 세션 tick 기준으로 환산하되 상한을 둔다.
+  const storedJail = Number(player.jailRemainingTicks || 0);
+  const legacyJail = Number(player.jailUntilTick || 0) > tick ? Number(player.jailUntilTick || 0) - tick : 0;
+  const jailLeft = clampCountdownTicks(storedJail > 0 ? storedJail : legacyJail, ONLINE_TIMER_CAPS.jail);
+  player.jailRemainingTicks = jailLeft;
+  player.jailUntilTick = jailLeft > 0 ? tick + jailLeft : 0;
+
+  const storedRest = Number(player.restCooldownTicks || 0);
+  const legacyRest = Number(player.restReadyTick || 0) > tick ? Number(player.restReadyTick || 0) - tick : 0;
+  const restLeft = clampCountdownTicks(storedRest > 0 ? storedRest : legacyRest, ONLINE_TIMER_CAPS.rest);
+  player.restCooldownTicks = restLeft;
+  player.restReadyTick = restLeft > 0 ? tick + restLeft : 0;
+
+  player.jailActionCd = tick + clampCountdownTicks(Number(player.jailActionRemainingTicks || 0), ONLINE_TIMER_CAPS.jailAction);
+  player.lastOnlineTimerTick = tick;
+}
+function jailRemainingSeconds(){ return Math.max(0, Math.ceil(countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail)*0.45)); }
 function tileAt(x,y){
   const gx = gridX(x), gy = gridY(y);
   if(gx<0||gy<0||gx>=W||gy>=H) return null;
@@ -3251,18 +3297,29 @@ function monsterLevel(m){
   return Math.max(1, Math.round(((m.maxHp||m.hp||20) / 8) + ((m.atk||0) / 2)));
 }
 
+function drawWorldNameText(text, x, y, options={}){
+  const labelText = String(text || '');
+  if(!labelText) return;
+  ctx.save();
+  ctx.font = options.font || '10px system-ui';
+  ctx.textAlign = 'center';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = options.strokeWidth || 3;
+  ctx.strokeStyle = options.stroke || 'rgba(10,8,6,.82)';
+  ctx.fillStyle = options.fill || '#fff3cf';
+  ctx.strokeText(labelText, x, y);
+  ctx.fillText(labelText, x, y);
+  ctx.restore();
+}
+
 function drawMobLabel(m, x, y){
   const text = `Lv.${monsterLevel(m)} ${m.name || '몬스터'}`;
-  ctx.save();
-  ctx.font = m.boss ? 'bold 11px system-ui' : '10px system-ui';
-  ctx.textAlign = 'center';
-  const w = Math.min(122, Math.max(34, ctx.measureText(text).width + 8));
-  const labelY = y + (m.boss ? -15 : -11);
-  ctx.fillStyle = m.boss ? 'rgba(56,16,16,.78)' : 'rgba(0,0,0,.62)';
-  ctx.fillRect(x+16-w/2, labelY, w, 12);
-  ctx.fillStyle = m.boss ? '#ffd36a' : '#fff3cf';
-  ctx.fillText(text, x+16, labelY+9);
-  ctx.restore();
+  drawWorldNameText(text, x+16, y + (m.boss ? -5 : -2), {
+    font: m.boss ? 'bold 11px system-ui' : '10px system-ui',
+    fill: m.boss ? '#ffd36a' : '#fff3cf',
+    stroke: m.boss ? 'rgba(58,18,12,.86)' : 'rgba(10,8,6,.82)',
+    strokeWidth: m.boss ? 4 : 3
+  });
 }
 
 function spawnMobs(){
@@ -4119,7 +4176,7 @@ function jailInteraction(){
     toast('자물쇠 관찰');
   }else{
     const cut = 10 + rand(9);
-    player.jailUntilTick = Math.max(tick + 12, (player.jailUntilTick||tick) - cut);
+    setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', Math.max(12, countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail) - cut), ONLINE_TIMER_CAPS.jail);
     player.karma = (player.karma||0) + 1;
     addLog('조용히 복역해 형기가 조금 줄었다.');
     toast('형기 감소');
@@ -4131,7 +4188,7 @@ function releaseFromJail(){
   normalizePlayer();
   if(!isJailTile(player.x, player.y) && tick < (player.jailUntilTick||0)) return;
   if(tick < (player.jailUntilTick||0)) return;
-  player.jailUntilTick = 0;
+  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', 0, ONLINE_TIMER_CAPS.jail);
   player.criminalUntil = 0;
   player.x = JAIL.releaseX;
   player.y = JAIL.releaseY;
@@ -4149,8 +4206,9 @@ function arrestPlayer(){
   const fine = Math.min(player.gold, 30 + wantedBefore*15);
   player.gold -= fine;
   player.wanted = Math.max(0, wantedBefore - 8);
-  player.jailUntilTick = tick + 150 + wantedBefore*12;
+  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', 150 + wantedBefore*12, ONLINE_TIMER_CAPS.jail);
   player.jailActionCd = 0;
+  player.jailActionRemainingTicks = 0;
   player.hp = Math.max(45, Math.floor(player.maxHp*0.58));
   player.mana = Math.max(15, Math.floor(player.maxMana*0.35));
   player.sta = Math.max(30, Math.floor(player.maxSta*0.35));
@@ -4584,7 +4642,7 @@ function sellJunk(){
 
 function rest(){
   normalizePlayer();
-  const remaining = Math.ceil(((player.restReadyTick||0) - tick) * 0.45);
+  const remaining = Math.ceil(countdownRemainingTicks('restReadyTick', 'restCooldownTicks', ONLINE_TIMER_CAPS.rest) * 0.45);
   if(tick < (player.restReadyTick||0)){
     toast(`휴식 대기 ${remaining}초`);
     return;
@@ -4596,7 +4654,7 @@ function rest(){
   const stGain = inTown ? 42 : 24;
   player.hp = clamp(player.hp + hpGain, 0, player.maxHp);
   player.sta = clamp(player.sta + stGain, 0, player.maxSta);
-  player.restReadyTick = tick + (inTown ? 26 : 38);
+  setOnlineCountdown('restReadyTick', 'restCooldownTicks', inTown ? 26 : 38, ONLINE_TIMER_CAPS.rest);
   gainSkill('healing',0.08);
   addLog(inTown ? '마을에서 휴식. 휴식 쿨타임 적용.' : '야외에서 짧게 휴식. 휴식 쿨타임 적용.');
   draw();
@@ -5608,8 +5666,12 @@ function normalizePlayer(){
   if(typeof player.wanted !== 'number') player.wanted = 0;
   if(typeof player.karma !== 'number') player.karma = 0;
   if(typeof player.jailUntilTick !== 'number') player.jailUntilTick = 0;
+  if(typeof player.jailRemainingTicks !== 'number') player.jailRemainingTicks = 0;
   if(typeof player.criminalUntil !== 'number') player.criminalUntil = 0;
   if(typeof player.restReadyTick !== 'number') player.restReadyTick = 0;
+  if(typeof player.restCooldownTicks !== 'number') player.restCooldownTicks = 0;
+  if(typeof player.lastOnlineTimerTick !== 'number') player.lastOnlineTimerTick = tick;
+  refreshOnlineCountdownSnapshots();
   if(!player.bank) player.bank = {};
   if(!player.shopStock) player.shopStock = {};
   if(!player.merchantStock) player.merchantStock = {};
@@ -7256,7 +7318,7 @@ function drawRemotePlayers(camPxX, camPxY, vw, vh){
     const x = rp.x*TILE - camPxX;
     const y = rp.y*TILE - camPxY;
     if(x<-TILE||y<-TILE||x>vw||y>vh) continue;
-    drawPerson((rp.x*TILE - camPxX)/TILE,(rp.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',rp.nick||'유저',false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
+    drawPerson((rp.x*TILE - camPxX)/TILE,(rp.y*TILE - camPxY)/TILE,'#c7d6ff','#315c9c',`Lv.${rp.level || 1} ${rp.nick || '유저'}`,false,{pants:'#1e314f',trim:'#9fd0ff',hair:'#1e2234',style:'traveler'});
     ctx.fillStyle='rgba(0,0,0,.45)';
     ctx.fillRect(x+5,y+3,22,4);
     ctx.fillStyle=partySame(rp.id) ? '#ffdf79' : '#74a9d8';
@@ -7265,12 +7327,7 @@ function drawRemotePlayers(camPxX, camPxY, vw, vh){
       ctx.strokeStyle='rgba(255,223,121,.9)';
       ctx.lineWidth=2;
       ctx.strokeRect(x+3,y+1,26,30);
-      ctx.fillStyle='rgba(0,0,0,.58)';
-      ctx.fillRect(x+2,y+29,28,10);
-      ctx.fillStyle='#ffdf79';
-      ctx.font='9px system-ui';
-      ctx.textAlign='center';
-      ctx.fillText('PARTY',x+16,y+37);
+      drawWorldNameText('PARTY', x+16, y+37, {font:'9px system-ui', fill:'#ffdf79', stroke:'rgba(10,8,6,.82)', strokeWidth:3});
     }
     if(rp.chatText && Date.now() < (rp.chatUntil||0)){
       drawSpeechBubble(x+16, y-8, rp.chatText);
@@ -7284,10 +7341,11 @@ function showDbSetupHelp(){
 }
 
 function buildSaveState(){
+  refreshOnlineCountdownSnapshots();
   return {
     schemaVersion: DB_SCHEMA_VERSION,
     savedAt: new Date().toISOString(),
-    player,
+    player: (typeof structuredClone === 'function') ? structuredClone(player) : JSON.parse(JSON.stringify(player)),
     mobs,
     resources,
     chests,
@@ -7299,7 +7357,10 @@ function buildSaveState(){
 function applySaveState(data){
   if(!data) return false;
   const state = data.state || data;
-  if(state.player) Object.assign(player, state.player);
+  if(state.player){
+    Object.assign(player, state.player);
+    restoreOnlineCountdownsAfterLoad();
+  }
   if(Array.isArray(state.mobs)) mobs = state.mobs;
   if(Array.isArray(state.resources)){
     resources.length = 0;
@@ -8051,15 +8112,15 @@ function makePersonSprite(skin, cloth, isPlayer=false, outfit=null, frame=0){
 
   return c;
 }
-function drawPixelNameTag(x, y, label){
+function drawPixelNameTag(x, y, label, options={}){
   const labelText = String(label || '');
-  ctx.font='10px system-ui';
-  ctx.textAlign='center';
-  const labelW = Math.min(96, Math.max(22, ctx.measureText(labelText).width + 8));
-  ctx.fillStyle='rgba(0,0,0,.58)';
-  ctx.fillRect(x + 16 - labelW/2, y - 14, labelW, 12);
-  ctx.fillStyle='#fff';
-  ctx.fillText(labelText, x + 16, y - 5);
+  if(!labelText) return;
+  drawWorldNameText(labelText, x + 16, y - 5, {
+    font: options.font || '10px system-ui',
+    fill: options.fill || '#ffffff',
+    stroke: options.stroke || 'rgba(10,8,6,.82)',
+    strokeWidth: options.strokeWidth || 3
+  });
 }
 function drawPixelPerson(x, y, skin, cloth, label, isPlayer=false, outfit=null){
   const now = (performance.now ? performance.now() : Date.now());
@@ -8309,7 +8370,7 @@ function draw(){
     ctx.lineWidth=1;
   }
 
-  drawPerson((player.x*TILE - camPxX)/TILE,(player.y*TILE - camPxY)/TILE,'#f1d08b','#744a2d',displayGameNickname(),true);
+  drawPerson((player.x*TILE - camPxX)/TILE,(player.y*TILE - camPxY)/TILE,'#f1d08b','#744a2d',`Lv.${player.level || 1} ${displayGameNickname()}`,true);
   if(localSpeech.text && Date.now() < localSpeech.until){
     drawSpeechBubble(player.x*TILE - camPxX + 16, player.y*TILE - camPxY - 8, localSpeech.text);
   }
@@ -8359,6 +8420,7 @@ function restockNpcBags(){
 
 function gameLoop(){
   tick++;
+  refreshOnlineCountdownSnapshots();
   worldMinutes += 2;
   if(tick % 7 === 0){
     player.sta = clamp(player.sta + 2.0, 0, player.maxSta);
@@ -8407,6 +8469,15 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {title:'감금·회복 쿨타임 접속 중 카운트 고정', body:['감옥 수감 시간과 휴식/회복 쿨타임을 절대시간이 아닌 남은 틱으로 저장하도록 변경했다.','재접속 시 오프라인 시간은 차감되지 않고 마지막 접속 중 저장된 남은 시간부터 이어진다.','기존 저장 데이터의 과도한 deadline 값은 상한으로 보정해 말도 안 되게 시간이 늘어나는 현상을 방지했다.']},
+  {
+    title:'이름표 배경 제거·유저 레벨 표시',
+    items:[
+      '캐릭터, NPC, 동물, 몬스터 이름표의 검은 배경 박스를 제거하고 텍스트 외곽선 방식으로 변경',
+      '로컬 유저와 온라인 유저 이름표를 Lv.레벨 이름 형식으로 표시',
+      '몬스터와 보스의 레벨 이름표도 박스 없이 외곽선 텍스트로 표시해 월드 화면을 덜 가리도록 수정'
+    ]
+  },
   {
     title:'상단 HUD 디스플레이 다크톤 고정',
     items:[
@@ -8585,7 +8656,7 @@ function closePop(){
 function toggleGrid(){ showGrid=!showGrid; draw(); }
 
 function saveGame(){
-  localStorage.setItem('legacyRealmsSave', JSON.stringify({player, mobs, resources, chests, worldMinutes, worldWeather}));
+  localStorage.setItem('legacyRealmsSave', JSON.stringify(buildSaveState()));
   if(player.isOnline) saveCloudCharacter(false);
   toast('저장 완료');
   addLog('게임 저장 완료.');
@@ -8593,7 +8664,7 @@ function saveGame(){
 
 function autoSaveGame(){
   try{
-    localStorage.setItem('legacyRealmsSave', JSON.stringify({player, mobs, resources, chests, worldMinutes, worldWeather}));
+    localStorage.setItem('legacyRealmsSave', JSON.stringify(buildSaveState()));
     cloudAutoSave(false);
     addLog('자동 저장 완료.');
   }catch(e){}
@@ -8603,25 +8674,14 @@ function loadGame(manual=false){
   if(!raw){ if(manual) toast('저장 데이터 없음'); return false; }
   try{
     const data = JSON.parse(raw);
-    Object.assign(player, data.player);
-    mobs = data.mobs || mobs;
-    if(data.resources){
-      resources.length=0;
-      resources.push(...data.resources);
+    const ok = applySaveState(data);
+    if(ok){
+      addLog('저장 데이터 불러오기 완료. 감금/회복 쿨타임은 접속 중 남은 시간 기준으로 이어진다.');
+      draw();
+      return true;
     }
-    if(data.chests){
-      chests.length=0;
-      chests.push(...data.chests);
-    }
-    if(typeof data.worldMinutes === 'number') worldMinutes = data.worldMinutes;
-    if(typeof data.worldWeather === 'string') worldWeather = data.worldWeather;
-    
-    for(const m of mobs){ m.prevX = m.x; m.prevY = m.y; }
-    for(const n of npcs){ n.prevX = n.x; n.prevY = n.y; }
-normalizePlayer();
-    addLog('저장 데이터 불러오기 완료.');
-    draw();
-    return true;
+    toast('불러오기 실패');
+    return false;
   }catch(e){
     toast('불러오기 실패');
     return false;
