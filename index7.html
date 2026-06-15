@@ -2493,6 +2493,141 @@ header.topbar,
 }
 #updatePercent{font-size:11px; margin-top:8px; color:#cfe5ff;}
 
+
+
+/* ==== quick slot / alert / HUD / lock icon final patch ==== */
+.toolbar{
+  --btnH:clamp(30px, 6.6dvh, 40px) !important;
+  --btnFont:clamp(9px, 2.35vw, 11px) !important;
+  --controlH:calc(var(--btnH) * 2 + 4px) !important;
+  grid-template-columns:var(--controlH) clamp(224px, 62vw, 382px) !important;
+  align-items:end !important;
+  z-index:90000 !important;
+}
+.actions{
+  grid-column:2 !important;
+  display:grid !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  grid-template-rows:var(--btnH) var(--btnH) !important;
+  gap:4px !important;
+  height:var(--controlH) !important;
+  pointer-events:auto !important;
+}
+.actions .quickSlotBtn{
+  grid-row:1 !important;
+  min-width:0 !important;
+  min-height:var(--btnH) !important;
+  padding:0 2px !important;
+  border-radius:7px !important;
+  font-size:10px !important;
+  line-height:1.02 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:1px !important;
+  white-space:nowrap !important;
+}
+.actions .quickSlotBtn b{font-size:10px; line-height:1; color:#ffdc82; pointer-events:none;}
+.actions .quickSlotBtn small{display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; font-size:8.5px; line-height:1; color:#d9d0ad; pointer-events:none;}
+.actions .quickSlotBtn.assigned{border-color:rgba(255,223,121,.72) !important; background:rgba(82,66,24,.36) !important;}
+.actions .actionBottom{grid-row:2 !important; min-height:var(--btnH) !important; padding:0 4px !important;}
+.actions .bottomAuto{grid-column:1 / 3 !important;}
+.actions .bottomAttack{grid-column:3 / 5 !important;}
+.actions .bottomUse{grid-column:5 / 7 !important;}
+.quickSlotConfig{display:grid; gap:8px;}
+.quickSlotChoiceGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(82px,1fr)); gap:6px;}
+.quickSlotChoiceGrid button{min-height:32px; padding:3px 5px; font-size:10px;}
+.quickSlotChoiceGrid button small{display:block; font-size:8px; opacity:.72; line-height:1.05;}
+#toast.toast,
+.toast#toast{
+  position:fixed !important;
+  top:calc(74px + env(safe-area-inset-top)) !important;
+  left:50% !important;
+  bottom:auto !important;
+  z-index:250000 !important;
+  pointer-events:none !important;
+  transform:translateX(-50%) !important;
+  max-width:calc(100vw - 24px) !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  background:rgba(6,8,5,.92) !important;
+  border-color:rgba(255,223,121,.82) !important;
+  box-shadow:0 8px 26px rgba(0,0,0,.58), 0 0 0 1px rgba(255,223,121,.12) inset !important;
+}
+.gold.statusGoldLine{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:5px !important;
+  flex-wrap:nowrap !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+  min-width:0 !important;
+  line-height:1 !important;
+  font-size:10px !important;
+}
+.gold.statusGoldLine .pixelStatusBadge{display:inline-flex !important; flex:0 0 auto !important; white-space:nowrap !important; gap:2px !important;}
+.lockItemIcon{
+  background:none !important;
+  background-image:none !important;
+  background-color:transparent !important;
+  background-size:auto !important;
+  background-position:center !important;
+  position:relative !important;
+  width:var(--cell,24px) !important;
+  height:var(--cell,24px) !important;
+  image-rendering:pixelated;
+}
+.lockItemIcon::before{
+  content:'';
+  position:absolute;
+  left:calc(var(--cell,24px) * .245);
+  top:calc(var(--cell,24px) * .04);
+  width:calc(var(--cell,24px) * .51);
+  height:calc(var(--cell,24px) * .46);
+  border:calc(var(--cell,24px) * .125) solid #d7dbe2;
+  border-bottom:0;
+  border-radius:999px 999px 0 0;
+  box-shadow:0 0 0 1px #253142, inset 0 1px 0 rgba(255,255,255,.55);
+}
+.lockItemIcon::after{
+  content:'';
+  position:absolute;
+  left:calc(var(--cell,24px) * .13);
+  top:calc(var(--cell,24px) * .39);
+  width:calc(var(--cell,24px) * .74);
+  height:calc(var(--cell,24px) * .50);
+  border-radius:calc(var(--cell,24px) * .08);
+  border:1px solid #5c4212;
+  background:linear-gradient(180deg,#ffe18b 0%,#d7a93b 52%,#8d5d18 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.20), 0 1px 2px rgba(0,0,0,.45);
+}
+.lockItemIcon i{
+  position:absolute;
+  z-index:2;
+  left:50%;
+  top:calc(var(--cell,24px) * .55);
+  width:calc(var(--cell,24px) * .16);
+  height:calc(var(--cell,24px) * .25);
+  transform:translateX(-50%);
+  background:#2b2215;
+  border-radius:999px 999px 2px 2px;
+  box-shadow:0 -2px 0 calc(var(--cell,24px) * .055) #2b2215;
+}
+.storageDetail{margin-top:10px; display:grid; gap:8px;}
+.storageGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:6px;}
+.storageSlot{min-height:62px; border:1px solid rgba(215,180,90,.24); border-radius:8px; background:rgba(8,12,7,.28); padding:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:9px; text-align:center;}
+.storageSlot .itemIcon{min-height:24px;}
+@media(max-width:560px){
+  .toolbar{grid-template-columns:var(--controlH) clamp(214px, 64vw, 300px) !important; padding-left:4px !important; padding-right:4px !important; gap:3px !important;}
+  .analogPad{margin-left:clamp(6px, 2.8vw, 18px) !important;}
+  .actions{gap:3px !important;}
+  .actions .quickSlotBtn small{font-size:7.7px !important;}
+  .gold.statusGoldLine{font-size:8.4px !important; gap:3px !important;}
+  #toast.toast,.toast#toast{top:calc(70px + env(safe-area-inset-top)) !important; font-size:11px !important;}
+}
+
 </style>
 
 
@@ -2692,6 +2827,14 @@ header.topbar,
         <div class="notice">마을 창고는 30칸입니다. 내 창고는 바로 이용하고, 다른 유저 창고는 훔쳐보기로 확인합니다. 자물쇠가 없으면 창고 아이템을 도둑맞을 수 있습니다.</div>
         <div id="storageUserList" class="wideList"></div>
         <div id="storageDetail" class="storageDetail"></div>
+      </div>
+    </section>
+
+    <section class="pop" id="popQuickSlot">
+      <div class="popHead"><b id="quickSlotTitle">퀵슬롯 설정</b><button onclick="closePop()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">퀵슬롯 1~6은 길게 눌러 스킬, 회복약, 버프/디버프 물약, 기타 사용 아이템을 등록합니다.</div>
+        <div id="quickSlotConfig" class="quickSlotConfig"></div>
       </div>
     </section>
 
@@ -2897,10 +3040,16 @@ header.topbar,
       <div class="analogBase"></div>
       <div class="analogKnob" id="analogKnob"></div>
     </div>
-    <div class="actions">
-      <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
-      <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">살펴보기</button>
-      <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
+    <div class="actions" id="quickActionPanel">
+      <button id="quickSlot1" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,0)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,0)" oncontextmenu="return false"><b>1</b><small>빈칸</small></button>
+      <button id="quickSlot2" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,1)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,1)" oncontextmenu="return false"><b>2</b><small>빈칸</small></button>
+      <button id="quickSlot3" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,2)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,2)" oncontextmenu="return false"><b>3</b><small>빈칸</small></button>
+      <button id="quickSlot4" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,3)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,3)" oncontextmenu="return false"><b>4</b><small>빈칸</small></button>
+      <button id="quickSlot5" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,4)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,4)" oncontextmenu="return false"><b>5</b><small>빈칸</small></button>
+      <button id="quickSlot6" class="quickSlotBtn" type="button" onpointerdown="quickSlotPointerDown(event,5)" onpointerup="quickSlotPointerEnd(event)" onpointercancel="quickSlotPointerEnd(event)" onpointerleave="quickSlotPointerEnd(event)" onclick="return quickSlotClick(event,5)" oncontextmenu="return false"><b>6</b><small>빈칸</small></button>
+      <button id="autoBtn" class="actionBottom bottomAuto compactBtn" onclick="toggleAutoMode()">오토</button>
+      <button id="attackBtn" class="primary actionBottom bottomAttack compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
+      <button id="useBtn" class="actionBottom bottomUse compactBtn cooldownShadeBtn" onclick="smartUse()">액션</button>
     </div>
   </div>
 
@@ -3051,6 +3200,22 @@ Object.assign(ITEM_SPRITE_INDEX, {
 });
 
 
+
+
+Object.assign(itemDefs, {
+  dagger:{name:'단검', type:'weapon', grade:'일반', atk:4, range:1.05, price:42, desc:'빠르게 찌르는 짧은 검. 사거리는 짧지만 공격속도가 빠르다.', speedBonus:-1},
+  longSword:{name:'장검', type:'weapon', grade:'고급', atk:9, range:1.34, price:115, desc:'균형 잡힌 한손검. 근접 전투 표준 무기다.'},
+  broadSword:{name:'브로드소드', type:'weapon', grade:'고급', atk:11, range:1.42, price:150, desc:'넓은 날을 가진 베기용 검. 기본 검보다 한 방이 강하다.', speedBonus:1},
+  greatSword:{name:'대검', type:'weapon', grade:'레어', atk:16, range:1.55, price:260, desc:'양손으로 휘두르는 무거운 검. 느리지만 피해와 사거리가 높다.', speedBonus:3},
+  silverSword:{name:'은검', type:'weapon', grade:'레어', atk:15, range:1.42, price:300, desc:'은을 입힌 검. 언데드와 마물 상대로 안정적인 피해를 준다.'},
+  knightSword:{name:'기사검', type:'weapon', grade:'에픽', atk:21, range:1.50, price:520, desc:'기사가 쓰는 고급 장검. 공격력과 명중 안정성이 높다.'},
+  runeSword:{name:'룬검', type:'weapon', grade:'전설', atk:29, range:1.62, price:980, desc:'룬 문자가 새겨진 전설급 검. 강력한 근접 무기다.'},
+  storageLock:{name:'자물쇠', type:'tool', grade:'고급', price:120, desc:'마을 창고에 설치해 도난을 막는 U자 걸쇠형 자물쇠.'}
+});
+Object.assign(ITEM_SPRITE_INDEX, {
+  dagger:2, longSword:2, broadSword:2, greatSword:2, silverSword:2, knightSword:2, runeSword:2, storageLock:16
+});
+
 const CRAFT_GRADES = ['일반','고급','레어','에픽','전설','신화'];
 function craftGradeOf(recipe){ return CRAFT_GRADES.includes(recipe?.grade) ? recipe.grade : '일반'; }
 function gradeClassName(grade){
@@ -3166,6 +3331,18 @@ recipes.push(
   {id:'cleansePotion', name:'정화 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:4, slimeGel:1}, gold:12, min:20},
   {id:'staminaPotion', name:'활력 물약', grade:'일반', skill:'healing', skillName:'회복', need:{herb:2, fish:1}, gold:8, min:10},
   {id:'luckPotion', name:'행운 물약', grade:'레어', skill:'healing', skillName:'회복', need:{herb:3, gem:1}, gold:24, min:34}
+);
+
+
+recipes.push(
+  {id:'dagger', name:'단검', grade:'일반', skill:'blacksmith', skillName:'대장기술', need:{ore:3, log:1}, gold:6, min:6},
+  {id:'longSword', name:'장검', grade:'고급', skill:'blacksmith', skillName:'대장기술', need:{craftedSword:1, ore:6, log:2}, gold:20, min:22},
+  {id:'broadSword', name:'브로드소드', grade:'고급', skill:'blacksmith', skillName:'대장기술', need:{ironSword:1, ore:8, hide:2}, gold:26, min:28},
+  {id:'greatSword', name:'대검', grade:'레어', skill:'blacksmith', skillName:'대장기술', need:{broadSword:1, silverOre:4, hide:3}, gold:44, min:42},
+  {id:'silverSword', name:'은검', grade:'레어', skill:'blacksmith', skillName:'대장기술', need:{ironSword:1, silverOre:6, gem:1}, gold:52, min:48},
+  {id:'knightSword', name:'기사검', grade:'에픽', skill:'blacksmith', skillName:'대장기술', need:{steelSword:1, silverSword:1, relicShard:3}, gold:90, min:64},
+  {id:'runeSword', name:'룬검', grade:'전설', skill:'blacksmith', skillName:'대장기술', need:{knightSword:1, ancientRelic:1, gem:4, frostOre:4}, gold:170, min:84},
+  {id:'storageLock', name:'자물쇠', grade:'고급', skill:'blacksmith', skillName:'대장기술', need:{ore:5, log:2}, gold:18, min:18}
 );
 
 const questDefs = [
@@ -5352,7 +5529,7 @@ function stealFromNpc(){
 function npcStepToward(npc, target, speed=0.034){
   rememberPrev(npc);
   const dtScale = Math.max(0.35, Math.min(1.45, simDtSeconds / 0.016));
-  const step = speed * dtScale * entityMoveMult(m);
+  const step = speed * dtScale * entityMoveMult(npc);
   const dx = target.x - npc.x;
   const dy = target.y - npc.y;
   const len = Math.hypot(dx,dy);
@@ -5364,11 +5541,10 @@ function npcStepToward(npc, target, speed=0.034){
     const blockRadius = npc.guard ? 0.26 : 0.36;
     if(npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius)) return false;
 
-    // 경비병이 마을 침입 몬스터를 쫓거나 순찰할 때는 플레이어를 관통하지 않는다.
-    // 단, 수배 상태로 플레이어를 직접 추격하는 경우에는 공격 거리까지 접근해야 하므로 예외 처리한다.
-    const chasingPlayer = !!target && target === player;
-    const playerBlockRadius = npc.guard ? 0.54 : 0.46;
-    if(npc.guard && !chasingPlayer && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
+    // NPC는 이동/순찰/추격 중에도 유저 몸을 뚫고 지나가지 않는다.
+    // 수배자를 직접 추격하는 경비병도 최소 충돌 반경까지만 접근하고, 공격은 별도 거리 판정으로 처리한다.
+    const playerBlockRadius = npc.guard ? 0.46 : 0.50;
+    if(dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
     return true;
   };
 
@@ -5866,7 +6042,7 @@ function getContextAction(){
   if(chest) return {type:'chest', label:'상자', chest};
   const rp = nearbyRemotePlayer();
   if(rp) return {type:'player', label:'훔쳐보기', player:rp};
-  return {type:'use', label:'살펴보기'};
+  return {type:'use', label:'액션'};
 }
 
 function updateContextButtons(){
@@ -5917,7 +6093,9 @@ function updateContextButtons(){
     autoButton.textContent = player.auto?.enabled ? '오토 ON' : '오토';
     autoButton.classList.toggle('primary', !!player.auto?.enabled);
   }
+  renderQuickSlots();
 }
+
 
 function closeMiniNpcMenu(){
   const box = document.getElementById('miniNpcMenu');
@@ -5987,8 +6165,8 @@ function npcRoleActions(npc){
     return actions;
   }
 
-  if(role === '상점' || role === '물약상인'){
-    add(role === '물약상인' ? '물약상점' : '거래', 'openNpcTradeFromMenu()');
+  if(role === '상점'){
+    add('거래', 'openNpcTradeFromMenu()');
     add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
     return actions;
   }
@@ -7321,7 +7499,7 @@ function isMerchantNpc(npc){
 }
 
 function isVendorNpc(npc){
-  return !!npc && !npc.guard && (['상인','상점','물약상인','대장장이','암시장'].includes(npc.role) || !!npc.fence);
+  return !!npc && !npc.guard && (['상인','상점','대장장이','암시장'].includes(npc.role) || !!npc.fence);
 }
 
 function merchantKey(npc){
@@ -7431,6 +7609,10 @@ function ensureMerchantStock(npc){
 }
 
 function itemIcon(id){
+  if(id === 'storageLock'){
+    const label = itemDefs[id]?.name || '자물쇠';
+    return `<span class="spriteIcon lockItemIcon" aria-label="${escapeHtml(label)}"><i></i></span>`;
+  }
   if(id === 'arrow'){
     const label = itemDefs[id]?.name || '화살';
     return `<span class="spriteIcon arrowItemIcon" aria-label="${escapeHtml(label)}"></span>`;
@@ -7925,6 +8107,8 @@ function normalizePlayer(){
   for(const [k,v] of Object.entries(defaults)){
     if(!player.skills[k]) player.skills[k] = {...v};
   }
+  ensureQuickSlots();
+  ensureStorage();
   ensureAutoSettings();
   applyJobBonuses();
 }
@@ -8134,6 +8318,9 @@ function inventoryItemActionButtons(id, ctx={}){
     }
     if(id === 'smokeBomb'){
       actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
+    }
+    if(id === 'storageLock'){
+      actions.push(`<button onclick="useStorageLock(); closeInventoryItemPopup()">창고 설치</button>`);
     }
   }
   return actions.join('');
@@ -9818,6 +10005,7 @@ function onlinePayload(){
     hp: player.hp,
     maxHp: player.maxHp,
     wanted: player.wanted || 0,
+    storageLocked: !!player.storageLocked,
     partyId: partyState.id || null,
     partyLeaderId: partyState.leaderId || null,
     partyCount: partyMemberCount(),
@@ -10690,7 +10878,7 @@ function updateHud(){
   const goldEl = document.getElementById('gold');
   if(goldEl){
     goldEl.classList.add('statusGoldLine');
-    goldEl.innerHTML = `골드 ${player.gold}g · 수배 ${player.wanted || 0} ${dayNightPixelHtml()} ${weatherPixelHtml()}`;
+    goldEl.innerHTML = `<span>골드 ${player.gold}g</span><span>수배 ${player.wanted || 0}</span>${dayNightPixelHtml()}${weatherPixelHtml()}`;
   }
   applyTopHudAdaptiveTone();
 }
@@ -11697,6 +11885,243 @@ function renderPatchNotes(){
 }
 
 
+
+
+const QUICK_SLOT_COUNT = 6;
+let quickSlotEditingIndex = 0;
+let quickSlotHoldTimer = null;
+let quickSlotSuppressClick = false;
+function defaultQuickSlots(){ return Array.from({length:QUICK_SLOT_COUNT}, ()=>({type:'empty'})); }
+function ensureQuickSlots(){
+  if(!Array.isArray(player.quickSlots)) player.quickSlots = defaultQuickSlots();
+  while(player.quickSlots.length < QUICK_SLOT_COUNT) player.quickSlots.push({type:'empty'});
+  player.quickSlots = player.quickSlots.slice(0, QUICK_SLOT_COUNT).map(s=>{
+    if(!s || typeof s !== 'object') return {type:'empty'};
+    if(!['empty','skill','item','menu','action'].includes(s.type)) return {type:'empty'};
+    return s;
+  });
+  return player.quickSlots;
+}
+function quickSlotDisplayName(slot){
+  if(!slot || slot.type === 'empty') return '빈칸';
+  if(slot.type === 'skill') return ACTIVE_SKILL_DEFS.find(s=>s.id===slot.id)?.name || slot.name || '스킬';
+  if(slot.type === 'item') return itemDefs[slot.id]?.name || slot.name || '아이템';
+  if(slot.type === 'menu') return slot.name || '메뉴';
+  if(slot.type === 'action') return slot.name || '액션';
+  return '빈칸';
+}
+function renderQuickSlots(){
+  const slots = ensureQuickSlots();
+  for(let i=0;i<QUICK_SLOT_COUNT;i++){
+    const btn = document.getElementById(`quickSlot${i+1}`);
+    if(!btn) continue;
+    const slot = slots[i] || {type:'empty'};
+    const name = quickSlotDisplayName(slot);
+    btn.classList.toggle('assigned', slot.type !== 'empty');
+    btn.title = `퀵슬롯 ${i+1}: ${name} / 길게 눌러 설정`;
+    btn.innerHTML = `<b>${i+1}</b><small>${escapeHtml(name)}</small>`;
+  }
+}
+function quickSlotPointerDown(ev, idx){
+  try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
+  quickSlotSuppressClick = false;
+  clearTimeout(quickSlotHoldTimer);
+  quickSlotHoldTimer = setTimeout(()=>{
+    quickSlotSuppressClick = true;
+    openQuickSlotConfig(idx);
+  }, 520);
+  return false;
+}
+function quickSlotPointerEnd(ev){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  clearTimeout(quickSlotHoldTimer);
+  quickSlotHoldTimer = null;
+  return false;
+}
+function quickSlotClick(ev, idx){
+  try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
+  clearTimeout(quickSlotHoldTimer);
+  if(quickSlotSuppressClick){
+    setTimeout(()=>{ quickSlotSuppressClick = false; }, 50);
+    return false;
+  }
+  runQuickSlot(idx);
+  return false;
+}
+function openQuickSlotConfig(idx=0){
+  quickSlotEditingIndex = clamp(Math.floor(Number(idx)||0),0,QUICK_SLOT_COUNT-1);
+  openPop('popQuickSlot');
+  renderQuickSlotConfig();
+}
+function assignQuickSlot(type, id='', name=''){
+  ensureQuickSlots();
+  player.quickSlots[quickSlotEditingIndex] = type === 'empty' ? {type:'empty'} : {type, id, name};
+  renderQuickSlots();
+  renderQuickSlotConfig();
+  saveGame();
+}
+function runQuickSlot(idx){
+  normalizePlayer();
+  const slot = ensureQuickSlots()[idx];
+  if(!slot || slot.type === 'empty'){
+    openQuickSlotConfig(idx);
+    return;
+  }
+  if(slot.type === 'skill'){
+    useActiveSkill(slot.id);
+    return;
+  }
+  if(slot.type === 'item'){
+    useQuickSlotItem(slot.id);
+    return;
+  }
+  if(slot.type === 'menu'){
+    openPop(slot.id);
+    return;
+  }
+  if(slot.type === 'action'){
+    if(slot.id === 'attack') attackPress();
+    else if(slot.id === 'smartUse') smartUse();
+    else if(slot.id === 'auto') toggleAutoMode();
+  }
+}
+function useQuickSlotItem(id){
+  normalizePlayer();
+  const def = itemDefs[id];
+  if(!def){ toast('아이템 없음'); return; }
+  if((player.inv?.[id] || 0) <= 0){ toast(`${def.name} 없음`); return; }
+  if(def.type === 'weapon'){ equip(id); return; }
+  if(def.type === 'armor'){ equipArmor(id); return; }
+  if(def.type === 'food' || def.type === 'potion'){ consumeItem(id); return; }
+  if(def.type === 'bag'){ useBagItem(id); return; }
+  if(id === 'repairKit'){ useRepairKit(); return; }
+  if(id === 'smokeBomb'){ useSmokeBomb(); return; }
+  if(id === 'storageLock'){ useStorageLock(); return; }
+  toast('사용형 아이템이 아님');
+}
+function quickSlotChoiceButton(type, id, name, meta=''){
+  return `<button onclick="assignQuickSlot('${escapeAttr(type)}','${escapeAttr(id)}','${escapeAttr(name)}')">${escapeHtml(name)}${meta ? `<small>${escapeHtml(meta)}</small>` : ''}</button>`;
+}
+function renderQuickSlotConfig(){
+  ensureQuickSlots();
+  const title = document.getElementById('quickSlotTitle');
+  const el = document.getElementById('quickSlotConfig');
+  if(title) title.textContent = `퀵슬롯 ${quickSlotEditingIndex+1} 설정`;
+  if(!el) return;
+  const skillBtns = ACTIVE_SKILL_DEFS.map(s=>quickSlotChoiceButton('skill', s.id, s.name, meetsReq(s.req) ? '습득' : `조건: ${reqText(s.req)}`)).join('');
+  const itemIds = Object.keys(player.inv || {}).filter(id => (player.inv[id]||0)>0 && itemDefs[id]).filter(id=>{
+    const def = itemDefs[id];
+    return ['food','potion','weapon','armor','bag'].includes(def.type) || ['repairKit','smokeBomb','storageLock'].includes(id);
+  }).sort((a,b)=>(itemDefs[a]?.name||a).localeCompare(itemDefs[b]?.name||b));
+  const itemBtns = itemIds.length ? itemIds.map(id=>quickSlotChoiceButton('item', id, itemDefs[id]?.name || id, `보유 ${player.inv[id]||0}`)).join('') : '<p class="notice">등록할 수 있는 보유 아이템이 없습니다.</p>';
+  const menuBtns = [
+    ['popInv','가방'],['popStatus','상태'],['popSkills','스킬'],['popCraft','제작'],['popStorage','창고'],['popMap','지도']
+  ].map(([id,name])=>quickSlotChoiceButton('menu', id, name, '메뉴')).join('');
+  const actionBtns = [
+    ['attack','공격'],['smartUse','액션'],['auto','오토']
+  ].map(([id,name])=>quickSlotChoiceButton('action', id, name, '기본 버튼')).join('');
+  el.innerHTML = `
+    <div class="card"><h3>현재</h3><p>퀵슬롯 ${quickSlotEditingIndex+1}: <b>${escapeHtml(quickSlotDisplayName(player.quickSlots[quickSlotEditingIndex]))}</b></p><button class="danger" onclick="assignQuickSlot('empty')">비우기</button></div>
+    <div class="card"><h3>스킬</h3><div class="quickSlotChoiceGrid">${skillBtns}</div></div>
+    <div class="card"><h3>아이템</h3><div class="quickSlotChoiceGrid">${itemBtns}</div></div>
+    <div class="card"><h3>메뉴</h3><div class="quickSlotChoiceGrid">${menuBtns}</div></div>
+    <div class="card"><h3>기본 액션</h3><div class="quickSlotChoiceGrid">${actionBtns}</div></div>
+  `;
+}
+function storageSlotLimit(){ return 30; }
+function ensureStorage(){
+  if(!player.storage || typeof player.storage !== 'object') player.storage = {};
+  if(typeof player.storageLocked !== 'boolean') player.storageLocked = false;
+  return player.storage;
+}
+function storageUsedSlots(){ return Object.keys(ensureStorage()).filter(id=>(player.storage[id]||0)>0).length; }
+function storageHasSpaceFor(id){ return (player.storage?.[id]||0)>0 || storageUsedSlots() < storageSlotLimit(); }
+function useStorageLock(){
+  normalizePlayer();
+  ensureStorage();
+  if(player.storageLocked){ toast('이미 자물쇠 설치됨'); return; }
+  if(!removeItem('storageLock',1)){ toast('자물쇠 없음'); return; }
+  player.storageLocked = true;
+  addLog('창고에 자물쇠를 설치했다. 다른 유저가 창고를 훔칠 수 없다.');
+  toast('창고 잠금');
+  renderInventory(); renderStorage(); sendOnlineState(true); saveGame();
+}
+function renderStorage(){
+  normalizePlayer(); ensureStorage();
+  const list = document.getElementById('storageUserList');
+  const detail = document.getElementById('storageDetail');
+  if(list){
+    const users = Object.values(remotePlayers || {}).filter(rp=>rp.id && Date.now()-(rp.ts||0)<=18000);
+    const mine = `<div class="card"><h3>내 창고 ${player.storageLocked ? '🔒' : '열림'}</h3><p>30칸 · 사용 ${storageUsedSlots()}/${storageSlotLimit()}</p><button class="primary" onclick="renderMyStorageDetail()">이용하기</button></div>`;
+    const others = users.map(rp=>`<div class="card"><h3>${escapeHtml(rp.nick||'유저')} 창고 ${rp.storageLocked ? '🔒' : '열림'}</h3><p>Lv.${escapeHtml(rp.level||1)} · ${escapeHtml(regionNameAt(rp.x||0,rp.y||0))}</p><button class="danger" onclick="renderRemoteStorageDetail('${escapeAttr(rp.id)}')">훔쳐보기</button></div>`).join('');
+    list.innerHTML = mine + (others || '<div class="card"><p>접속 중인 타 유저 창고 없음</p></div>');
+  }
+  if(detail) renderMyStorageDetail();
+}
+function renderMyStorageDetail(){
+  ensureStorage();
+  const el = document.getElementById('storageDetail');
+  if(!el) return;
+  const invIds = Object.keys(player.inv || {}).filter(id=>(player.inv[id]||0)>0 && itemDefs[id]);
+  const stIds = Object.keys(player.storage || {}).filter(id=>(player.storage[id]||0)>0 && itemDefs[id]);
+  const lockBlock = player.storageLocked ? '<span class="tag freeTag">자물쇠 설치됨</span>' : `<button onclick="useStorageLock()">자물쇠 설치</button>`;
+  el.innerHTML = `
+    <div class="card"><h3>내 창고</h3><p>사용 ${storageUsedSlots()} / ${storageSlotLimit()}칸</p>${lockBlock}</div>
+    <div class="card"><h3>창고 안</h3><div class="storageGrid">${stIds.length ? stIds.map(id=>`<div class="storageSlot" onclick="withdrawStorageItem('${escapeAttr(id)}')"><div class="itemIcon">${itemIcon(id)}</div><b>${escapeHtml(itemDefs[id]?.name||id)}</b><span>x${player.storage[id]}</span></div>`).join('') : '<div class="notice">비어 있음</div>'}</div></div>
+    <div class="card"><h3>가방에서 맡기기</h3><div class="storageGrid">${invIds.length ? invIds.map(id=>`<div class="storageSlot" onclick="depositStorageItem('${escapeAttr(id)}')"><div class="itemIcon">${itemIcon(id)}</div><b>${escapeHtml(itemDefs[id]?.name||id)}</b><span>x${player.inv[id]}</span></div>`).join('') : '<div class="notice">맡길 아이템 없음</div>'}</div></div>
+  `;
+}
+function depositStorageItem(id){
+  ensureStorage();
+  if(!itemDefs[id] || (player.inv?.[id]||0)<=0) return;
+  if(!storageHasSpaceFor(id)){ toast('창고 30칸 가득 참'); return; }
+  if(removeItem(id,1)){
+    player.storage[id] = (player.storage[id]||0) + 1;
+    toast('창고 보관');
+    renderInventory(); renderStorage(); saveGame();
+  }
+}
+function withdrawStorageItem(id){
+  ensureStorage();
+  if(!itemDefs[id] || (player.storage?.[id]||0)<=0) return;
+  if(!canCarryItem(id,1)){ toast(carryBlockReason(id,1) || '가방 부족'); return; }
+  player.storage[id] -= 1;
+  if(player.storage[id] <= 0) delete player.storage[id];
+  addItem(id,1);
+  toast('가방으로 꺼냄');
+  renderInventory(); renderStorage(); saveGame();
+}
+function renderRemoteStorageDetail(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  const el = document.getElementById('storageDetail');
+  if(!el || !rp){ toast('대상 없음'); return; }
+  if(rp.storageLocked){
+    el.innerHTML = `<div class="card"><h3>${escapeHtml(rp.nick||'유저')} 창고</h3><p><span class="tag crimeTag">자물쇠 설치됨</span></p><p>잠겨 있어서 훔쳐볼 수 없다.</p></div>`;
+    toast('잠긴 창고');
+    return;
+  }
+  el.innerHTML = `<div class="card"><h3>${escapeHtml(rp.nick||'유저')} 창고 훔쳐보기</h3><p>자물쇠가 없어 도난 위험 상태다. 온라인 동기화상 실제 창고 내용은 공개하지 않고, 절도 판정만 처리한다.</p><button class="danger" onclick="attemptRemoteStorageSteal('${escapeAttr(rp.id)}')">창고 뒤지기</button></div>`;
+}
+function attemptRemoteStorageSteal(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 없음'); return; }
+  if(rp.storageLocked){ toast('자물쇠로 잠김'); return; }
+  const chance = clamp(0.24 + skillValue('stealing')/180 + skillValue('lockpicking')/220 - (player.wanted||0)*0.015, 0.05, 0.62);
+  player.sta = Math.max(0, (player.sta||0) - 7);
+  gainSkill('stealing',0.16); gainSkill('lockpicking',0.10);
+  if(Math.random() < chance){
+    const candidates = ['herb','ore','log','fish','silverCoin','lockpick'];
+    const id = candidates[rand(candidates.length)];
+    addItem(id,1);
+    addLog(`${rp.nick || '유저'}의 열린 창고에서 ${itemDefs[id]?.name || id} 1개를 훔쳤다.`);
+    toast('창고 훔치기 성공');
+  }else{
+    markCriminal(`${rp.nick || '유저'}의 창고를 뒤지다 들킴.`, 2);
+    toast('창고 훔치기 실패');
+  }
+  renderInventory(); renderStatus(); renderStorage(); saveGame();
+}
+
 function openPop(id){
   closeMiniNpcMenu();
   const pop = document.getElementById(id);
@@ -11722,7 +12147,10 @@ function openPop(id){
   if(id==='popFence') renderFence();
   if(id==='popMap') renderFullMap();
   if(id==='popOnlineList') renderOnlineList();
+  if(id==='popStorage') renderStorage();
+  if(id==='popQuickSlot') renderQuickSlotConfig();
 }
+
 function closePop(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
   closeInventoryItemPopup();
@@ -11740,6 +12168,13 @@ function closePop(){
   };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
   else bind();
+})();
+
+
+(function bindQuickSlotsInitialRender(){
+  const run = () => { try{ normalizePlayer(); renderQuickSlots(); }catch(e){} };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true});
+  else run();
 })();
 
 function toggleGrid(){ showGrid=!showGrid; draw(); }
