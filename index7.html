@@ -142,42 +142,6 @@
     text-overflow:ellipsis;
   }
 
-  /* 업데이트 진행 오버레이 */
-  .updateOverlay{
-    position:fixed;
-    inset:0;
-    z-index:100000;
-    background:rgba(16,20,14,0.94);
-    display:none;
-    align-items:center;
-    justify-content:center;
-    flex-direction:column;
-    font-size:14px;
-    text-align:center;
-    color:var(--text);
-  }
-  .updateOverlay.open{
-    display:flex;
-  }
-  .updateOverlay .updateContent{
-    padding:20px;
-  }
-  .updateOverlay .updateBar{
-    width:70%;
-    height:14px;
-    border:1px solid var(--line);
-    background:var(--panel2);
-    border-radius:6px;
-    overflow:hidden;
-    margin-top:16px;
-  }
-  .updateOverlay .updateBarInner{
-    height:100%;
-    width:0%;
-    background:var(--accent);
-    transition:width 0.25s ease-out;
-  }
-
   .topbar{
     min-height:66px;
     height:auto;
@@ -721,7 +685,7 @@
     transform:scaleY(var(--cooldown-fill, 0));
     opacity:var(--cooldown-opacity, 0);
     pointer-events:none;
-    transition:transform .08s linear, opacity .08s linear;
+    transition:transform .18s linear, opacity .12s linear;
   }
   .cooldownShadeBtn.cooling{
     filter:saturate(.7) brightness(.82);
@@ -2254,15 +2218,6 @@ header.topbar,
 
 </style>
 
-
-<!-- 업데이트 진행 오버레이 -->
-<div id="updateOverlay" class="updateOverlay">
-  <div class="updateContent">
-    <h2>업데이트 중...</h2>
-    <div class="updateBar"><div class="updateBarInner"></div></div>
-    <p>패치를 적용하는 중입니다...</p>
-  </div>
-</div>
 
 <script>
 (function(){
@@ -4207,7 +4162,6 @@ function startAutoAttackChase(target, kind='mob'){
     toast('마을 안에서는 유저 공격 불가');
     return false;
   }
-  manualAttackLock = {ref:target, kind, until:tick + 9999};
   stopAutoActionChase();
   autoAttackChase = {ref:target, kind, until:tick + 99999, attackTick:0};
   return true;
@@ -4242,7 +4196,6 @@ function startAutoActionChase(type, ref, action=null){
     : false;
   if(!ok) return false;
   stopAutoAttackChase();
-  manualAttackLock = {ref, kind:type, until:tick + 9999};
   autoActionChase = {type, ref, action, until:tick + 9999, actionTick:0};
   draw();
   return true;
@@ -4256,7 +4209,7 @@ function executeAutoActionTarget(type, ref, action=null){
   if(type === 'resource'){
     const act = action || resourceActionForKind(ref.kind);
     if(dist(ref, player) > actionRangeForTarget(type, ref) + 0.15) return false;
-    return gather(act.kind, ref, {noChase:true, autoRepeat:true});
+    return gather(act.kind, ref, {noChase:true, autoRepeat:false});
   }
   if(type === 'chest'){
     if(dist(ref, player) > actionRangeForTarget(type, ref) + 0.15) return false;
@@ -4413,26 +4366,7 @@ function pickManualAttackTarget(){
     return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
   }
 
-  // 공격 버튼을 누르면 주변에서 가장 가까운 몬스터나 동물을 자동으로 선택한다.
-  try{
-    // 우선 몬스터/동물 후보를 찾는다. 동물도 mob 배열에 포함되어 있으며, 살아 있고 공격 가능한 대상만 추린다.
-    const mobCandidates = mobs
-      .filter(m => isMobTargetAlive(m) && canAttackCombatTarget(m, 'mob', 0.18))
-      .sort((a, b) => attackDistanceToTarget(a, 'mob') - attackDistanceToTarget(b, 'mob'));
-    const mob = mobCandidates.length > 0 ? mobCandidates[0] : null;
-    if(mob){
-      return {kind:'mob', ref:mob, score:-999};
-    }
-    // 몬스터가 없다면 NPC 동물이나 경비가 아닌 NPC를 대상으로 삼는다. 거리와 사거리 기준으로 필터한다.
-    const npcCandidates = npcs
-      .filter(n => !n.down && dist(n, player) <= actionRangeForTarget('npc', n) + 0.08)
-      .sort((a, b) => dist(a, player) - dist(b, player));
-    const npc = npcCandidates.length > 0 ? npcCandidates[0] : null;
-    if(npc){
-      return {kind:'npc', ref:npc, score:-999};
-    }
-  }catch(e){}
-  // 타겟이 없는 경우 null 반환.
+  // 자동 후보 선택은 제거한다. 공격은 반드시 먼저 타겟팅한 대상에게만 시작된다.
   return null;
 }
 
@@ -5260,6 +5194,13 @@ function nearbyResourceKind(range=2.75){
 function nearbyChest(range=2.45){
   return chests.filter(c=>!c.opened && dist(c, player)<=range).sort((a,b)=>dist(a,player)-dist(b,player))[0] || null;
 }
+function nearbyRemotePlayer(range=2.35){
+  return Object.values(remotePlayers || {})
+    .filter(rp=>isRemotePlayerTargetValid(rp))
+    .map(rp=>({rp, pos:remotePlayerPos(rp)}))
+    .filter(o=>Math.hypot(o.pos.x-player.x, o.pos.y-player.y)<=range)
+    .sort((a,b)=>Math.hypot(a.pos.x-player.x,a.pos.y-player.y)-Math.hypot(b.pos.x-player.x,b.pos.y-player.y))[0]?.rp || null;
+}
 
 function nearestNpcForPassiveTarget(){
   return npcs
@@ -5275,37 +5216,22 @@ function nearestMobForPassiveTarget(){
 }
 
 function updatePassiveAutoTarget(){
-  if(autoAttackChase?.ref || autoActionChase?.ref) return;
-  if(isTargetLockValid(manualAttackLock)) return;
-  const mob = nearestMobForPassiveTarget();
-  if(mob){
-    manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999, passive:true};
-    return;
-  }
-  const npc = nearestNpcForPassiveTarget();
-  if(npc){
-    manualAttackLock = {ref:npc, kind:'npc', until:tick + 9999, passive:true};
-    currentNpc = npc;
-  }
+  // 타겟팅 시스템 삭제: 근처 NPC 정보만 갱신하고 노란 타겟/잠금은 만들지 않는다.
+  const npc = nearbyNpc ? nearbyNpc() : null;
+  if(npc) currentNpc = npc;
+  if(!npc && currentNpc && dist(currentNpc, player) > 2.25) currentNpc = null;
 }
 
 function getContextAction(){
-  if(isTargetLockValid(manualAttackLock)){
-    const lock = manualAttackLock;
-    if(lock.kind === 'npc') return {type:'npc', label:'대화', npc:lock.ref, targeted:true};
-    if(lock.kind === 'resource'){
-      const action = resourceActionForKind(lock.ref.kind);
-      return {type:'resource', label:action.label, res:{...action, res:lock.ref}, targeted:true};
-    }
-    if(lock.kind === 'chest') return {type:'chest', label:'상자', chest:lock.ref, targeted:true};
-    if(lock.kind === 'player') return {type:'player', label:'훔쳐보기', player:lock.ref, targeted:true};
-  }
+  // 타겟팅 시스템 삭제: 현재 위치 기준으로만 액션 버튼을 바꾼다.
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
   if(res) return {type:'resource', label:res.label, res};
   const chest = nearbyChest();
   if(chest) return {type:'chest', label:'상자', chest};
+  const rp = nearbyRemotePlayer();
+  if(rp) return {type:'player', label:'훔쳐보기', player:rp};
   return {type:'use', label:'살펴보기'};
 }
 
@@ -5326,12 +5252,14 @@ function updateContextButtons(){
     let useCdSec = 0;
     const resTarget = autoActionChase?.type === 'resource' ? autoActionChase.ref : (ctx.type === 'resource' ? ctx.res?.res : null);
     if(resTarget){
-      const left = resourceCooldownLeft(resTarget);
-      if(left > 0){
-        const actionKind = autoActionChase?.action?.kind || ctx.res?.kind || resourceActionForKind(resTarget.kind).kind;
-        const total = Math.max(1, resourceActionCooldownTicks(actionKind));
-        useCdFill = clamp(left / total, 0, 1);
-        useCdSec = Math.max(0.1, left * 0.45);
+      const actionKind = autoActionChase?.action?.kind || ctx.res?.kind || resourceActionForKind(resTarget.kind).kind;
+      const totalMs = Math.max(1, resourceActionCooldownTicks(actionKind)) * 450;
+      const nowMs = Date.now();
+      const hasSmoothCd = Number(resTarget.cooldownUntil || 0) > 0;
+      const smoothLeftMs = hasSmoothCd ? Math.max(0, Number(resTarget.cooldownUntil || 0) - nowMs) : resourceCooldownLeft(resTarget) * 450;
+      if(smoothLeftMs > 0){
+        useCdFill = clamp(smoothLeftMs / totalMs, 0, 1);
+        useCdSec = Math.max(0.1, smoothLeftMs / 1000);
       }
     }
     use.textContent = useCdSec > 0 ? `${useLabel}\n${useCdSec.toFixed(1)}초` : useLabel;
@@ -5518,7 +5446,6 @@ function smartUse(){
   if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
-    selectTarget('npc', ctx.npc, false);
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
       startAutoActionChase('npc', ctx.npc);
       return;
@@ -5527,17 +5454,15 @@ function smartUse(){
     return;
   }
   if(ctx.type === 'resource'){
-    // 자원 채집은 타겟팅 없이 근처에서 한 번만 실행하고 쿨타임을 적용한다.
     if(dist(ctx.res.res, player) > actionRangeForTarget('resource', ctx.res.res)){
       startAutoActionChase('resource', ctx.res.res, {kind:ctx.res.kind, label:ctx.label});
       return;
     }
-    // 가까운 자원은 타겟팅 없이 행동을 한 번 수행한다. autoRepeat:false로 반복 채집을 막는다.
+    // 가까운 자원은 타겟팅 없이 버튼 한 번당 한 번만 실행하고 쿨타임만 적용한다.
     gather(ctx.res.kind, ctx.res.res, {noChase:true, autoRepeat:false});
     return;
   }
   if(ctx.type === 'chest'){
-    selectTarget('chest', ctx.chest, false);
     if(dist(ctx.chest, player) > actionRangeForTarget('chest', ctx.chest)){
       startAutoActionChase('chest', ctx.chest);
       return;
@@ -5546,7 +5471,6 @@ function smartUse(){
     return;
   }
   if(ctx.type === 'player'){
-    selectTarget('player', ctx.player, false);
     openRemotePeekPopup(ctx.player?.id);
     return;
   }
@@ -5642,16 +5566,27 @@ function resourceActionCooldownTicks(kind){
   return map[kind] || 5;
 }
 function resourceCooldownLeft(res){
+  if(!res) return 0;
+  const until = Number(res.cooldownUntil || 0);
+  if(until > 0){
+    const leftMs = until - Date.now();
+    if(leftMs <= 0){ res.cooldown = 0; res.cooldownStartAt = 0; res.cooldownUntil = 0; return 0; }
+    return Math.max(0, Math.ceil(leftMs / 450));
+  }
   return Math.max(0, Math.ceil(Number(res?.cooldown || 0)));
 }
 function setResourceCooldown(res, kind){
   if(!res) return;
-  res.cooldown = resourceActionCooldownTicks(kind);
+  const cd = resourceActionCooldownTicks(kind);
+  res.cooldown = cd;
+  res.cooldownStartAt = Date.now();
+  res.cooldownUntil = Date.now() + cd * 450;
 }
 function normalizeResourceCooldowns(){
   for(const r of resources){
     if(!Number.isFinite(Number(r.cooldown)) || Number(r.cooldown) < 0) r.cooldown = 0;
     r.cooldown = Math.min(Math.ceil(Number(r.cooldown || 0)), 60);
+    if(Number(r.cooldown || 0) <= 0){ r.cooldownStartAt = 0; r.cooldownUntil = 0; }
   }
 }
 function resourceCooldownLabel(res, kind){
@@ -5699,9 +5634,6 @@ function gather(kind, forced=null, opts={}){
   const itemMap = {mine:'ore', wood:'log', fish:'fish', herb:'herb'};
   const resKind = {mine:'ore', wood:'tree', fish:'fish', herb:'herb'};
   const verb = {mine:'채광', wood:'벌목', fish:'낚시', herb:'약초채집'};
-  if(!forced && isTargetLockValid(manualAttackLock) && manualAttackLock.kind === 'resource' && resourceActionForKind(manualAttackLock.ref.kind).kind === kind){
-    forced = manualAttackLock.ref;
-  }
   let res = forced || resources.find(r => r.amount>0 && r.kind===resKind[kind] && dist(r, player)<=actionRangeForTarget('resource', r));
   if(!res){
     toast(`${verb[kind]} 대상 없음`);
@@ -6049,13 +5981,7 @@ function playerAttackSpeed(){
   const skill = isRangedWeapon() ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
   const weaponDelay = isRangedWeapon() ? 7.2 : Math.max(3.8, 6.2 - (weapon.atk || 0) * 0.08);
   const speedBonus = Math.min(2.25, skill / 55 + (player.skills.tactics?.v || 0) / 90);
-  // 기본 공속 계산
-  let baseSpeed = Math.max(2.4, weaponDelay - speedBonus);
-  // 방랑자(기본 모험가)는 초반 전투가 느려서 약간 빠르게 조정한다. 최소 공격 간격을 보장한다.
-  if(player.job === '방랑자'){
-    baseSpeed = Math.max(2.2, baseSpeed - 1.2);
-  }
-  return baseSpeed;
+  return Math.max(2.4, weaponDelay - speedBonus);
 }
 function playerHitRange(){
   const weapon = equippedWeaponDef();
@@ -8838,10 +8764,6 @@ function openRemotePeekPopup(targetId){
   if(isTownArea(player.x, player.y) || isTownArea(remotePlayerPos(rp).x, remotePlayerPos(rp).y)){
     // 훔쳐보기 자체는 가능하게 두되, 훔치기는 함수에서 별도로 제한한다.
   }
-  // 훔쳐보기 창을 열면 대상에게 누군가 훔쳐본다는 알림을 보낸다.
-  try{
-    onlineChannel?.send?.({type:'broadcast', event:'remote_peek', payload:{fromId:player.userId, fromNick:displayGameNickname ? displayGameNickname() : (player.nickname || '유저'), toId:rp.id, ts:Date.now()}});
-  }catch(e){}
   const title = document.getElementById('playerPeekTitle');
   const remoteTitle = document.getElementById('playerPeekRemoteTitle');
   const actions = document.getElementById('playerPeekActions');
@@ -8869,7 +8791,6 @@ function openRemotePeekPopup(targetId){
 function attackRemoteFromPeek(targetId){
   const rp = remotePlayerCurrent(targetId);
   if(!rp){ toast('대상 유저 없음'); return; }
-  selectTarget('player', rp, false);
   closePop();
   startAutoAttackChase(rp, 'player');
 }
@@ -8881,8 +8802,6 @@ function attemptStealRemoteItem(targetId, id){
   if(isTownArea(player.x, player.y) || isTownArea(p.x, p.y)){ toast('마을 안에서는 유저 소매치기 불가'); return; }
   const qty = rp.inv?.[id] || 0;
   if(qty <= 0){ toast('해당 아이템 없음'); return; }
-  // 훔치기 시도 시 즉시 수배도를 올려 밸런스를 맞춘다.
-  try{ markCriminal('소매치기', 1); }catch(e){}
   const reqId = `${player.userId || 'local'}_${Date.now()}_${Math.floor(Math.random()*9999)}`;
   try{
     onlineChannel?.send?.({type:'broadcast', event:'remote_steal_request', payload:{reqId, fromId:player.userId, fromNick:displayGameNickname(), toId:targetId, itemId:id, skill:player.skills?.stealing?.v||0, ts:Date.now()}});
@@ -8932,15 +8851,6 @@ function handleRemoteStealResult(payload){
   }
   renderInventory(); updateHud(); draw();
 }
-
-// 원격 훔쳐보기 알림을 처리한다. 특정 유저가 나를 훔쳐볼 때 호출된다.
-function handleRemotePeek(payload){
-  if(!payload || payload.toId !== player.userId) return;
-  // 시스템 로그와 토스트로 누군가가 훔쳐보고 있음을 알린다.
-  const from = payload.fromNick || '누군가';
-  addLog(`${from}가 당신을 훔쳐보고 있습니다.`, 'system');
-  toast('누군가 당신을 훔쳐보고 있습니다');
-}
 function onlineListRows(){
   const now = Date.now();
   const rows = [{
@@ -8984,8 +8894,10 @@ function renderOnlineList(){
     const age = r.me ? '현재 접속' : `${Math.max(0, Math.floor((Date.now() - (r.ts || Date.now()))/1000))}초 전`;
     const userId = escapeAttr(r.id || '');
     const click = r.me ? '' : ` onclick="openOnlineUserActions('${userId}', event)"`;
-    // 리스트에서는 쪽지/파티 신청 버튼을 표시하지 않고, 유저를 터치하면 별도의 팝업에서 선택하도록 한다.
-    const actions = '';
+    const actions = r.me ? '' : `<div class="onlineUserActions" onclick="event.stopPropagation()">
+        <button class="note" onclick="sendPrivateNote('${userId}')">쪽지보내기</button>
+        <button class="party" onclick="partyInviteFromOnlineList('${userId}')" ${partySame(r.id)?'disabled':''}>${partySame(r.id)?'파티중':'파티 신청'}</button>
+      </div>`;
     return `<div class="onlineUserCard ${r.me?'me':''}"${click}>
       <div>
         <div class="onlineUserMain">Lv.${escapeHtml(r.level || 1)} ${escapeHtml(r.nick || '유저')}</div>
@@ -9282,7 +9194,6 @@ function setupRealtimeOnline(){
     .on('broadcast', { event: 'private_note' }, ({payload}) => receivePrivateNote(payload))
     .on('broadcast', { event: 'remote_steal_request' }, ({payload}) => handleRemoteStealRequest(payload))
     .on('broadcast', { event: 'remote_steal_result' }, ({payload}) => handleRemoteStealResult(payload))
-    .on('broadcast', { event: 'remote_peek' }, ({payload}) => handleRemotePeek(payload))
     .on('broadcast', { event: 'party_invite' }, ({payload}) => partyHandleBroadcast('party_invite', payload))
     .on('broadcast', { event: 'party_accept' }, ({payload}) => partyHandleBroadcast('party_accept', payload))
     .on('broadcast', { event: 'party_decline' }, ({payload}) => partyHandleBroadcast('party_decline', payload))
@@ -10363,30 +10274,8 @@ function drawMobSprite(m, x, y){
 
 
 function targetMarkerScreenPosition(camPxX, camPxY){
-  if(!isTargetLockValid(manualAttackLock)) return null;
-  const kind = manualAttackLock.kind;
-  let target = manualAttackLock.ref;
-  let x = 0, y = 0;
-  if(kind === 'player'){
-    const current = remotePlayers?.[target?.id];
-    if(!current || !isRemotePlayerTargetValid(current)){
-      manualAttackLock = {ref:null, kind:null, until:0};
-      return null;
-    }
-    target = current;
-    const p = remoteRenderPosition(current);
-    x = p.x * TILE - camPxX;
-    y = p.y * TILE - camPxY;
-  }else if(kind === 'mob' || kind === 'npc'){
-    x = renderX(target) * TILE - camPxX;
-    y = renderY(target) * TILE - camPxY;
-  }else if(kind === 'resource' || kind === 'chest'){
-    x = target.x * TILE - camPxX;
-    y = target.y * TILE - camPxY;
-  }else{
-    return null;
-  }
-  return {target, x, y, kind};
+  // 타겟팅 시스템 삭제: 화면에 타겟 마커를 표시하지 않는다.
+  return null;
 }
 function drawYellowTargetMarker(target, x, y){
   if(!target) return;
@@ -10613,7 +10502,10 @@ function gameLoop(){
   }
   // 이동 AI는 frameWorldAI에서 매 프레임 처리한다.
   for(const r of resources){
-    if(Number(r.cooldown || 0) > 0) r.cooldown = Math.max(0, Number(r.cooldown || 0) - 1);
+    if(Number(r.cooldown || 0) > 0){
+      r.cooldown = Math.max(0, Number(r.cooldown || 0) - 1);
+      if(r.cooldown <= 0){ r.cooldownStartAt = 0; r.cooldownUntil = 0; }
+    }
   }
   if(tick % 10 === 0){
     for(const r of resources){
@@ -10656,6 +10548,12 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'타겟팅 삭제·근처 액션 자동화·쿨타임 음영 개선', items:[
+    '월드 오브젝트를 눌러 고정하는 타겟팅 시스템을 제거하고, 근처 감지 기반 액션 버튼 방식으로 정리했다.',
+    'NPC 근처에 가면 액션 버튼이 자동으로 대화로 바뀌며, 버튼을 누르면 바로 대화 메뉴가 열린다.',
+    '벌목·채집·채광·낚시 쿨타임 음영을 실시간 기준으로 계산해 더 부드럽게 줄어들도록 조정했다.',
+    '자원 행동은 버튼 한 번당 한 번만 실행되며, 이후 쿨타임이 적용된다.'
+  ]},
   {title:'유저 훔쳐보기 팝업 NPC 방식 통일', body:['상대 유저 훔쳐보기 창을 NPC 훔쳐보기와 같은 좌/우 패널 구조로 맞췄다.','상대 아이템을 누르면 아이템 설명창이 열리고, 설명창 안에서 훔치기를 선택하도록 정리했다.']},
   {title:'자동 타겟·수동 공격 쿨타임·자원 버튼 카운트', body:['NPC 대화 거리 안에 들어가면 자동으로 NPC가 타겟팅되고, 몬스터가 현재 사거리 안에 들어오면 자동 타겟팅만 되도록 수정했다.','공격은 자동 타겟 후에도 반드시 공격 버튼을 눌러야 시작되며, 공속 기반 쿨타임을 버튼 음영과 초 단위 카운트로 표시한다.','벌목·채광·약초·낚시 버튼에도 대상별 쿨타임 음영과 남은 시간을 표시한다.']},
   {title:'훔쳐보기 명칭·원격 유저 실시간 보간 개선', body:['NPC 가방으로 보이던 메뉴와 팝업 명칭을 훔쳐보기로 통일했다.','상대 유저 좌표 수신 시 현재 화면 좌표에서 새 목표 좌표까지 짧은 구간 보간을 만들고, 원격 유저는 픽셀 내림 없이 렌더링해 이동이 더 부드럽게 보이도록 조정했다.']},
@@ -10918,54 +10816,8 @@ const PATCH_NOTES = [
       '가방·상태·메뉴 박스 위치와 크기 조정',
       '통합 메뉴와 설정 메뉴 구조 정리'
     ]
-  },
-  // 새로운 업데이트 항목: 전투 및 소매치기/접속자 UI 개선
-  {version:'현재', title:'전투 및 소매치기/접속자 UI 개선', items:[
-    '공격 버튼을 누르면 주변 몬스터와 동물을 자동으로 타겟팅해 공격하며, 방랑자의 기본 공격 속도를 단축해 초반 전투를 빠르게 조정했습니다.',
-    '공격은 언제든 발동할 수 있으며 사거리를 벗어나도 가까워지면 적을 맞춥니다.',
-    '상대 유저를 훔쳐볼 때 대상에게 “누군가 훔쳐보고 있습니다” 알림이 뜨고, 훔치기 시도 시 수배도가 증가합니다.',
-    '접속자 리스트에서 유저를 터치하면 쪽지·파티 신청 버튼이 있는 확인 팝업이 뜨고, 리스트에서는 해당 버튼을 제거했습니다.',
-    '게임 시작 전 버전이 변경되면 업데이트 중 오버레이가 표시되고 진행 게이지가 추가되었습니다.'
-  ]}
+  }
 ];
-
-// -----------------------------------------------------------------------------
-// 업데이트 버전 관리 및 진행 표시
-// 현재 게임 버전을 정의한다. 버전이 변경되면 로컬 저장된 버전과 비교해 업데이트 오버레이를 보여준다.
-const GAME_VERSION = '2026-06-15';
-
-// 업데이트 오버레이를 표시하고 진행 게이지를 채운다.
-function showUpdateOverlay(){
-  const overlay = document.getElementById('updateOverlay');
-  if(!overlay) return;
-  overlay.classList.add('open');
-  const bar = overlay.querySelector('.updateBarInner');
-  let progress = 0;
-  const timer = setInterval(() => {
-    // 진행률을 무작위로 증가시켜 게이지가 자연스럽게 채워진다.
-    progress += Math.random() * 12 + 8;
-    if(progress >= 100){
-      progress = 100;
-      clearInterval(timer);
-      // 잠시 후 오버레이를 숨기고 버전을 저장한다.
-      setTimeout(() => {
-        overlay.classList.remove('open');
-      }, 500);
-      try{ localStorage.setItem('legacyRealmsVersion', GAME_VERSION); }catch(e){}
-    }
-    if(bar) bar.style.width = progress + '%';
-  }, 250);
-}
-
-// 페이지 로드시 기존 저장된 버전과 다르면 업데이트 오버레이를 표시한다.
-document.addEventListener('DOMContentLoaded', () => {
-  try{
-    const stored = localStorage.getItem('legacyRealmsVersion');
-    if(stored !== GAME_VERSION){
-      showUpdateOverlay();
-    }
-  }catch(e){}
-});
 
 function renderPatchNotes(){
   const el = document.getElementById('patchNotesList');
@@ -11195,45 +11047,14 @@ function chestAtScreenPoint(clientX, clientY){
 }
 
 function setupCanvasGestures(){
+  // 타겟팅 시스템 삭제: 월드 오브젝트를 터치해도 타겟 잠금을 만들지 않는다.
+  // 상호작용은 근처에 접근하면 자동으로 바뀌는 액션 버튼으로만 처리한다.
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
-    clearTimeout(canvasHoldTimer);
     canvasPointerTargeted = null;
-
-    const mob = mobAtScreenPoint(e.clientX, e.clientY);
-    if(mob){ canvasPointerTargeted = {kind:'mob', ref:mob}; selectTarget('mob', mob, false); e.preventDefault(); return; }
-    const remoteUser = remotePlayerAtScreenPoint(e.clientX, e.clientY);
-    if(remoteUser){ canvasPointerTargeted = {kind:'player', ref:remoteUser}; selectTarget('player', remoteUser, false); e.preventDefault(); return; }
-    const npc = npcAtScreenPoint(e.clientX, e.clientY);
-    if(npc){ canvasPointerTargeted = {kind:'npc', ref:npc}; selectTarget('npc', npc, false); e.preventDefault(); return; }
-    const res = resourceAtScreenPoint(e.clientX, e.clientY);
-    if(res){ canvasPointerTargeted = {kind:'resource', ref:res}; selectTarget('resource', res, false); e.preventDefault(); return; }
-    const chest = chestAtScreenPoint(e.clientX, e.clientY);
-    if(chest){ canvasPointerTargeted = {kind:'chest', ref:chest}; selectTarget('chest', chest, false); e.preventDefault(); return; }
-  }, {passive:false});
-
-  canvas.addEventListener('pointerup', e=>{
-    clearTimeout(canvasHoldTimer);
-    canvasHoldTimer = null;
-    if(canvasPointerTargeted){ canvasPointerTargeted = null; return; }
-
-    const mob = mobAtScreenPoint(e.clientX, e.clientY);
-    if(mob){ selectTarget('mob', mob, false); return; }
-    const remoteUser = remotePlayerAtScreenPoint(e.clientX, e.clientY);
-    if(remoteUser){ selectTarget('player', remoteUser, false); return; }
-    const npc = npcAtScreenPoint(e.clientX, e.clientY);
-    if(npc){ selectTarget('npc', npc, false); return; }
-    const res = resourceAtScreenPoint(e.clientX, e.clientY);
-    if(res){ selectTarget('resource', res, false); return; }
-    const chest = chestAtScreenPoint(e.clientX, e.clientY);
-    if(chest){ selectTarget('chest', chest, false); return; }
   }, {passive:true});
-
-  canvas.addEventListener('pointercancel', ()=>{
-    clearTimeout(canvasHoldTimer);
-    canvasHoldTimer = null;
-    canvasPointerTargeted = null;
-  });
+  canvas.addEventListener('pointerup', ()=>{ canvasPointerTargeted = null; }, {passive:true});
+  canvas.addEventListener('pointercancel', ()=>{ canvasPointerTargeted = null; });
 }
 
 function setupAnalogPad(){
@@ -11302,7 +11123,6 @@ function autoActionChaseStep(dt){
     toast('대상이 너무 멀다');
     return false;
   }
-  manualAttackLock = {ref:target, kind:chase.type, until:tick + 9999};
   const range = actionRangeForTarget(chase.type, target);
   if(d <= range){
     if(chase.type === 'resource'){
@@ -11375,7 +11195,6 @@ function autoAttackChaseStep(dt){
     return false;
   }
 
-  manualAttackLock = {ref:target, kind, until:tick + 9999};
   facePlayerToTarget(target, kind);
   if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.45 : 0.5)){
     if(tick >= (player.attackReadyTick || 0)){
