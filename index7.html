@@ -3090,6 +3090,7 @@ function drawPixelObject(kind,x,y,extra={}){
 function rand(n){ return Math.floor(Math.random()*n); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function normalizeAngle(a){ while(a>Math.PI) a-=Math.PI*2; while(a<-Math.PI) a+=Math.PI*2; return a; }
 function bottomControlClearancePx(){
   const cssVal = getComputedStyle(document.documentElement).getPropertyValue('--popupControlClearance') || '132px';
   const parsed = parseFloat(cssVal);
@@ -3891,6 +3892,77 @@ function canReachAttackTarget(entity, kind='mob', extra=0.55){
   return attackDistanceToTarget(entity, kind) <= playerHitRange() + extra;
 }
 
+
+// 업로드된 전투 로직의 전방 타격 구역 방식을 현재 타일 좌표계에 맞게 이식.
+// 중심점 거리만 보지 않고, 캐릭터 앞쪽에 원형 타격 지점을 만든 뒤 대상 몸통 반경까지 포함한다.
+function targetCombatPos(entity, kind='mob'){
+  if(!entity) return null;
+  return {
+    x: typeof renderX === 'function' ? renderX(entity) : (entity.x || 0),
+    y: typeof renderY === 'function' ? renderY(entity) : (entity.y || 0),
+    r: attackBodyRadius(entity, kind)
+  };
+}
+function facePlayerToTarget(entity, kind='mob'){
+  const pos = targetCombatPos(entity, kind);
+  if(!pos) return {x:player.dir?.[0]||0, y:player.dir?.[1]||1, len:1};
+  const dx = pos.x - player.x;
+  const dy = pos.y - player.y;
+  const len = Math.hypot(dx,dy) || 1;
+  player.dir = [dx/len, dy/len];
+  return {x:dx/len, y:dy/len, len};
+}
+function playerFrontStrikeZone(target=null, kind='mob'){
+  const pos = target ? targetCombatPos(target, kind) : null;
+  let fx = player.dir?.[0] || 0;
+  let fy = player.dir?.[1] || 1;
+  if(pos){
+    const dx = pos.x - player.x;
+    const dy = pos.y - player.y;
+    const len = Math.hypot(dx,dy) || 1;
+    fx = dx/len;
+    fy = dy/len;
+  }
+  const bodyR = 0.48;
+  const range = Math.max(1.25, playerHitRange ? playerHitRange() : 1.55);
+  const reach = Math.max(bodyR + 0.34, Math.min(range + bodyR*0.34, bodyR + range*0.72 + 0.22));
+  const radius = Math.max(bodyR*0.72 + 0.42, Math.min(2.05, range*0.68 + bodyR*0.38 + 0.38));
+  return {
+    x: player.x + fx*reach,
+    y: player.y + fy*reach,
+    r: radius,
+    facing: Math.atan2(fy, fx),
+    arc: Math.PI * 0.92
+  };
+}
+function playerFrontStrikeHits(target, kind='mob', zone=null){
+  const pos = targetCombatPos(target, kind);
+  if(!pos) return false;
+  const z = zone || playerFrontStrikeZone(target, kind);
+  const targetAng = Math.atan2(pos.y - player.y, pos.x - player.x);
+  if(Math.abs(normalizeAngle(targetAng - z.facing)) > z.arc * 0.5) return false;
+  return Math.hypot(z.x - pos.x, z.y - pos.y) <= z.r + pos.r + 0.22;
+}
+function canAttackCombatTarget(target, kind='mob', extra=0.35){
+  if(!target) return false;
+  const ranged = isRangedWeapon ? isRangedWeapon() : false;
+  const range = playerHitRange ? playerHitRange() : 1.55;
+  const body = attackBodyRadius(target, kind);
+  const d = attackDistanceToTarget(target, kind);
+  if(ranged) return d <= range + body + extra;
+  if(d <= range + extra) return true;
+  return playerFrontStrikeHits(target, kind);
+}
+function addMeleeSwingEffect(target, kind='mob'){
+  const z = playerFrontStrikeZone(target, kind);
+  // 실제 히트박스 중심에 베기 이펙트를 띄워서 공격 범위가 눈에 보이게 한다.
+  combatEffects.push({
+    x:z.x, y:z.y, text:'베기', type:'hit', life:0.34, maxLife:0.34,
+    ox:0, oy:0, slashA:z.facing
+  });
+  if(combatEffects.length > 36) combatEffects.shift();
+}
+
 function manualAttackCandidateScore(entity, kind){
   if(!entity) return null;
   if(kind === 'mob' && entity.hp <= 0) return null;
@@ -4001,6 +4073,8 @@ function attack(target=null){
     return;
   }
   if(isManualAttack) stopAutoActionChase();
+
+  let targetKind = 'mob';
   if(isManualAttack){
     const picked = pickManualAttackTarget();
     if(picked?.kind === 'npc'){
@@ -4009,73 +4083,61 @@ function attack(target=null){
     }
     if(picked?.kind === 'mob') target = picked.ref;
     if(!target){
-      // 마지막 보정: 화면/방향과 상관 없이 가장 가까운 적을 잡는다. 공격 버튼이 끊기는 느낌을 막는다.
-      target = mobs.filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=7.75).sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0] || null;
-      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 110};
+      target = mobs
+        .filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=8.8)
+        .sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0] || null;
+      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 140};
     }
   }
 
   if(!target){ toast('주변 적 없음'); return; }
+  facePlayerToTarget(target, targetKind);
 
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
-  const attackRange = playerHitRange();
+  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.45 : 0.5);
 
-  if(isManualAttack){
-    manualAttackFeedback(target);
-    const d0 = attackDistanceToTarget(target, 'mob');
-    if(target && target.hp > 0 && d0 > attackRange + 0.65){
-      if(ranged && d0 <= attackRange + 0.95){
-        // 활/원거리 무기는 사거리 안이면 제자리에서 즉시 발사한다.
-      }else{
-        startAutoAttackChase(target);
-        const ex = typeof renderX === 'function' ? renderX(target) : target.x;
-        const ey = typeof renderY === 'function' ? renderY(target) : target.y;
-        const dx = ex - player.x;
-        const dy = ey - player.y;
-        const len = Math.hypot(dx,dy) || 1;
-        player.dir = [dx/len, dy/len];
-        addCombatEffect(target.x, target.y, '접근', 'guard');
-        draw();
-        return;
-      }
-    }
-    if(!ranged) pullPlayerTowardManualTarget(target);
-  }
-  if(attackDistanceToTarget(target, 'mob') > attackRange + 0.65){
+  if(!inRange){
     if(isManualAttack){
-      startAutoAttackChase(target);
+      startAutoAttackChase(target, targetKind);
+      addCombatEffect(target.x, target.y, '접근', 'guard');
       draw();
-      return;
     }
     return;
   }
 
   if(tick < (player.attackReadyTick || 0)){
-    if(isManualAttack) draw();
+    // 버튼 쿨타임은 적용하되, 준비중 문구 반복은 없앤다.
+    draw();
     return;
   }
 
-  // 수동 공격은 기력이 낮아도 멈추지 않는다. 대신 지친 공격은 피해가 줄어든다.
   const tiredManual = isManualAttack && player.sta < 3;
   if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
   if(ranged && !consumeAmmoForWeapon(weapon)) return;
+
   player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
   player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
 
   ensureDurability(player.weapon);
-  const mainSkill = ranged ? player.skills.archery.v : player.skills.sword.v;
-  const tactics = player.skills.tactics.v;
-  const hit = isManualAttack
-    ? 1
-    : clamp((ranged ? 0.72 : 0.66) + mainSkill/240, 0.66, 0.96);
+  const mainSkill = ranged ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
+  const tactics = player.skills.tactics?.v || 0;
 
-  if(ranged) addProjectileEffect({x:player.x, y:player.y}, target, 'arrow');
-  else addCombatEffect(target.x, target.y, '베기', 'hit');
+  if(ranged){
+    addProjectileEffect({x:player.x, y:player.y}, target, 'arrow');
+  }else{
+    addMeleeSwingEffect(target, targetKind);
+  }
 
-  if(Math.random() < hit){
-    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : tactics/12) + tactics/16 + Math.random()*8;
-    const manualBonus = isManualAttack ? 1.12 : 1;
+  // 업로드 파일 방식처럼 전방 타격 구역과 대상 몸통을 함께 본다.
+  // 수동 공격은 사용자가 이미 버튼을 눌렀으므로 명중률보다 판정 안정성을 우선한다.
+  const zoneHit = ranged ? true : playerFrontStrikeHits(target, targetKind);
+  const hitRate = isManualAttack ? 0.98 : clamp((ranged ? 0.76 : 0.72) + mainSkill/260 + tactics/420, 0.72, 0.98);
+  const hit = zoneHit && Math.random() < hitRate;
+
+  if(hit){
+    const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : mainSkill/9) + tactics/16 + Math.random()*8;
+    const manualBonus = isManualAttack ? 1.1 : 1;
     const tiredPenalty = tiredManual ? 0.45 : 1;
     const dmg = Math.max(1, Math.floor(baseDmg * manualBonus * tiredPenalty));
     damageDurability(player.weapon, isManualAttack ? (ranged ? 0.16 : 0.22) : (ranged ? 0.24 : 0.35));
@@ -4083,7 +4145,7 @@ function attack(target=null){
     target.aggroUntil = tick + 180;
     if(target.animal) target.fleeUntil = tick + 80;
     addCombatEffect(target.x, target.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-    addLog(`${target.name}에게 ${ranged ? '원거리' : ''} ${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
+    addLog(`${target.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
     gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.22 : 0.18);
     gainSkill('tactics', isManualAttack ? 0.16 : 0.13);
     if(target.hp <= 0){
@@ -4095,7 +4157,7 @@ function attack(target=null){
   }else{
     addCombatEffect(target.x, target.y, '빗나감', 'miss');
     addLog(`${target.name} 공격 빗나감.`);
-    gainSkill(isRangedWeapon() ? 'archery' : 'sword',0.06);
+    gainSkill(ranged ? 'archery' : 'sword',0.06);
   }
   draw();
 }
@@ -4123,20 +4185,14 @@ function attackNpc(npc, opts={}){
     toast('경비병은 먼저 공격하지 않는 편이 낫다');
   }
 
-  const d = attackDistanceToTarget(npc, 'npc');
+  const kind = 'npc';
+  facePlayerToTarget(npc, kind);
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
-  const attackRange = playerHitRange();
 
-  if(d > attackRange + 0.65){
+  if(!canAttackCombatTarget(npc, kind, ranged ? 0.45 : 0.5)){
     if(isManualAttack){
       startAutoAttackChase(npc, 'npc');
-      const ex = typeof renderX === 'function' ? renderX(npc) : npc.x;
-      const ey = typeof renderY === 'function' ? renderY(npc) : npc.y;
-      const dx = ex - player.x;
-      const dy = ey - player.y;
-      const len = Math.hypot(dx,dy) || 1;
-      player.dir = [dx/len, dy/len];
       addCombatEffect(npc.x, npc.y, '접근', 'guard');
       draw();
     }else if(tick % 12 === 0){
@@ -4146,7 +4202,7 @@ function attackNpc(npc, opts={}){
   }
 
   if(tick < (player.attackReadyTick || 0)){
-    if(isManualAttack) draw();
+    draw();
     return;
   }
 
@@ -4163,11 +4219,21 @@ function attackNpc(npc, opts={}){
 
   ensureDurability(player.weapon);
   if(ranged) addProjectileEffect({x:player.x, y:player.y}, npc, 'arrow');
-  else addCombatEffect(npc.x, npc.y, '베기', 'hit');
+  else addMeleeSwingEffect(npc, kind);
 
   const mainSkill = ranged ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
   const tactics = player.skills.tactics?.v || 0;
-  const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : mainSkill/10) + tactics/16 + Math.random()*7;
+  const zoneHit = ranged ? true : playerFrontStrikeHits(npc, kind);
+  const hitRate = isManualAttack ? 0.98 : clamp((ranged ? 0.76 : 0.72) + mainSkill/260 + tactics/420, 0.72, 0.98);
+  if(!zoneHit || Math.random() >= hitRate){
+    addCombatEffect(npc.x, npc.y, '빗나감', 'miss');
+    addLog(`${npc.name} 공격 빗나감.`);
+    gainSkill(ranged ? 'archery' : 'sword',0.05);
+    draw();
+    return;
+  }
+
+  const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + mainSkill/10 + tactics/16 + Math.random()*7;
   const tiredPenalty = tiredManual ? 0.45 : 1;
   const dmg = Math.max(1, Math.floor(baseDmg * tiredPenalty));
 
@@ -9452,6 +9518,11 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'업로드 전투 액션 로직 이식', items:[
+    '업로드 파일의 전방 타격 구역 방식(actorFrontStrikeZone/actorFrontStrikeHits)을 현재 타일 좌표계에 맞춰 적용했다.',
+    '공격 버튼 입력 시 대상 방향으로 즉시 바라보고, 중심점이 아니라 몸통 반경과 전방 타격 구역을 함께 계산하도록 수정했다.',
+    '자동 접근 전투도 사거리 도달 시 공격 함수가 안정적으로 실행되게 정리했다.'
+  ]},
   {version:'현재', title:'공격 판정 개선·로그창 3줄 축소', items:[
     '공격 대상의 몸통 반경을 포함해 판정하도록 바꿔 중심점이 조금 벗어나도 근접/원거리 공격이 들어가게 했다.',
     '자동 추격 중 공격 함수가 공격 취소로 오인되던 경로를 분리해 접근 후 실제 공격이 실행되도록 수정했다.',
@@ -10001,22 +10072,21 @@ function autoAttackChaseStep(dt){
   const hasManualMove = analog.active || keysDown.has('arrowup') || keysDown.has('w') || keysDown.has('arrowdown') || keysDown.has('s') || keysDown.has('arrowleft') || keysDown.has('a') || keysDown.has('arrowright') || keysDown.has('d');
   if(hasManualMove) return false;
 
-  const ex = typeof renderX === 'function' ? renderX(target) : target.x;
-  const ey = typeof renderY === 'function' ? renderY(target) : target.y;
-  const dx = ex - player.x;
-  const dy = ey - player.y;
+  const pos = targetCombatPos(target, kind);
+  if(!pos){ stopAutoAttackChase(); return false; }
+  const dx = pos.x - player.x;
+  const dy = pos.y - player.y;
   const d = Math.hypot(dx,dy);
-  const hitD = attackDistanceToTarget(target, kind);
-  if(d > 32){
+  if(d > 34){
     stopAutoAttackChase();
     toast('대상이 너무 멀다');
     return false;
   }
 
   manualAttackLock = {ref:target, kind, until:tick + 9999};
-  const attackRange = playerHitRange();
-  if(hitD <= attackRange + 0.65){
-    if(tick - (chase.attackTick||0) >= playerAttackSpeed()){
+  facePlayerToTarget(target, kind);
+  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.45 : 0.5)){
+    if(tick >= (player.attackReadyTick || 0)){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
       else attack(target);
@@ -10026,8 +10096,8 @@ function autoAttackChaseStep(dt){
 
   const len = d || 1;
   player.dir = [dx/len, dy/len];
-  const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.2) * (dt/1000));
-  if(!moved && hitD <= attackRange + 0.95 && tick - (chase.attackTick||0) >= playerAttackSpeed()){
+  const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.35) * (dt/1000));
+  if(!moved && canAttackCombatTarget(target, kind, 0.85) && tick >= (player.attackReadyTick || 0)){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
     else attack(target);
