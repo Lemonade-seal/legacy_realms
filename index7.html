@@ -2340,26 +2340,6 @@ header.topbar,
   color:#dbcba7 !important;
   font-size:11px !important;
 }
-#loginPage .characterEnterBtn{
-  width:100% !important;
-  min-height:52px !important;
-  margin:10px 0 0 !important;
-  border:1px solid rgba(255,223,121,.88) !important;
-  border-radius:14px !important;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(255,246,188,.28), transparent 44%),
-    linear-gradient(180deg, rgba(77,60,20,.92), rgba(14,15,14,.86)) !important;
-  color:#fff2bd !important;
-  font-size:16px !important;
-  font-weight:900 !important;
-  letter-spacing:.4px !important;
-  text-shadow:0 0 9px rgba(255,223,121,.88), 0 2px 3px rgba(0,0,0,.85) !important;
-  box-shadow:0 0 16px rgba(255,223,121,.36), inset 0 0 14px rgba(255,223,121,.12) !important;
-  animation:startGlowPulse 1.35s ease-in-out infinite !important;
-}
-#loginPage .characterEnterBtn.hidden{
-  display:none !important;
-}
 #loginPage .loginFormArea #serverDiagBox{
   margin-top:8px !important;
   font-size:10px !important;
@@ -2384,6 +2364,136 @@ header.topbar,
   border-color:rgba(216,107,95,.75) !important;
   color:#ffaaa0 !important;
 }
+
+
+
+/* ==== final fix: PK badge must match online badge and sit inside topbar ==== */
+.topbar .onlineBadge,
+.onlineBadge#onlineBadge,
+.topbar .pkModeBadge,
+.pkModeBadge#pkModeBadge{
+  grid-row:2 !important;
+  align-self:center !important;
+  min-width:46px !important;
+  max-width:46px !important;
+  min-height:18px !important;
+  height:18px !important;
+  padding:3px 5px !important;
+  border:1px solid rgba(116,169,216,.42) !important;
+  border-radius:7px !important;
+  background:rgba(5,8,4,.28) !important;
+  background-image:none !important;
+  color:#cfe5ff !important;
+  font:inherit !important;
+  font-size:9px !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+  pointer-events:auto !important;
+  text-align:center !important;
+  touch-action:manipulation !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  position:relative !important;
+  z-index:30 !important;
+}
+.topbar .onlineBadge,
+.onlineBadge#onlineBadge{
+  grid-column:1 !important;
+  justify-self:start !important;
+}
+.topbar .pkModeBadge,
+.pkModeBadge#pkModeBadge{
+  grid-column:1 !important;
+  justify-self:start !important;
+  margin-left:52px !important;
+}
+.topbar .pkModeBadge.pk,
+.pkModeBadge#pkModeBadge.pk{
+  border-color:rgba(216,107,95,.75) !important;
+  color:#ffaaa0 !important;
+}
+@media(max-width:560px){
+  .topbar{grid-template-columns:minmax(104px, 118px) minmax(0,1fr) minmax(104px, auto) !important;}
+}
+
+/* ==== character enter gate and update page ==== */
+#loginPage.characterReadyMode #loginStartBtn,
+#loginPage.characterReadyMode #nicknameInput,
+#loginPage.characterReadyMode label[for="nicknameInput"],
+#loginPage.characterReadyMode .loginBtns,
+#loginPage.characterReadyMode #serverDiagBox,
+#loginPage.characterReadyMode #oauthManualLinkBox{
+  display:none !important;
+}
+#loginPage.characterReadyMode .loginFormArea{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  gap:10px !important;
+}
+.characterEnterBtn{
+  width:min(300px,82vw) !important;
+  min-height:54px !important;
+  border:1px solid rgba(255,223,121,.82) !important;
+  border-radius:999px !important;
+  background:linear-gradient(180deg, rgba(82,66,24,.88), rgba(19,18,12,.76)) !important;
+  color:#fff3bd !important;
+  font-size:17px !important;
+  letter-spacing:.2px !important;
+  font-weight:900 !important;
+  text-shadow:0 0 9px rgba(255,223,121,.95), 0 2px 3px rgba(0,0,0,.88) !important;
+  box-shadow:0 0 12px rgba(255,223,121,.55), inset 0 0 14px rgba(255,223,121,.18) !important;
+  animation:startGlowPulse 1.2s ease-in-out infinite !important;
+}
+#updatePage{
+  position:fixed;
+  inset:0;
+  z-index:100200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(74,169,255,.18), transparent 36%),
+    radial-gradient(circle at 50% 66%, rgba(255,223,121,.10), transparent 42%),
+    rgba(6,8,10,.96);
+  color:#fff3bd;
+  text-align:center;
+}
+#updatePage.open{display:flex;}
+.updateCard{
+  width:min(360px,92vw);
+  border:1px solid rgba(255,223,121,.55);
+  border-radius:18px;
+  padding:20px;
+  background:rgba(10,12,9,.72);
+  box-shadow:0 18px 42px rgba(0,0,0,.55), inset 0 0 18px rgba(255,223,121,.08);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+}
+.updateCard h2{margin:0 0 8px; font-size:20px; color:#ffdc82;}
+.updateCard p{margin:6px 0 12px; font-size:12px; color:#dbcba7;}
+.updateProgressOuter{
+  height:14px;
+  border:1px solid rgba(255,223,121,.50);
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(0,0,0,.42);
+  box-shadow:inset 0 0 8px rgba(0,0,0,.45);
+}
+.updateProgressInner{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#7aa7ff,#ffdc82,#fff3bd);
+  box-shadow:0 0 14px rgba(255,223,121,.75);
+  transition:width .18s linear;
+}
+#updatePercent{font-size:11px; margin-top:8px; color:#cfe5ff;}
 
 </style>
 
@@ -2424,7 +2534,6 @@ header.topbar,
         <button id="kakaoLoginBtn" class="primary" type="button" onclick="startKakaoLogin(event)">카카오 로그인</button>
       </div>
       <p id="loginMsg">닉네임을 설정한 뒤 카카오 로그인으로 서버 데이터를 불러옵니다.</p>
-      <button id="characterEnterBtn" class="characterEnterBtn hidden" type="button" onclick="enterGameFromCharacter(event)">Lv.1 유저</button>
       <div id="serverDiagBox" class="serverDiagBox">
         <b>서버 상태</b>
         <div id="serverDiagText">진단 대기</div>
@@ -2434,6 +2543,16 @@ header.topbar,
     </div>
   </div>
 </div>
+
+<div id="updatePage" aria-hidden="true">
+  <div class="updateCard">
+    <h2>업데이트 중</h2>
+    <p>새 패치를 적용하는 중입니다. 완료 후 게임 화면으로 이동합니다.</p>
+    <div class="updateProgressOuter"><div class="updateProgressInner" id="updateProgressInner"></div></div>
+    <div id="updatePercent">0%</div>
+  </div>
+</div>
+
 <div id="app">
   <div class="topbar">
     <div class="brand" id="charInfo">Lv.1 유저<small>방랑자</small></div>
@@ -2788,123 +2907,143 @@ header.topbar,
 <script>
 'use strict';
 
-let loginStartConfirmed = false;
-let loginCharacterReady = false;
-let loginRealtimeStarted = false;
-
-function setLoginFormMode(){
+function showLoginForm(ev){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  loginStartClicked = true;
   const page = document.getElementById('loginPage');
   const form = document.getElementById('loginFormArea');
   const start = document.getElementById('loginStartBtn');
   if(page){
     page.classList.remove('loginStartMode');
     page.classList.add('loginFormMode');
-    page.classList.remove('hidden');
   }
   if(form){
     form.classList.remove('hidden');
     form.setAttribute('aria-hidden','false');
   }
   if(start) start.style.display = 'none';
-}
-
-function setLoginStartMode(){
-  const page = document.getElementById('loginPage');
-  const form = document.getElementById('loginFormArea');
-  const start = document.getElementById('loginStartBtn');
-  loginStartConfirmed = false;
-  loginCharacterReady = false;
-  if(page){
-    page.classList.remove('loginFormMode');
-    page.classList.add('loginStartMode');
-    page.classList.remove('hidden');
-  }
-  if(form){
-    form.classList.add('hidden');
-    form.setAttribute('aria-hidden','true');
-  }
-  if(start) start.style.display = '';
-  updateLoginCharacterButton(false);
-}
-
-function loginCharacterLabel(){
-  const nick = (typeof displayGameNickname === 'function'
-    ? displayGameNickname()
-    : (player?.nickname || storedGameNickname?.() || '유저')
-  ) || '유저';
-  const lv = Math.max(1, Math.floor(Number(player?.level)||1));
-  return `Lv.${lv} ${nick}`;
-}
-
-function updateLoginCharacterButton(show=true){
-  const btn = document.getElementById('characterEnterBtn');
-  if(!btn) return;
-  if(show){
-    btn.textContent = loginCharacterLabel();
-    btn.classList.remove('hidden');
-    btn.disabled = false;
-    btn.style.display = '';
-  }else{
-    btn.classList.add('hidden');
-    btn.disabled = false;
-  }
-}
-
-async function prepareCharacterEntryFromSession(){
-  try{
-    if(!loginStartConfirmed) return false;
-    const client = await ensureSupabaseClient(false);
-    if(!client){
-      setLoginMsg('닉네임 설정 후 카카오 로그인으로 접속하세요.');
-      return false;
-    }
-    const { data } = await client.auth.getSession();
-    if(data?.session){
-      setLoginMsg('서버 캐릭터를 확인하는 중...');
-      await loadCloudStateAndEnter();
-      return true;
-    }
-    setLoginMsg('닉네임 설정 후 카카오 로그인으로 접속하세요.');
-    return false;
-  }catch(e){
-    console.error(e);
-    setLoginMsg('캐릭터 확인 실패: ' + (e.message || String(e)));
-    return false;
-  }
-}
-
-function showLoginForm(ev){
-  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
-  loginStartConfirmed = true;
-  setLoginFormMode();
   setTimeout(()=>{
     const nick = document.getElementById('nicknameInput');
     try{ nick?.focus?.(); }catch(e){}
   },80);
-  // 기존 카카오 세션이 있으면 자동으로 게임 화면에 들어가지 않고 캐릭터 선택 버튼만 표시한다.
-  setTimeout(()=>prepareCharacterEntryFromSession(), 60);
+  setTimeout(()=>{ try{ checkSessionAfterStart(); }catch(e){} },120);
 }
+try{ window.showLoginForm = showLoginForm; }catch(e){}
 
-async function enterGameFromCharacter(ev){
-  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
-  loginStartConfirmed = true;
-  if(!loginCharacterReady){
-    const ok = await prepareCharacterEntryFromSession();
-    if(!ok){
-      toast?.('먼저 카카오 로그인으로 캐릭터를 불러오세요.');
-      return false;
-    }
+
+const GAME_VERSION = '2026-06-15-gate-update-pk-jail-01';
+let gameEntered = false;
+let gameReadyLoaded = false;
+let loginStartClicked = false;
+
+function gameUpdateNeeded(){
+  try{ return localStorage.getItem('legacyRealmsVersion') !== GAME_VERSION; }catch(e){ return true; }
+}
+function markGameUpdated(){
+  try{ localStorage.setItem('legacyRealmsVersion', GAME_VERSION); }catch(e){}
+}
+function ensureCharacterEnterButton(){
+  let btn = document.getElementById('characterEnterBtn');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'characterEnterBtn';
+    btn.type = 'button';
+    btn.className = 'characterEnterBtn';
+    btn.addEventListener('click', enterGameFromCharacterButton);
+    const form = document.getElementById('loginFormArea');
+    form?.appendChild(btn);
   }
+  return btn;
+}
+function showCharacterEnterGate(){
+  const page = document.getElementById('loginPage');
+  const form = document.getElementById('loginFormArea');
+  const start = document.getElementById('loginStartBtn');
+  const btn = ensureCharacterEnterButton();
+  const nick = (typeof displayGameNickname === 'function' ? displayGameNickname() : (player.nickname || '유저')) || '유저';
+  btn.textContent = `Lv.${player.level || 1} ${nick}`;
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
+  if(start) start.style.display = 'none';
+  if(form){
+    form.classList.remove('hidden');
+    form.setAttribute('aria-hidden','false');
+  }
+  if(page){
+    page.classList.remove('hidden','loginStartMode','loginFormMode');
+    page.classList.add('characterReadyMode');
+  }
+  setLoginMsg('캐릭터를 눌러 게임에 입장하세요.');
+  gameReadyLoaded = true;
+}
+function hideCharacterEnterGate(){
+  const page = document.getElementById('loginPage');
+  page?.classList.remove('characterReadyMode');
+}
+function showUpdatePageThenEnter(){
+  return new Promise(resolve=>{
+    const page = document.getElementById('updatePage');
+    const bar = document.getElementById('updateProgressInner');
+    const txt = document.getElementById('updatePercent');
+    if(!page){ resolve(); return; }
+    page.classList.add('open');
+    page.setAttribute('aria-hidden','false');
+    let pct = 0;
+    const step = () => {
+      pct = Math.min(100, pct + Math.max(4, Math.floor(Math.random()*13)+5));
+      if(bar) bar.style.width = pct + '%';
+      if(txt) txt.textContent = pct + '%';
+      if(pct >= 100){
+        markGameUpdated();
+        setTimeout(()=>{
+          page.classList.remove('open');
+          page.setAttribute('aria-hidden','true');
+          resolve();
+        }, 360);
+        return;
+      }
+      setTimeout(step, 120 + Math.random()*120);
+    };
+    step();
+  });
+}
+async function finalEnterGame(){
+  if(gameEntered) return true;
+  gameEntered = true;
+  hideCharacterEnterGate();
   hideLoginPage();
-  if(player.isOnline && !loginRealtimeStarted){
-    loginRealtimeStarted = true;
-    try{ setupRealtimeOnline(); }catch(e){ console.warn(e); }
-  }
-  try{ await recordGameEvent?.('enter_game', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname }); }catch(e){}
-  toast?.('게임 시작');
+  setupRealtimeOnline();
+  try{ await recordGameEvent('login', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname }); }catch(e){}
+  toast('서버 접속 완료');
+  setServerDiag?.('SERVER ENTER OK');
   return true;
 }
-try{ window.showLoginForm = showLoginForm; window.enterGameFromCharacter = enterGameFromCharacter; }catch(e){}
+async function enterGameFromCharacterButton(ev=null){
+  try{ ev?.preventDefault?.(); ev?.stopPropagation?.(); }catch(e){}
+  if(!cloudState?.ready || !player?.userId || player.userId === 'guest'){
+    setLoginMsg('서버 데이터 확인 후 입장할 수 있습니다.');
+    return false;
+  }
+  const btn = document.getElementById('characterEnterBtn');
+  if(btn) btn.disabled = true;
+  try{
+    if(gameUpdateNeeded()) await showUpdatePageThenEnter();
+    return await finalEnterGame();
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+async function checkSessionAfterStart(){
+  try{
+    const client = await ensureSupabaseClient(false);
+    const { data } = await client?.auth?.getSession?.() || {};
+    if(data?.session && !gameReadyLoaded){
+      showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
+      await loadCloudStateAndEnter();
+    }
+  }catch(e){ console.error(e); }
+}
 
 
 const TILE = 32;
@@ -3727,6 +3866,40 @@ function isJailTile(x,y){
 function isInsideJailCell(x,y){
   const gx = gridX(x), gy = gridY(y);
   return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
+}
+
+function isNearJailDoor(x=player.x, y=player.y){
+  const gx = gridX(x), gy = gridY(y);
+  const doorInside = {x:JAIL.releaseX, y:JAIL.y1};
+  const doorOuter = {x:JAIL.releaseX, y:JAIL.outerY1};
+  return Math.hypot(gx-doorInside.x, gy-doorInside.y) <= 1.25 || Math.hypot(gx-doorOuter.x, gy-doorOuter.y) <= 1.25;
+}
+function attemptJailEscape(){
+  normalizePlayer();
+  if(tick >= (player.jailUntilTick||0)){ releaseFromJail(); return; }
+  if(!isNearJailDoor(player.x, player.y)){ jailInteraction(); return; }
+  player.jailActionCd = player.jailActionCd || 0;
+  if(tick < player.jailActionCd){ toast(`탈옥 준비 중 ${Math.ceil((player.jailActionCd-tick)*0.45)}초`); return; }
+  player.jailActionCd = tick + 55;
+  const skill = player.skills?.stealing?.v || 0;
+  const hasPick = (player.inv?.lockpick || 0) > 0;
+  const chance = clamp(0.10 + skill/260 + (hasPick ? 0.08 : 0), 0.06, 0.38);
+  gainSkill('stealing', 0.18);
+  if(Math.random() < chance){
+    setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', 0, ONLINE_TIMER_CAPS.jail);
+    player.wanted = clamp((player.wanted||0) + 2, 0, 20);
+    player.x = JAIL.releaseX;
+    player.y = JAIL.releaseY;
+    addLog('탈옥 성공. 수배도가 증가했다.', 'system');
+    toast('탈옥 성공');
+    draw();
+    return;
+  }
+  player.wanted = clamp((player.wanted||0) + 1, 0, 20);
+  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', Math.min(ONLINE_TIMER_CAPS.jail, countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail) + 18), ONLINE_TIMER_CAPS.jail);
+  addLog('탈옥 실패. 수배도와 수감 시간이 증가했다.', 'system');
+  toast('탈옥 실패');
+  draw();
 }
 const ONLINE_TIMER_CAPS = {
   jail: 1800,       // 13분 30초. 저장 오류로 말도 안 되게 늘어나는 것을 막는다.
@@ -5607,6 +5780,9 @@ function updatePassiveAutoTarget(){
 
 function getContextAction(){
   // 타겟팅 시스템 삭제: 현재 위치 기준으로만 액션 버튼을 바꾼다.
+  if(tick < (player.jailUntilTick||0)){
+    return {type:'jail', label:isNearJailDoor(player.x, player.y) ? '탈옥' : '복역'};
+  }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
@@ -5826,7 +6002,11 @@ function openNpcTradeFromMenu(){
 }
 
 function smartUse(){
-  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
+  if(tick < (player.jailUntilTick||0)){
+    if(isNearJailDoor(player.x, player.y)) attemptJailEscape();
+    else jailInteraction();
+    return;
+  }
   const ctx = getContextAction();
   if(ctx.type === 'npc'){
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
@@ -8239,12 +8419,12 @@ async function showKakaoLoginPage(autoCheck=true){
 
   setLoginMsg('게임 닉네임 작성 후 카카오톡 로그인으로 서버 데이터를 불러옵니다.');
 
-  if(autoCheck && loginStartConfirmed){
+  if(autoCheck){
     try{
       const { data } = await client.auth.getSession();
       if(data?.session){
-        showCloudLoadingPage('기존 카카오 세션 확인. 서버 데이터를 불러오는 중...');
-        await loadCloudStateAndEnter();
+        // 자동 입장은 막는다. 시작하기를 누른 뒤에만 캐릭터 확인 버튼을 표시한다.
+        setLoginMsg('시작하기를 눌러 캐릭터 확인으로 이동하세요.');
         return true;
       }
     }catch(e){
@@ -8615,15 +8795,9 @@ async function loadCloudStateAndEnter(){
     cloudState.loading = false;
     cloudState.status = '서버 데이터 로드 완료';
 
-    // 여기서 바로 게임 화면으로 넘기지 않는다.
-    // 서버 캐릭터만 불러온 뒤, 로그인 화면에 Lv.닉네임 버튼을 표시한다.
-    loginCharacterReady = true;
-    setLoginFormMode();
-    updateLoginCharacterButton(true);
-    await recordGameEvent('login_ready', { nickname: typeof displayGameNickname === 'function' ? displayGameNickname() : player.nickname });
-
-    setLoginMsg('캐릭터 준비 완료. Lv.닉네임 버튼을 누르면 게임 화면으로 들어갑니다.');
-    setServerDiag?.('SERVER CHARACTER READY');
+    // 여기서는 바로 게임 화면으로 들어가지 않는다.
+    // 캐릭터 버튼을 눌렀을 때 업데이트 확인 후 입장한다.
+    showCharacterEnterGate();
     return true;
   }catch(e){
     console.error(e);
@@ -8631,8 +8805,6 @@ async function loadCloudStateAndEnter(){
     cloudState.ready = false;
     cloudState.status = '서버 오류';
     document.getElementById('loginPage')?.classList.remove('hidden');
-    setLoginFormMode?.();
-    updateLoginCharacterButton?.(false);
     setLoginMsg('서버 접속 실패: ' + (e.message || String(e)));
     setServerDiag?.('SERVER ENTER ERROR: ' + (e.message || String(e)));
     return false;
@@ -8679,9 +8851,6 @@ async function bootAuth(){
   const client = await ensureSupabaseClient(false);
 
   if(client && hasOAuthReturn){
-    // 카카오 인증 복귀 후에도 바로 게임으로 들어가지 않고 캐릭터 선택 버튼만 표시한다.
-    loginStartConfirmed = true;
-    setLoginFormMode();
     await finishOAuthRedirect(client);
     await loadCloudStateAndEnter();
     return true;
@@ -8704,8 +8873,7 @@ async function bootAuth(){
     return true;
   }
 
-  // 기존 세션이 있어도 시작하기를 누르기 전에는 자동 입장하지 않는다.
-  await showKakaoLoginPage(false);
+  await showKakaoLoginPage(true);
   updateOnlineBadge();
   return true;
 }
