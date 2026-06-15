@@ -1954,6 +1954,12 @@
       height:70px !important;
     }
   }
+
+.tradeQtyBox{display:flex; align-items:center; gap:6px; margin:8px 0; padding:7px; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:rgba(0,0,0,.18)}
+.tradeQtyBox label{font-size:11px; color:#d6c99f}
+.tradeQtyBox input{width:74px; min-height:30px; border:1px solid rgba(255,255,255,.18); border-radius:8px; background:rgba(12,14,16,.88); color:#f7edc0; text-align:center; font-weight:800}
+.tradeQtyBox button{min-height:30px; padding:0 10px}
+
 </style>
 
 
@@ -3707,10 +3713,11 @@ function selectMobTarget(mob, beginChase=false){
 function setTouchedMobTarget(mob){
   return selectTarget('mob', mob, false);
 }
-function startAutoAttackChase(mob){
-  if(!isMobTargetAlive(mob)) return false;
-  manualAttackLock = {ref:mob, kind:'mob', until:tick + 9999};
-  autoAttackChase = {ref:mob, until:tick + 360, attackTick:0};
+function startAutoAttackChase(target, kind='mob'){
+  const ok = kind === 'npc' ? isNpcTargetValid(target) : isMobTargetAlive(target);
+  if(!ok) return false;
+  manualAttackLock = {ref:target, kind, until:tick + 9999};
+  autoAttackChase = {ref:target, kind, until:tick + 360, attackTick:0};
   return true;
 }
 function stopAutoAttackChase(){
@@ -3831,7 +3838,7 @@ function attack(target=null){
   if(isManualAttack){
     const picked = pickManualAttackTarget();
     if(picked?.kind === 'npc'){
-      attackNpc(picked.ref);
+      attackNpc(picked.ref, {manual:true});
       return;
     }
     if(picked?.kind === 'mob') target = picked.ref;
@@ -3935,34 +3942,75 @@ function markCriminal(reason, amount=1){
 
 function attackCurrentNpc(){
   if(!currentNpc){ toast('대상 NPC 없음'); return; }
-  attackNpc(currentNpc);
+  attackNpc(currentNpc, {manual:true});
 }
 
-function attackNpc(npc){
+function attackNpc(npc, opts={}){
   normalizePlayer();
+  const isManualAttack = opts.manual !== false;
   if(!npc || npc.down){ toast('대상이 없다'); return; }
-  if(npc.guard && player.wanted <= 0){
+  if(npc.guard && player.wanted <= 0 && isManualAttack){
     toast('경비병은 먼저 공격하지 않는 편이 낫다');
   }
-  if(dist(npc, player) > 1.7){ toast('NPC가 너무 멀다'); return; }
-  if(player.sta < 4){ toast('기력이 부족하다'); return; }
 
-  player.sta -= 4;
+  const d = entityScreenAwareDistance(npc);
+  const weapon = equippedWeaponDef();
+  const ranged = isRangedWeapon();
+  const attackRange = playerHitRange();
+
+  if(d > attackRange + 0.2){
+    if(isManualAttack){
+      startAutoAttackChase(npc, 'npc');
+      const ex = typeof renderX === 'function' ? renderX(npc) : npc.x;
+      const ey = typeof renderY === 'function' ? renderY(npc) : npc.y;
+      const dx = ex - player.x;
+      const dy = ey - player.y;
+      const len = Math.hypot(dx,dy) || 1;
+      player.dir = [dx/len, dy/len];
+      addCombatEffect(npc.x, npc.y, '접근', 'guard');
+      toast(`${npc.name}에게 접근 중`);
+      draw();
+    }else if(tick % 12 === 0){
+      toast('NPC가 너무 멀다');
+    }
+    return;
+  }
+
+  if(tick < (player.attackReadyTick || 0)){
+    if(isManualAttack) toast('공격 준비 중');
+    return;
+  }
+
+  const tiredManual = isManualAttack && player.sta < 3;
+  if(!isManualAttack && player.sta < 3){ toast('기력이 부족하다'); return; }
+  if(ranged && !consumeAmmoForWeapon(weapon)) return;
+
+  player.attackReadyTick = tick + Math.ceil(playerAttackSpeed());
+  player.sta = Math.max(0, player.sta - (isManualAttack ? (tiredManual ? 0.4 : (ranged ? 1.8 : 1.2)) : (ranged ? 2.2 : 3)));
+
   markCriminal(`${npc.name} 공격.`, npc.guard ? 4 : 2);
   npc.aggroUntil = tick + (npc.guard ? 260 : 170);
   npc.alert = true;
 
-  const weapon = itemDefs[player.weapon] || itemDefs.rustySword;
   ensureDurability(player.weapon);
-  const dmg = Math.max(1, Math.floor((weapon.atk||1) * durabilityFactor(player.weapon) + player.skills.sword.v/10 + Math.random()*7));
-  damageDurability(player.weapon, 0.45);
+  if(ranged) addProjectileEffect({x:player.x, y:player.y}, npc, 'arrow');
+
+  const mainSkill = ranged ? (player.skills.archery?.v || 0) : (player.skills.sword?.v || 0);
+  const tactics = player.skills.tactics?.v || 0;
+  const baseDmg = (weapon.atk||1) * durabilityFactor(player.weapon) + (ranged ? mainSkill/10 : mainSkill/10) + tactics/16 + Math.random()*7;
+  const tiredPenalty = tiredManual ? 0.45 : 1;
+  const dmg = Math.max(1, Math.floor(baseDmg * tiredPenalty));
+
+  damageDurability(player.weapon, ranged ? 0.18 : 0.45);
   npc.hp = Math.max(0, (npc.hp||npc.maxHp||50) - dmg);
   addCombatEffect(npc.x, npc.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-  addLog(`${npc.name}에게 ${dmg} 피해를 줌.`);
-  gainSkill('sword',0.14);
+  addLog(`${npc.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해를 줌.${tiredManual ? ' 지친 공격.' : ''}`);
+  gainSkill(ranged ? 'archery' : 'sword',0.14);
   gainSkill('tactics',0.1);
 
   if(npc.hp <= 0){
+    manualAttackLock = {ref:null, kind:null, until:0};
+    if(autoAttackChase.ref === npc) stopAutoAttackChase();
     addCombatEffect(npc.x, npc.y, '기절', 'down');
     knockOutNpc(npc);
   }
@@ -5244,7 +5292,6 @@ function renderStatus(){
         ${tile('이속', cp.moveSpeed.toFixed(2))}
         ${tile('공속', cp.attackSpeed.toFixed(1)+'틱')}
         ${tile('사거리', cp.hitRange.toFixed(1)+'칸')}
-        ${tile('사거리 보너스', cp.rangeBonus > 0 ? '+'+cp.rangeBonus.toFixed(1)+'칸' : '-')}
         ${tile('탄약', cp.ammo ? `${escapeHtml(itemDefs[cp.ammo]?.name || cp.ammo)} ${player.inv[cp.ammo]||0}` : '-')}
       </div>
       <div class="card">
@@ -5468,24 +5515,55 @@ function tradeSellPrice(id, npc=null){
 function canNormalTradeWith(npc){
   return !!npc && !npc.down && isVendorNpc(npc) && dist(npc, player) <= 2.2;
 }
-function purchaseTradeItem(id){
+function tradeQuantityInputHtml(maxQty=1){
+  const max = Math.max(1, Math.floor(Number(maxQty) || 1));
+  return `<div class="tradeQtyBox">
+    <label>수량</label>
+    <input id="tradeQtyInput" type="number" inputmode="numeric" min="1" max="${max}" value="1" />
+    <button onclick="const i=document.getElementById('tradeQtyInput'); if(i) i.value='${max}'">최대</button>
+  </div>`;
+}
+function readTradeQuantity(defaultQty=1){
+  const el = document.getElementById('tradeQtyInput');
+  const raw = el ? Number(el.value) : Number(defaultQty);
+  return Math.max(1, Math.floor(Number.isFinite(raw) ? raw : defaultQty));
+}
+function maxBuyQuantity(npc, id){
+  const stock = npc ? ensureMerchantStock(npc) : {};
+  const price = Math.max(1, tradeBuyPrice(npc, id));
+  const byGold = Math.floor((player.gold||0) / price);
+  const unitWeight = Math.max(0.001, itemWeight(id));
+  const byWeight = Math.floor(Math.max(0, maxCarryWeight() - inventoryWeight()) / unitWeight);
+  return Math.max(0, Math.min(stock[id]||0, byGold, byWeight));
+}
+function maxSellQuantity(id, npc=null){
+  if(id === player.weapon || id === player.armor) return 0;
+  const def = itemDefs[id] || {};
+  if(def.type === 'stolen' && npc && !(npc.fence || npc.role === '암시장')) return 0;
+  return Math.max(0, player.inv?.[id] || 0);
+}
+
+function purchaseTradeItem(id, qty=1){
   normalizePlayer();
   const npc = activeTradeNpc || currentNpc;
   if(!canNormalTradeWith(npc)){ toast('거래 가능한 상인이 아니다'); return; }
   const stock = ensureMerchantStock(npc);
-  if((stock[id]||0) <= 0){ toast('재고 없음'); renderShop(); renderMiniTrade(); return; }
-  if(!canCarryItem(id,1)){ toast('가방 무게 초과'); return; }
   const price = tradeBuyPrice(npc, id);
-  if(player.gold < price){ toast('골드 부족'); return; }
-  player.gold -= price;
-  stock[id]--;
-  addItem(id,1);
-  gainSkill('trading',0.08);
-  addLog(`${npc.name}에게서 ${itemDefs[id]?.name || id} 구매. -${price}g`);
+  const maxQty = maxBuyQuantity(npc, id);
+  qty = Math.max(1, Math.min(Math.floor(Number(qty)||1), maxQty));
+  if(maxQty <= 0){ toast((stock[id]||0) <= 0 ? '재고 없음' : '구매 불가'); renderShop(); renderMiniTrade(); return; }
+  if(!canCarryItem(id,qty)){ toast('가방 무게 초과'); return; }
+  const total = price * qty;
+  if(player.gold < total){ toast('골드 부족'); return; }
+  player.gold -= total;
+  stock[id] -= qty;
+  addItem(id,qty);
+  gainSkill('trading',0.08 * Math.min(5, qty));
+  addLog(`${npc.name}에게서 ${itemDefs[id]?.name || id} ${qty}개 구매. -${total}g`);
   closeInventoryItemPopup();
   renderShop(); renderMiniTrade(); renderInventory(); renderStatus(); updateHud(); draw();
 }
-function sellTradeItem(id){
+function sellTradeItem(id, qty=1){
   normalizePlayer();
   const npc = activeTradeNpc || currentNpc;
   if(!canNormalTradeWith(npc)){ toast('거래 가능한 상인이 아니다'); return; }
@@ -5496,13 +5574,17 @@ function sellTradeItem(id){
     toast('장물은 암시장에만 팔 수 있다');
     return;
   }
+  const maxQty = maxSellQuantity(id, npc);
+  qty = Math.max(1, Math.min(Math.floor(Number(qty)||1), maxQty));
+  if(maxQty <= 0){ toast('판매 불가'); return; }
   const price = tradeSellPrice(id, npc);
-  removeItem(id,1);
-  player.gold += price;
+  const total = price * qty;
+  removeItem(id,qty);
+  player.gold += total;
   const stock = ensureMerchantStock(npc);
-  stock[id] = (stock[id] || 0) + 1;
-  gainSkill('trading',0.10);
-  addLog(`${npc.name}에게 ${def.name || id} 판매. +${price}g`);
+  stock[id] = (stock[id] || 0) + qty;
+  gainSkill('trading',0.10 * Math.min(5, qty));
+  addLog(`${npc.name}에게 ${def.name || id} ${qty}개 판매. +${total}g`);
   closeInventoryItemPopup();
   renderShop(); renderMiniTrade(); renderInventory(); renderStatus(); updateHud(); draw();
 }
@@ -6224,13 +6306,15 @@ function inventoryItemActionButtons(id, ctx={}){
     if(origin === 'merchant'){
       const stock = npc ? ensureMerchantStock(npc) : {};
       const price = npc ? tradeBuyPrice(npc, id) : (def.price || 0);
-      const canBuy = canNormalTradeWith(npc) && (stock[id] || 0) > 0 && player.gold >= price;
-      actions.push(`<button class="${canBuy?'primary':'danger'}" onclick="purchaseTradeItem('${id}')">구매 ${price}g</button>`);
+      const maxQty = npc ? maxBuyQuantity(npc, id) : 0;
+      const canBuy = canNormalTradeWith(npc) && maxQty > 0;
+      actions.push(`<button class="${canBuy?'primary':'danger'}" onclick="purchaseTradeItem('${id}', readTradeQuantity())">구매 ${price}g/개</button>`);
       actions.push(`<button onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
     }else if(origin === 'player'){
       const price = tradeSellPrice(id, npc);
-      const canSell = canNormalTradeWith(npc) && player.inv[id] > 0 && id !== player.weapon && id !== player.armor;
-      actions.push(`<button class="${canSell?'primary':'danger'}" onclick="sellTradeItem('${id}')">판매 ${price}g</button>`);
+      const maxQty = maxSellQuantity(id, npc);
+      const canSell = canNormalTradeWith(npc) && maxQty > 0;
+      actions.push(`<button class="${canSell?'primary':'danger'}" onclick="sellTradeItem('${id}', readTradeQuantity())">판매 ${price}g/개</button>`);
     }
   }
 
@@ -6299,6 +6383,11 @@ function showInventoryItemPopup(ev, id, ctx={}){
     ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
     : (def.desc || '설명 없음');
   const actions = inventoryItemActionButtons(id, {mode, origin});
+  let tradeQtyBlock = '';
+  if(mode === 'trade' && npc && (origin === 'merchant' || origin === 'player')){
+    const maxQty = origin === 'merchant' ? maxBuyQuantity(npc, id) : maxSellQuantity(id, npc);
+    tradeQtyBlock = tradeQuantityInputHtml(Math.max(1, maxQty));
+  }
 
   box.innerHTML = `<div class="invDetailHead">
       <b>${escapeHtml(def.name)}</b>
@@ -6319,6 +6408,7 @@ function showInventoryItemPopup(ev, id, ctx={}){
         ${dur}
         ${equip}
       </div>
+      ${tradeQtyBlock}
       <div class="invDetailActions">${actions || '<button onclick="closeInventoryItemPopup()">확인</button>'}</div>
     </div>`;
 
@@ -8992,10 +9082,15 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'사거리 표시 정리·NPC 공격·거래 수량 입력', items:[
+    '상태창에서 사거리 보너스 별도 항목을 제거하고 최종 사거리 수치에만 보너스가 반영되게 정리했다.',
+    'NPC를 타겟팅한 뒤 공격 버튼을 눌렀을 때 근접/원거리 사거리 기준으로 접근 또는 공격되도록 수정했다.',
+    '상인 물품 구매와 내 아이템 판매 시 수량 입력 후 처리되도록 변경했다.'
+  ]},
   {version:'현재', title:'활 직업군 사거리 보너스 적용', items:[
     '궁수·레인저·순찰자·사냥꾼 등 활 직업군은 활 장착 시 기본 사거리에 직업 보너스가 더해지도록 했다.',
     '사거리 보너스는 기본 직업 보정, 궁술 숙련도, 레벨에 따라 증가하며 실제 원거리 공격 판정에 적용된다.',
-    '상태창에 사거리 보너스 항목을 추가해 현재 적용 중인 보너스 값을 확인할 수 있게 했다.'
+    '상태창에는 별도 보너스 항목 없이 최종 사거리 수치로만 표시된다.'
   ]},
   {version:'현재', title:'원거리 전투·화살·전투 보조 스탯 추가</b><br><span>활 장착 시 사거리 안에서 이동 없이 공격, 화살 소모/제작/잡화점 구매, 화살 투사체 이펙트, 이속·공속·사거리 표시를 추가.</span></div><div class="noteItem"><b>공통 타겟팅·공격 취소·은행 금리 개편', items:[
     '몬스터뿐 아니라 NPC, 나무, 암석, 약초, 낚시 지점, 상자도 첫 터치로 노란색 타겟팅이 되도록 확장했다.',
@@ -9450,7 +9545,9 @@ function autoAttackChaseStep(dt){
   const chase = autoAttackChase;
   if(!chase || !chase.ref) return false;
   const target = chase.ref;
-  if(tick > (chase.until||0) || !isMobTargetAlive(target) || tick < (player.jailUntilTick||0)){
+  const kind = chase.kind || 'mob';
+  const valid = kind === 'npc' ? isNpcTargetValid(target) : isMobTargetAlive(target);
+  if(tick > (chase.until||0) || !valid || tick < (player.jailUntilTick||0)){
     stopAutoAttackChase();
     return false;
   }
@@ -9469,12 +9566,13 @@ function autoAttackChaseStep(dt){
     return false;
   }
 
-  manualAttackLock = {ref:target, kind:'mob', until:tick + 9999};
+  manualAttackLock = {ref:target, kind, until:tick + 9999};
   const attackRange = playerHitRange();
   if(d <= attackRange){
     if(tick - (chase.attackTick||0) >= playerAttackSpeed()){
       autoAttackChase.attackTick = tick;
-      attack(target);
+      if(kind === 'npc') attackNpc(target, {manual:false, auto:true});
+      else attack(target);
     }
     return true;
   }
@@ -9484,7 +9582,8 @@ function autoAttackChaseStep(dt){
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.2) * (dt/1000));
   if(!moved && d <= attackRange + 0.55 && tick - (chase.attackTick||0) >= playerAttackSpeed()){
     autoAttackChase.attackTick = tick;
-    attack(target);
+    if(kind === 'npc') attackNpc(target, {manual:false, auto:true});
+    else attack(target);
   }
   return true;
 }
