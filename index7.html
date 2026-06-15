@@ -3469,6 +3469,7 @@ const projectileEffects = [];
 let lastAutoSaveTick = 0;
 const chests = [];
 let simDtSeconds = 0.016;
+let screenShake = {time:0, power:0};
 
 let mobs = [];
 const resources = [];
@@ -4195,6 +4196,55 @@ function ensureFieldBosses(){
   }
 }
 
+
+function outdoorMobPoolForTile(t){
+  if(t==='forest') return ['wolf','wolf','boar','direwolf','bear'];
+  if(t==='mountain') return ['goblin','goblin','orc','golem'];
+  if(t==='danger') return ['bandit','skeleton','orc','direwolf'];
+  if(t==='swamp') return ['slime','slime','spider','bandit'];
+  if(t==='desert') return ['mummy','bandit','skeleton'];
+  if(t==='dungeon') return ['bat','spider','skeleton','cultist','golem'];
+  if(t==='darkGrass') return ['wolf','boar','slime'];
+  if(t==='ruins') return ['relicGuard','skeleton','cultist','golem'];
+  if(t==='graveyard') return ['wraith','skeleton','mummy','bat'];
+  if(t==='ice') return ['frostWolf','direwolf','golem'];
+  return ['wolf','boar','slime'];
+}
+
+function findSpawnNearPlayerForCombat(rangeMin=7, rangeMax=13){
+  for(let i=0;i<260;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = rangeMin + Math.random()*(rangeMax-rangeMin);
+    const x = clamp(player.x + Math.cos(a)*r, 1, W-2);
+    const y = clamp(player.y + Math.sin(a)*r, 1, H-2);
+    const t = tileAt(x,y);
+    if(t === 'water' || t === 'jail' || t === 'jailWall') continue;
+    if(isTownArea(x,y) || isBlocked(x,y)) continue;
+    if(dist({x,y}, player) < rangeMin) continue;
+    if(mobs.some(m=>dist(m,{x,y})<1.1)) continue;
+    return {x,y,t};
+  }
+  return null;
+}
+
+function ensureNearbyCombatMobs(defs){
+  const nearHostiles = mobs.filter(m=>!m.animal && !m.boss && isMobTargetAlive(m) && dist(m, player) <= 14).length;
+  const wantedNear = isTownArea(player.x, player.y) ? 7 : 10;
+  let need = Math.max(0, wantedNear - nearHostiles);
+  let added = 0;
+  while(need > 0 && added < wantedNear){
+    const spot = findSpawnNearPlayerForCombat(isTownArea(player.x, player.y) ? 7.5 : 5.5, isTownArea(player.x, player.y) ? 13.5 : 11.5);
+    if(!spot) break;
+    const pool = outdoorMobPoolForTile(spot.t);
+    const type = pool[rand(pool.length)] || 'wolf';
+    const def = defs[type] || defs.wolf;
+    mobs.push({x:spot.x, y:spot.y, prevX:spot.x, prevY:spot.y, type, ...def, maxHp:def.hp, attackCd:0, wanderDir:null});
+    added++;
+    need--;
+  }
+  return added;
+}
+
 function monsterLevel(m){
   if(typeof m.level === 'number') return m.level;
   if(m.animal) return 1;
@@ -4230,7 +4280,7 @@ function spawnMobs(){
   spawnTownAnimals();
   ensureFieldBosses();
 
-  const targetCount = 58;
+  const targetCount = 86;
   const defs = {
     wolf:{name:'회색 늑대', level:5, hp:24, atk:5, gold:5, drop:'hide', color:'#9a9a8a', hostile:true},
     direwolf:{name:'검은 늑대', level:9, hp:38, atk:9, gold:14, drop:'fang', color:'#4d4b46', rareDrop:'hide', hostile:true},
@@ -4251,21 +4301,13 @@ function spawnMobs(){
     frostWolf:{name:'빙원 늑대', level:14, hp:52, atk:13, gold:24, drop:'hide', color:'#b9d8e2', rareDrop:'frostOre', hostile:true}
   };
 
+  ensureNearbyCombatMobs(defs);
+
   while(mobs.filter(m=>!m.animal && !m.boss).length < targetCount){
     let x=rand(W), y=rand(H);
     let t=map[y][x];
     if(isTownArea(x,y) || isBlocked(x,y) || dist({x,y}, player)<8) continue;
-    let pool = ['wolf'];
-    if(t==='forest') pool = ['wolf','wolf','boar','direwolf','bear'];
-    else if(t==='mountain') pool = ['goblin','goblin','orc','golem'];
-    else if(t==='danger') pool = ['bandit','skeleton','orc','direwolf'];
-    else if(t==='swamp') pool = ['slime','slime','spider','bandit'];
-    else if(t==='desert') pool = ['mummy','bandit','skeleton'];
-    else if(t==='dungeon') pool = ['bat','spider','skeleton','cultist','golem'];
-    else if(t==='darkGrass') pool = ['wolf','boar','slime'];
-    else if(t==='ruins') pool = ['relicGuard','skeleton','cultist','golem'];
-    else if(t==='graveyard') pool = ['wraith','skeleton','mummy','bat'];
-    else if(t==='ice') pool = ['frostWolf','direwolf','golem'];
+    const pool = outdoorMobPoolForTile(t);
     const type = pool[rand(pool.length)];
     mobs.push({x,y,prevX:x,prevY:y,type, ...defs[type], maxHp: defs[type].hp});
   }
@@ -4341,22 +4383,70 @@ function frontTile(){
   };
 }
 
-function addCombatEffect(x, y, text, type='hit'){
+function addCombatEffect(x, y, text, type='hit', opts={}){
   combatEffects.push({
     x, y,
-    text:String(text),
+    text:String(text ?? ''),
     type,
-    life:0.72,
-    maxLife:0.72,
-    ox:(Math.random()*12)-6,
-    oy:(Math.random()*6)-3,
-    slashA:Math.random()*Math.PI
+    life:opts.life ?? 0.72,
+    maxLife:opts.maxLife ?? opts.life ?? 0.72,
+    ox:opts.ox ?? ((Math.random()*12)-6),
+    oy:opts.oy ?? ((Math.random()*6)-3),
+    vx:opts.vx ?? 0,
+    vy:opts.vy ?? 0,
+    size:opts.size ?? 1,
+    slashA:opts.slashA ?? Math.random()*Math.PI
   });
-  if(combatEffects.length > 36) combatEffects.shift();
+  if(combatEffects.length > 72) combatEffects.shift();
+}
+
+function triggerScreenShake(power=2.2, duration=0.12){
+  screenShake.power = Math.max(screenShake.power || 0, power);
+  screenShake.time = Math.max(screenShake.time || 0, duration);
+}
+
+function addImpactBurst(x, y, opts={}){
+  const strong = !!opts.strong;
+  const ranged = !!opts.ranged;
+  addCombatEffect(x, y, '', 'impactRing', {life:strong ? 0.28 : 0.22, maxLife:strong ? 0.28 : 0.22, size:strong ? 1.25 : 1});
+  const count = strong ? 8 : 5;
+  for(let i=0;i<count;i++){
+    const a = (Math.PI*2) * (i/count) + Math.random()*0.35;
+    const spd = (strong ? 22 : 16) * (0.72 + Math.random()*0.55);
+    addCombatEffect(x, y, '', ranged ? 'arrowSpark' : 'spark', {
+      life:0.20 + Math.random()*0.10,
+      maxLife:0.30,
+      vx:Math.cos(a)*spd,
+      vy:Math.sin(a)*spd,
+      size:strong ? 1.15 : 0.9,
+      ox:0,
+      oy:0
+    });
+  }
+}
+
+function markTargetImpact(target, kind='mob', opts={}){
+  const pos = targetCombatPos(target, kind) || target;
+  if(!pos) return;
+  const dx = pos.x - player.x;
+  const dy = pos.y - player.y;
+  const len = Math.hypot(dx,dy) || 1;
+  if(target && typeof target === 'object'){
+    target.hitFlashUntil = tick + (opts.strong ? 8 : 5);
+    target.hitNudgeX = (dx/len) * (opts.strong ? 0.12 : 0.075);
+    target.hitNudgeY = (dy/len) * (opts.strong ? 0.12 : 0.075);
+    target.hitNudgeUntil = tick + (opts.strong ? 7 : 4);
+  }
+  addImpactBurst(pos.x, pos.y, {strong:opts.strong, ranged:opts.ranged});
+  triggerScreenShake(opts.strong ? 3.4 : 2.0, opts.strong ? 0.16 : 0.10);
 }
 
 function updateCombatEffects(dt){
   const sec = Math.max(0.008, Math.min(0.05, dt/1000));
+  if(screenShake.time > 0){
+    screenShake.time = Math.max(0, screenShake.time - sec);
+    if(screenShake.time <= 0) screenShake.power = 0;
+  }
   for(const e of combatEffects) e.life -= sec;
   for(let i=combatEffects.length-1;i>=0;i--){
     if(combatEffects[i].life <= 0) combatEffects.splice(i,1);
@@ -4367,11 +4457,53 @@ function drawCombatEffects(camPxX, camPxY){
   ctx.save();
   ctx.textAlign='center';
   ctx.font='bold 12px system-ui';
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
   for(const e of combatEffects){
-    const p = 1 - e.life/e.maxLife;
+    const p = clamp(1 - e.life/e.maxLife, 0, 1);
     const alpha = Math.max(0, e.life/e.maxLife);
-    const sx = e.x*TILE - camPxX + 16 + e.ox*p;
-    const sy = e.y*TILE - camPxY + 4 - p*24 + e.oy;
+    const sx = e.x*TILE - camPxX + 16 + e.ox*p + (e.vx || 0)*p;
+    const sy = e.y*TILE - camPxY + 4 - p*24 + e.oy + (e.vy || 0)*p;
+
+    if(e.type === 'slash'){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(e.x*TILE - camPxX + 16, e.y*TILE - camPxY + 16);
+      ctx.rotate(e.slashA || 0);
+      ctx.strokeStyle='rgba(255,244,174,.96)';
+      ctx.lineWidth=5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 19 + p*7, -0.95, 0.95);
+      ctx.stroke();
+      ctx.strokeStyle='rgba(255,112,82,.78)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22 + p*8, -0.72, 0.72);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+
+    if(e.type === 'impactRing'){
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.strokeStyle='rgba(255,232,130,.92)';
+      ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.arc(e.x*TILE - camPxX + 16, e.y*TILE - camPxY + 16, (7 + p*18) * (e.size || 1), 0, Math.PI*2);
+      ctx.stroke();
+      continue;
+    }
+
+    if(e.type === 'spark' || e.type === 'arrowSpark'){
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = e.type === 'arrowSpark' ? '#d8f6ff' : '#ffdc82';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy + 16);
+      ctx.lineTo(sx - (e.vx||0)*0.13, sy + 16 - (e.vy||0)*0.13);
+      ctx.stroke();
+      continue;
+    }
 
     if(e.type === 'hit' || e.type === 'crit' || e.type === 'guard'){
       ctx.globalAlpha = alpha;
@@ -4383,15 +4515,17 @@ function drawCombatEffects(camPxX, camPxY){
       ctx.stroke();
     }
 
-    ctx.globalAlpha = alpha;
-    ctx.lineWidth=3;
-    ctx.strokeStyle='rgba(0,0,0,.75)';
-    ctx.fillStyle = e.type === 'miss' ? '#cfc6a5' :
-                    e.type === 'down' ? '#ffdc82' :
-                    e.type === 'guard' ? '#9fd0ff' :
-                    e.type === 'crit' ? '#ffd36a' : '#ffaaa0';
-    ctx.strokeText(e.text, sx, sy);
-    ctx.fillText(e.text, sx, sy);
+    if(e.text){
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth=3;
+      ctx.strokeStyle='rgba(0,0,0,.75)';
+      ctx.fillStyle = e.type === 'miss' ? '#cfc6a5' :
+                      e.type === 'down' ? '#ffdc82' :
+                      e.type === 'guard' ? '#9fd0ff' :
+                      e.type === 'crit' ? '#ffd36a' : '#ffaaa0';
+      ctx.strokeText(e.text, sx, sy);
+      ctx.fillText(e.text, sx, sy);
+    }
   }
   ctx.restore();
 }
@@ -4667,7 +4801,7 @@ function playerFrontStrikeHits(target, kind='mob', zone=null){
   if(Math.abs(normalizeAngle(targetAng - z.facing)) > z.arc * 0.5) return false;
   return Math.hypot(z.x - pos.x, z.y - pos.y) <= z.r + pos.r + 0.22;
 }
-function canAttackCombatTarget(target, kind='mob', extra=0.18){
+function canAttackCombatTarget(target, kind='mob', extra=0.12){
   if(!target) return false;
   // 공격 판정은 상태창의 '사거리' 수치가 곧 실제 타격 범위가 되게 고정한다.
   // 대상 몸통 반경을 제외한 거리 <= 사거리면 명중 가능 범위다.
@@ -4678,12 +4812,12 @@ function canAttackCombatTarget(target, kind='mob', extra=0.18){
 
 function addMeleeSwingEffect(target, kind='mob'){
   const z = playerFrontStrikeZone(target, kind);
-  // 실제 히트박스 중심에 베기 이펙트를 띄워서 공격 범위가 눈에 보이게 한다.
   combatEffects.push({
-    x:z.x, y:z.y, text:'베기', type:'hit', life:0.34, maxLife:0.34,
+    x:z.x, y:z.y, text:'', type:'slash', life:0.24, maxLife:0.24,
     ox:0, oy:0, slashA:z.facing
   });
-  if(combatEffects.length > 36) combatEffects.shift();
+  addCombatEffect(z.x, z.y, '휙', 'guard', {life:0.22, maxLife:0.22, ox:0, oy:-8});
+  if(combatEffects.length > 72) combatEffects.splice(0, combatEffects.length - 72);
 }
 
 function manualAttackCandidateScore(entity, kind){
@@ -4858,7 +4992,7 @@ function attack(target=null){
 
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
-  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.35 : 0.95);
+  const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.12 : 0.16);
 
   if(!inRange){
     if(isManualAttack){
@@ -4902,6 +5036,7 @@ function attack(target=null){
     const dmg = Math.max(1, Math.floor(baseDmg * manualBonus * tiredPenalty));
     damageDurability(player.weapon, isManualAttack ? (ranged ? 0.16 : 0.22) : (ranged ? 0.24 : 0.35));
     target.hp -= dmg;
+    markTargetImpact(target, targetKind, {ranged, strong:dmg >= 12});
     target.aggroUntil = tick + 180;
     if(target.animal) target.fleeUntil = tick + 80;
     addCombatEffect(target.x, target.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
@@ -4946,7 +5081,7 @@ function attackRemotePlayer(rp, opts={}){
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
 
-  if(!canAttackCombatTarget(rp, kind, ranged ? 0.35 : 0.95)){
+  if(!canAttackCombatTarget(rp, kind, ranged ? 0.12 : 0.16)){
     if(isManualAttack){
       startAutoAttackChase(rp, 'player');
       addCombatEffect(pos.x, pos.y, '접근', 'guard');
@@ -4981,6 +5116,7 @@ function attackRemotePlayer(rp, opts={}){
     const dmg = Math.max(1, Math.floor(baseDmg * tiredPenalty));
     damageDurability(player.weapon, ranged ? 0.16 : 0.24);
     rp.hp = Math.max(0, (rp.hp || rp.maxHp || 100) - dmg);
+    markTargetImpact(rp, kind, {ranged, strong:dmg >= 12});
     addCombatEffect(pos.x, pos.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
     addLog(`${rp.nick || '유저'}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.`, 'combat');
     gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.18 : 0.13);
@@ -5029,7 +5165,7 @@ function attackNpc(npc, opts={}){
   const weapon = equippedWeaponDef();
   const ranged = isRangedWeapon();
 
-  if(!canAttackCombatTarget(npc, kind, ranged ? 0.55 : 1.05)){
+  if(!canAttackCombatTarget(npc, kind, ranged ? 0.12 : 0.18)){
     if(isManualAttack){
       startAutoAttackChase(npc, 'npc');
       addCombatEffect(npc.x, npc.y, '접근', 'guard');
@@ -5077,6 +5213,7 @@ function attackNpc(npc, opts={}){
 
   damageDurability(player.weapon, ranged ? 0.18 : 0.45);
   npc.hp = Math.max(0, (npc.hp||npc.maxHp||50) - dmg);
+  markTargetImpact(npc, kind, {ranged, strong:dmg >= 12});
   addCombatEffect(npc.x, npc.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
   addLog(`${npc.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해를 줌.${tiredManual ? ' 지친 공격.' : ''}`, 'combat');
   gainSkill(ranged ? 'archery' : 'sword',0.14);
@@ -10690,7 +10827,20 @@ function drawMobSprite(m, x, y){
   ellipse(x+16, y+28, shadowW, 3.5 + (m.boss?1:0));
   const sprite = getMobSprite(m.type, m.color, frame, !!m.boss);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sprite, Math.floor(x), Math.floor(y + bob), TILE, TILE);
+  let nx = 0, ny = 0;
+  if((m.hitNudgeUntil || 0) > tick){
+    const k = ((m.hitNudgeUntil || 0) - tick) / 8;
+    nx = (m.hitNudgeX || 0) * TILE * k;
+    ny = (m.hitNudgeY || 0) * TILE * k;
+  }
+  ctx.save();
+  ctx.drawImage(sprite, Math.floor(x + nx), Math.floor(y + bob + ny), TILE, TILE);
+  if((m.hitFlashUntil || 0) > tick){
+    ctx.globalAlpha = 0.72;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(sprite, Math.floor(x + nx), Math.floor(y + bob + ny), TILE, TILE);
+  }
+  ctx.restore();
 }
 
 
@@ -10730,8 +10880,13 @@ function draw(){
 
   const worldPxW = W * TILE;
   const worldPxH = H * TILE;
-  const camPxX = clamp(player.x * TILE + TILE/2 - vw/2, 0, Math.max(0, worldPxW - vw));
-  const camPxY = clamp(player.y * TILE + TILE/2 - vh/2, 0, Math.max(0, worldPxH - vh));
+  let camPxX = clamp(player.x * TILE + TILE/2 - vw/2, 0, Math.max(0, worldPxW - vw));
+  let camPxY = clamp(player.y * TILE + TILE/2 - vh/2, 0, Math.max(0, worldPxH - vh));
+  if(screenShake.time > 0 && screenShake.power > 0){
+    const shake = screenShake.power * (screenShake.time / 0.16);
+    camPxX = clamp(camPxX + (Math.random()*2-1)*shake, 0, Math.max(0, worldPxW - vw));
+    camPxY = clamp(camPxY + (Math.random()*2-1)*shake, 0, Math.max(0, worldPxH - vh));
+  }
   const startX = Math.floor(camPxX / TILE);
   const startY = Math.floor(camPxY / TILE);
   const endX = Math.min(W - 1, Math.ceil((camPxX + vw) / TILE));
@@ -10969,6 +11124,11 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'몬스터 배치·무기 사거리·타격감 재정리', items:[
+    '시작 마을 주변 외곽에도 전투 몬스터가 보이도록 근처 스폰 보정 로직을 추가했다.',
+    '근접 무기의 실제 명중 판정을 상태창 사거리 기준으로 맞추고 과한 추가 보정값을 제거했다.',
+    '공격 시 베기 궤적, 피격 링, 스파크, 몬스터 피격 흔들림, 화면 흔들림을 추가했다.'
+  ]},
   {version:'현재', title:'아날로그 이동 중 공격 입력 개선', items:[
     '아날로그 패드를 누른 상태에서도 공격 버튼 입력이 즉시 들어가도록 pointer/touch 입력을 직접 처리한다.',
     '공격 버튼을 누르고 있는 동안 주변 대상 또는 추격 대상에게 쿨타임에 맞춰 공격을 반복한다.',
@@ -11629,7 +11789,7 @@ function autoAttackChaseStep(dt, opts={}){
 
   facePlayerToTarget(target, kind);
   // 이동 중 공격을 위해 자동 공격 판정도 넉넉하게 잡는다.
-  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.55 : 1.05)){
+  if(canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.12 : 0.18)){
     if(tick >= (player.attackReadyTick || 0)){
       autoAttackChase.attackTick = tick;
       if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
@@ -11647,7 +11807,7 @@ function autoAttackChaseStep(dt, opts={}){
   const len = d || 1;
   player.dir = [dx/len, dy/len];
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.35) * (dt/1000));
-  if(!moved && canAttackCombatTarget(target, kind, 1.05) && tick >= (player.attackReadyTick || 0)){
+  if(!moved && canAttackCombatTarget(target, kind, isRangedWeapon() ? 0.12 : 0.18) && tick >= (player.attackReadyTick || 0)){
     autoAttackChase.attackTick = tick;
     if(kind === 'npc') attackNpc(target, {manual:true, auto:true});
     else if(kind === 'player') attackRemotePlayer(target, {manual:true, auto:true});
@@ -11661,31 +11821,23 @@ function attackPress(ev=null){
   if(ev){
     try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
   }
-  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  const eventType = ev?.type || '';
-  const clickFallback = eventType === 'click';
-
-  if(eventType === 'pointerdown'){
+  const now = (performance && performance.now) ? performance.now() : Date.now();
+  if(ev && ev.type === 'pointerdown'){
     manualAttackInput.active = true;
     manualAttackInput.pointerId = ev.pointerId ?? null;
-  }else if(eventType === 'touchstart'){
+  }else if(ev && ev.type === 'touchstart'){
     manualAttackInput.active = true;
     manualAttackInput.pointerId = null;
-  }else if(!clickFallback){
+  }else{
     manualAttackInput.active = true;
   }
 
   // iOS/Android multi-touch can fire touchstart, pointerdown, and click for the same press.
   // Keep one real attack input and ignore duplicated synthetic events.
-  const duplicateWindow = clickFallback ? 420 : 90;
-  if(now - (manualAttackInput.lastInputAt || 0) < duplicateWindow) return false;
+  if(now - (manualAttackInput.lastInputAt || 0) < 90) return false;
   manualAttackInput.lastInputAt = now;
   manualAttackInput.nextRepeatTick = tick + Math.max(2, Math.floor((playerAttackSpeed ? playerAttackSpeed() : 8) * 0.55));
   attack();
-  if(clickFallback){
-    manualAttackInput.active = false;
-    manualAttackInput.pointerId = null;
-  }
   return false;
 }
 
@@ -12125,6 +12277,7 @@ addLog('상단 정보 정렬과 아날로그 패드 중심/경계선 맞춤을 �
 addLog('채팅 말풍선, 계정 메뉴, 넓어진 월드, 던전, 추가 몬스터/아이템/물고기 종류가 적용되었습니다.');
 loadGame(false);
 ensureWorldSize();
+spawnMobs();
 setupAnalogPad();
 setupCanvasGestures();
 resize();
