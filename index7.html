@@ -2890,7 +2890,7 @@ header.topbar,
     <div class="actions">
       <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
       <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">살펴보기</button>
-      <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="attack()">공격</button>
+      <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
     </div>
   </div>
 
@@ -2941,6 +2941,7 @@ let lastFrame = 0;
 let lastCanvasTap = {time:0, npc:null};
 let canvasHoldTimer = null;
 const analog = {x:0, y:0, active:false, pointerId:null};
+const manualAttackInput = {active:false, pointerId:null, lastInputAt:0, nextRepeatTick:0};
 const keysDown = new Set();
 
 const itemDefs = {
@@ -10968,6 +10969,11 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'아날로그 이동 중 공격 입력 개선', items:[
+    '아날로그 패드를 누른 상태에서도 공격 버튼 입력이 즉시 들어가도록 pointer/touch 입력을 직접 처리한다.',
+    '공격 버튼을 누르고 있는 동안 주변 대상 또는 추격 대상에게 쿨타임에 맞춰 공격을 반복한다.',
+    '멀티터치 방지 로직이 패드+공격 조합을 막지 않도록 하단 조작 영역은 예외 처리했다.'
+  ]},
   {version:'현재', title:'타겟팅 삭제·근처 액션 자동화·쿨타임 음영 개선', items:[
     '월드 오브젝트를 눌러 고정하는 타겟팅 시스템을 제거하고, 근처 감지 기반 액션 버튼 방식으로 정리했다.',
     'NPC 근처에 가면 액션 버튼이 자동으로 대화로 바뀌며, 버튼을 누르면 바로 대화 메뉴가 열린다.',
@@ -11650,6 +11656,65 @@ function autoAttackChaseStep(dt, opts={}){
   return true;
 }
 
+
+function attackPress(ev=null){
+  if(ev){
+    try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
+  }
+  const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const eventType = ev?.type || '';
+  const clickFallback = eventType === 'click';
+
+  if(eventType === 'pointerdown'){
+    manualAttackInput.active = true;
+    manualAttackInput.pointerId = ev.pointerId ?? null;
+  }else if(eventType === 'touchstart'){
+    manualAttackInput.active = true;
+    manualAttackInput.pointerId = null;
+  }else if(!clickFallback){
+    manualAttackInput.active = true;
+  }
+
+  // iOS/Android multi-touch can fire touchstart, pointerdown, and click for the same press.
+  // Keep one real attack input and ignore duplicated synthetic events.
+  const duplicateWindow = clickFallback ? 420 : 90;
+  if(now - (manualAttackInput.lastInputAt || 0) < duplicateWindow) return false;
+  manualAttackInput.lastInputAt = now;
+  manualAttackInput.nextRepeatTick = tick + Math.max(2, Math.floor((playerAttackSpeed ? playerAttackSpeed() : 8) * 0.55));
+  attack();
+  if(clickFallback){
+    manualAttackInput.active = false;
+    manualAttackInput.pointerId = null;
+  }
+  return false;
+}
+
+function releaseAttackPress(ev=null){
+  if(ev){
+    try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
+    if(ev.type === 'pointerup' || ev.type === 'pointercancel'){
+      if(manualAttackInput.pointerId !== null && ev.pointerId !== manualAttackInput.pointerId) return false;
+    }
+  }
+  manualAttackInput.active = false;
+  manualAttackInput.pointerId = null;
+  return false;
+}
+
+function processHeldAttackInput(){
+  if(!manualAttackInput.active) return;
+  if(tick < (manualAttackInput.nextRepeatTick || 0)) return;
+
+  // While the analog pad is held, do not wait for a normal click.
+  // If a chase target exists, keep its attack cadence. Otherwise, swing only when a valid target is nearby.
+  if(autoAttackChase?.ref || pickManualAttackTarget()){
+    manualAttackInput.nextRepeatTick = tick + Math.max(2, Math.floor((playerAttackSpeed ? playerAttackSpeed() : 8) * 0.55));
+    attack();
+  }else{
+    manualAttackInput.nextRepeatTick = tick + 4;
+  }
+}
+
 function processMovement(dt){
   // 자원/상자/NPC 자동 행동은 기존처럼 이동을 선점한다.
   if(autoActionChaseStep(dt)) return;
@@ -11674,6 +11739,8 @@ function processMovement(dt){
   if(autoAttackChase?.ref){
     autoAttackChaseStep(dt, {allowMove:!manualMove});
   }
+
+  processHeldAttackInput();
 }
 
 
@@ -11964,16 +12031,26 @@ document.querySelectorAll('button').forEach(btn=>{
   btn.addEventListener('pointerdown', e=>{ e.preventDefault(); btn.blur(); }, {passive:false});
   btn.addEventListener('pointerup', ()=>btn.blur());
 });
+const attackButtonEl = document.getElementById('attackBtn');
+if(attackButtonEl){
+  attackButtonEl.addEventListener('pointerdown', attackPress, {passive:false});
+  attackButtonEl.addEventListener('touchstart', attackPress, {passive:false});
+  attackButtonEl.addEventListener('pointerup', releaseAttackPress, {passive:false});
+  attackButtonEl.addEventListener('pointercancel', releaseAttackPress, {passive:false});
+  attackButtonEl.addEventListener('touchend', releaseAttackPress, {passive:false});
+  attackButtonEl.addEventListener('touchcancel', releaseAttackPress, {passive:false});
+}
 ['gesturestart','gesturechange','gestureend','dblclick','contextmenu','selectstart','dragstart'].forEach(type=>{
   document.addEventListener(type, e=>e.preventDefault(), {passive:false});
 });
 
 let lastTouch=0;
 document.addEventListener('touchstart', e=>{
-  if(e.touches && e.touches.length > 1) e.preventDefault();
+  const controlTouch = e.target && e.target.closest && (e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions'));
+  if(e.touches && e.touches.length > 1 && !controlTouch) e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchmove', e=>{
-  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log') || e.target.closest('#analogPad') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
+  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log') || e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
   e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchend', e=>{
