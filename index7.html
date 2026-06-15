@@ -2096,6 +2096,67 @@
 .onlineUserLoc{font-size:12px; color:#9fd0ff; text-align:right;}
 .onlineUserState{font-size:11px; color:#81d36c; text-align:right;}
 
+
+/* ==== final HUD/log opacity and online badge restore ==== */
+:root{ --hudStableAlpha:.64; --hudStableBorder:rgba(215,180,90,.30); }
+.topbar,
+header.topbar,
+#topbar{
+  background:rgba(5,8,4,var(--hudStableAlpha)) !important;
+  background-color:rgba(5,8,4,var(--hudStableAlpha)) !important;
+  background-image:none !important;
+  border-bottom:1px solid var(--hudStableBorder) !important;
+  box-shadow:0 8px 18px rgba(0,0,0,.18) !important;
+  backdrop-filter:blur(3px) !important;
+  -webkit-backdrop-filter:blur(3px) !important;
+}
+.log,
+#log{
+  background:rgba(5,8,4,var(--hudStableAlpha)) !important;
+  background-color:rgba(5,8,4,var(--hudStableAlpha)) !important;
+  background-image:none !important;
+  border-top:1px solid var(--hudStableBorder) !important;
+  box-shadow:0 -8px 18px rgba(0,0,0,.18) !important;
+  backdrop-filter:blur(3px) !important;
+  -webkit-backdrop-filter:blur(3px) !important;
+}
+.topbar .brand,
+.topbar #charInfo,
+.topbar .stats,
+.topbar .gold,
+.topbar .topQuick{
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.topbar .onlineBadge,
+.onlineBadge#onlineBadge{
+  grid-column:1 !important;
+  grid-row:2 !important;
+  justify-self:start !important;
+  align-self:center !important;
+  min-width:46px !important;
+  max-width:100% !important;
+  min-height:auto !important;
+  padding:3px 5px !important;
+  border:1px solid rgba(116,169,216,.42) !important;
+  border-radius:7px !important;
+  background:rgba(5,8,4,.28) !important;
+  background-image:none !important;
+  color:#cfe5ff !important;
+  font:inherit !important;
+  font-size:9px !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+  pointer-events:auto !important;
+  text-align:left !important;
+}
+.topbar .onlineBadge:active,
+.onlineBadge#onlineBadge:active{
+  filter:brightness(1.18) !important;
+}
+
 </style>
 
 
@@ -2346,11 +2407,6 @@
         <div class="notice">온라인 유저를 초대해 파티를 만든다. 파티원은 지도 위에 표시되고, 근처에서 처치한 몬스터의 골드/경험치를 나눠 받는다. 채팅 입력창에서 <b>/p 내용</b>을 쓰면 파티 채팅.</div>
         <div id="partyPanel"></div>
       </div>
-    </section>
-
-    <section class="pop" id="popOnlineList">
-      <div class="popHead"><b>접속자</b><button onclick="closePop()">닫기</button></div>
-      <div class="popBody" id="onlineListBody"></div>
     </section>
 
     <section class="pop" id="popStatus">
@@ -8427,7 +8483,7 @@ function onlineListRows(){
     const pos = remoteRenderPosition(rp);
     rows.push({...rp, x:pos.x, y:pos.y, me:false});
   }
-  return rows.sort((a,b)=> (a.me===b.me ? String(a.nick||'').localeCompare(String(b.nick||'')) : (a.me ? -1 : 1)) );
+  return rows.sort((a,b)=> (b.me?0:1) - (a.me?0:1) || String(a.nick||'').localeCompare(String(b.nick||'')) );
 }
 function renderOnlineList(){
   const body = document.getElementById('onlineListBody');
@@ -8477,39 +8533,57 @@ function onlinePayload(){
   };
 }
 
+function remotePayloadStamp(payload){
+  const raw = payload?.ts ?? payload?.last_seen ?? payload?.lastSeen ?? 0;
+  if(typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  const parsed = Date.parse(raw || '');
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
 function smoothRemotePayload(old, payload){
   const now = performance.now ? performance.now() : Date.now();
+  const stamp = remotePayloadStamp(payload);
+  const oldStamp = Number(old?.netStamp || old?.ts || 0);
+
+  // DB fallback/presence sync가 더 오래된 좌표를 보내면, 화면 위치를 뒤로 끌고 가지 않는다.
+  if(old && oldStamp && stamp + 350 < oldStamp){
+    return {...old, ts:Math.max(Number(old.ts||0), stamp), staleIgnored:true};
+  }
+
   const next = {...(old||{}), ...(payload||{})};
   const targetX = Number(payload?.x ?? next.targetX ?? next.x ?? 0);
   const targetY = Number(payload?.y ?? next.targetY ?? next.y ?? 0);
   const oldTargetX = Number(old?.targetX ?? old?.x ?? targetX);
   const oldTargetY = Number(old?.targetY ?? old?.y ?? targetY);
   const prevUpdate = Number(old?.lastRemoteUpdate || now);
-  const dt = Math.max(0.016, Math.min(0.45, (now - prevUpdate) / 1000));
+  const dt = Math.max(0.016, Math.min(0.50, (now - prevUpdate) / 1000));
 
-  next.velocityX = (targetX - oldTargetX) / dt;
-  next.velocityY = (targetY - oldTargetY) / dt;
-  if(!Number.isFinite(next.velocityX)) next.velocityX = 0;
-  if(!Number.isFinite(next.velocityY)) next.velocityY = 0;
+  let vx = (targetX - oldTargetX) / dt;
+  let vy = (targetY - oldTargetY) / dt;
+  if(!Number.isFinite(vx)) vx = 0;
+  if(!Number.isFinite(vy)) vy = 0;
+  // 비정상 좌표 튐은 예측값에 쓰지 않는다.
+  vx = clamp(vx, -9, 9);
+  vy = clamp(vy, -9, 9);
 
-  if(!Number.isFinite(next.displayX)) next.displayX = Number(old?.displayX ?? oldTargetX ?? targetX);
-  if(!Number.isFinite(next.displayY)) next.displayY = Number(old?.displayY ?? oldTargetY ?? targetY);
-
-  // 너무 먼 위치 갱신은 순간이동으로 간주해 즉시 보정한다.
-  if(Math.hypot(next.displayX - targetX, next.displayY - targetY) > 10){
+  const firstSeen = !old || !Number.isFinite(Number(old.displayX)) || !Number.isFinite(Number(old.displayY));
+  if(firstSeen){
     next.displayX = targetX;
     next.displayY = targetY;
-    next.velocityX = 0;
-    next.velocityY = 0;
+  }else{
+    next.displayX = Number(old.displayX);
+    next.displayY = Number(old.displayY);
   }
 
   next.x = targetX;
   next.y = targetY;
   next.targetX = targetX;
   next.targetY = targetY;
+  next.velocityX = vx;
+  next.velocityY = vy;
+  next.netStamp = stamp;
   next.lastRemoteUpdate = now;
   next.lastRenderUpdate = Number(old?.lastRenderUpdate || now);
-  next.ts = payload?.ts || Date.now();
+  next.ts = stamp || Date.now();
   return next;
 }
 function remoteRenderPosition(rp){
@@ -8519,24 +8593,27 @@ function remoteRenderPosition(rp){
   if(!Number.isFinite(rp.displayX)) rp.displayX = tx;
   if(!Number.isFinite(rp.displayY)) rp.displayY = ty;
 
-  const sinceUpdate = Math.max(0, Math.min(0.20, (now - Number(rp.lastRemoteUpdate || now)) / 1000));
-  const vx = Number(rp.velocityX || 0);
-  const vy = Number(rp.velocityY || 0);
-  const predictedX = tx + clamp(vx * sinceUpdate * 0.55, -0.75, 0.75);
-  const predictedY = ty + clamp(vy * sinceUpdate * 0.55, -0.75, 0.75);
-
   const dt = Math.max(0.008, Math.min(0.05, (now - Number(rp.lastRenderUpdate || now)) / 1000));
   rp.lastRenderUpdate = now;
-  const gap = Math.hypot(rp.displayX - predictedX, rp.displayY - predictedY);
-  if(gap > 8){
+
+  // 아주 약한 예측만 사용한다. 과한 예측은 순간이동처럼 보일 수 있다.
+  const sinceUpdate = Math.max(0, Math.min(0.10, (now - Number(rp.lastRemoteUpdate || now)) / 1000));
+  const predictedX = tx + clamp(Number(rp.velocityX || 0) * sinceUpdate * 0.18, -0.18, 0.18);
+  const predictedY = ty + clamp(Number(rp.velocityY || 0) * sinceUpdate * 0.18, -0.18, 0.18);
+
+  const dx = predictedX - rp.displayX;
+  const dy = predictedY - rp.displayY;
+  const gap = Math.hypot(dx, dy);
+
+  // 실제 텔레포트/지역 이동 수준만 즉시 보정한다. 일반 이동은 절대 즉시 점프하지 않는다.
+  if(gap > 45){
     rp.displayX = predictedX;
     rp.displayY = predictedY;
-  }else{
-    // requestAnimationFrame마다 목표 좌표를 따라간다. 작은 차이는 빠르게, 큰 차이는 부드럽게 보정.
-    const response = gap > 1.0 ? 20 : 14;
-    const alpha = Math.max(0.08, Math.min(0.55, 1 - Math.exp(-response * dt)));
-    rp.displayX += (predictedX - rp.displayX) * alpha;
-    rp.displayY += (predictedY - rp.displayY) * alpha;
+  }else if(gap > 0.0001){
+    const speed = gap > 6 ? 16 : gap > 2 ? 10 : gap > 0.7 ? 7 : 4.8;
+    const step = Math.min(gap, Math.max(0.015, speed * dt));
+    rp.displayX += dx / gap * step;
+    rp.displayY += dy / gap * step;
   }
   return {x:rp.displayX, y:rp.displayY};
 }
@@ -9152,7 +9229,11 @@ async function refreshPresenceFallback(force=false){
       ts: Date.parse(row.last_seen || '') || Date.now(),
       fallback:true
     };
-    remotePlayers[id] = smoothRemotePayload(remotePlayers[id], payload);
+    const current = remotePlayers[id];
+    if(current && !current.fallback && Number(current.netStamp || current.ts || 0) > payload.ts + 300){
+      continue;
+    }
+    remotePlayers[id] = smoothRemotePayload(current, payload);
   }
   updateOnlineBadge();
   if(document.getElementById('popOnlineList')?.classList.contains('open')) renderOnlineList();
