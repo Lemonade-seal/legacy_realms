@@ -2099,39 +2099,6 @@
 .craftCard.mythic{border-color:rgba(244,114,182,.36)}
 
 
-
-/* ==== quick slot / user tap popup ==== */
-.quickSlotBar{grid-template-columns:repeat(6,minmax(28px,1fr)) !important; width:min(276px,56vw) !important; gap:3px !important;}
-.quickSlotBtn{--btnH:26px; min-height:26px !important; padding:0 2px !important; font-size:9px !important; line-height:1.02 !important; white-space:pre-line !important; border-radius:6px !important;}
-.quickSlotBtn.empty{opacity:.72; color:#d9d0ad;}
-.quickSlotBtn.assigned{color:#ffdf79; border-color:rgba(255,223,121,.58);}
-.mainActionBar{grid-template-columns:repeat(3,minmax(0,1fr)) !important; grid-template-rows:var(--btnH) !important; height:var(--btnH) !important; align-self:end;}
-.mainActionBar button{min-height:var(--btnH) !important;}
-.quickSlotPicker,.remoteUserPopup{position:fixed; z-index:10070; left:50%; bottom:calc(118px + env(safe-area-inset-bottom)); transform:translateX(-50%); display:none; width:min(360px,calc(100vw - 14px)); max-height:min(430px,calc(100dvh - 120px)); overflow:hidden; border:1px solid rgba(215,180,90,.44); border-radius:12px; background:rgba(11,15,9,.90); box-shadow:0 12px 34px rgba(0,0,0,.55); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);}
-.quickSlotPicker.open,.remoteUserPopup.open{display:block;}
-.quickSlotPickerHead,.remoteUserHead{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(215,180,90,.24); background:rgba(31,39,25,.36);}
-.quickSlotPickerHead b,.remoteUserHead b{color:#ffdc82; font-size:13px;}
-.quickSlotPickerHead button,.remoteUserHead button{--btnH:24px; min-height:24px; width:30px; padding:0; font-size:11px;}
-.quickSlotPickerBody,.remoteUserBody{padding:8px; overflow:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; max-height:min(380px,calc(100dvh - 174px));}
-.quickSlotSectionTitle{margin:8px 0 5px; color:#d9d0ad; font-size:10px; font-weight:900;}
-.quickSlotChoiceGrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px;}
-.quickSlotChoiceGrid button{--btnH:30px; min-height:30px; padding:0 4px; font-size:10px; border-radius:7px;}
-.quickSlotHint{font-size:10px; line-height:1.35; color:#cfc6a5; margin-bottom:6px;}
-.remoteUserInfo{border:1px solid rgba(215,180,90,.22); border-radius:9px; background:rgba(8,12,7,.22); padding:8px; font-size:11px; line-height:1.35; color:#d9d0ad; margin-bottom:8px;}
-.remoteUserActionsLine{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px;}
-.remoteUserActionsLine button{--btnH:34px; min-height:34px; font-size:11px;}
-@media(max-width:560px){.quickSlotBar{width:min(236px,58vw) !important; gap:2px !important;} .quickSlotBtn{--btnH:22px; min-height:22px !important; font-size:8.2px !important;} .mainActionBar{grid-template-columns:repeat(3,minmax(0,1fr)) !important;} .quickSlotPicker,.remoteUserPopup{bottom:calc(104px + env(safe-area-inset-bottom));} .quickSlotChoiceGrid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-
-
-/* ==== action-zone quick slot layout override ==== */
-.toolbar{grid-template-columns:var(--controlH) minmax(214px, 58vw) !important;}
-.mainActionBar{grid-column:2; display:grid !important; grid-template-columns:1fr !important; grid-template-rows:minmax(22px,.72fr) var(--btnH) !important; gap:4px !important; height:var(--controlH) !important; align-content:stretch !important;}
-.quickSlotRow{display:grid !important; grid-template-columns:repeat(6,minmax(0,1fr)) !important; width:100% !important; gap:3px !important; align-self:stretch !important;}
-.quickSlotRow .quickSlotBtn{min-height:100% !important; height:100% !important;}
-.mainActionRow{display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:4px !important;}
-.mainActionRow button{min-height:var(--btnH) !important; height:var(--btnH) !important;}
-@media(max-width:560px){.toolbar{grid-template-columns:var(--controlH) minmax(198px, 62vw) !important;} .quickSlotRow{gap:2px !important;} .quickSlotBtn{font-size:7.8px !important;}}
-
 /* ==== online list popup ==== */
 .onlineBadge{
   cursor:pointer;
@@ -2451,6 +2418,44 @@ header.topbar,
   .topbar{grid-template-columns:minmax(104px, 118px) minmax(0,1fr) minmax(104px, auto) !important;}
 }
 
+
+/* ==== storage and fixed single-line top HUD ==== */
+.storageDetail{margin-top:10px; display:grid; gap:8px;}
+.storagePanelGrid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.storageSlotGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(58px,1fr)); gap:6px; align-content:start;}
+.storageSlot{min-height:62px; border:1px solid #4b5535; border-radius:8px; background:rgba(16,20,14,.48); padding:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; touch-action:manipulation;}
+.storageSlot:active{filter:brightness(1.16);}
+.storageSlot.empty{opacity:.32;}
+.storageSlot .itemName{font-size:9px; line-height:1.05; text-align:center; max-width:100%; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.storageSlot .itemMeta{position:absolute; right:3px; bottom:2px; font-size:9px; background:rgba(0,0,0,.58); color:#f0d47b; border-radius:4px; padding:0 3px;}
+.storageLockState{display:inline-flex; align-items:center; gap:4px; border:1px solid rgba(215,180,90,.35); border-radius:999px; padding:2px 7px; font-size:10px; color:#e9dca9; background:rgba(8,12,7,.28);}
+.storageLockState.locked{border-color:rgba(143,209,106,.52); color:#bff0a9;}
+.storageLockState.unlocked{border-color:rgba(216,107,95,.60); color:#ffaaa0;}
+.topbar .gold.statusGoldLine,
+.gold.statusGoldLine{
+  grid-column:2 !important;
+  grid-row:2 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:5px !important;
+  flex-wrap:nowrap !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  font-size:10px !important;
+  line-height:1 !important;
+}
+.gold.statusGoldLine span{display:inline-flex; align-items:center; gap:3px; flex:0 0 auto; min-width:0;}
+.topbar .topQuick{grid-column:3 !important; grid-row:2 !important; align-self:center !important;}
+@media(max-width:560px){
+  .storagePanelGrid{grid-template-columns:1fr;}
+  .topbar .gold.statusGoldLine,.gold.statusGoldLine{font-size:8.5px !important; gap:3px !important; max-width:calc(100vw - 218px) !important;}
+  .gold.statusGoldLine .pixelStatusBadge{gap:2px;}
+}
+
 /* ==== character enter gate and update page ==== */
 #loginPage.characterReadyMode #loginStartBtn,
 #loginPage.characterReadyMode #nicknameInput,
@@ -2648,8 +2653,6 @@ header.topbar,
       </div>
     </section>
     <div id="invDetailPopup" class="invDetailPopup"></div>
-    <div id="quickSlotPicker" class="quickSlotPicker" aria-hidden="true"></div>
-    <div id="remoteUserPopup" class="remoteUserPopup" aria-hidden="true"></div>
 
     <section class="pop" id="popSkills">
       <div class="popHead"><b>스킬</b><button onclick="closePop()">닫기</button></div>
@@ -2721,6 +2724,15 @@ header.topbar,
       </div>
     </section>
 
+    <section class="pop" id="popStorage">
+      <div class="popHead"><b>창고</b><button onclick="closePop(); closeInventoryItemPopup()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">마을 창고는 30칸입니다. 내 창고는 바로 이용하고, 다른 유저 창고는 훔쳐보기로 확인합니다. 자물쇠가 없으면 창고 아이템을 도둑맞을 수 있습니다.</div>
+        <div id="storageUserList" class="wideList"></div>
+        <div id="storageDetail" class="storageDetail"></div>
+      </div>
+    </section>
+
     <section class="pop" id="popNpc">
       <div class="popHead"><b id="npcTitle">NPC</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
@@ -2773,6 +2785,7 @@ header.topbar,
           <button onclick="openPop('popSkills')">스킬</button>
           <button onclick="openPop('popCraft')">제작</button>
           <button onclick="openPop('popBank')">은행</button>
+          <button onclick="openPop('popStorage')">창고</button>
           <button onclick="openQuestFromMenu()">의뢰</button>
           <button onclick="openPop('popParty')">파티</button>
           <button onclick="openMessagesPopup()">쪽지</button>
@@ -2843,7 +2856,7 @@ header.topbar,
     </section>
 
     <section class="pop" id="popShop">
-      <div class="popHead"><b id="shopTitle">거래</b><button onclick="closePop()">닫기</button></div>
+      <div class="popHead"><b id="shopTitle">훔쳐보기</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
         <div class="tradeWrap">
           <div class="tradePanel">
@@ -2922,20 +2935,10 @@ header.topbar,
       <div class="analogBase"></div>
       <div class="analogKnob" id="analogKnob"></div>
     </div>
-    <div class="actions mainActionBar" aria-label="퀵슬롯과 하단 액션 버튼">
-      <div class="quickSlotBar quickSlotRow" id="quickSlotBar" aria-label="퀵슬롯 1번부터 6번">
-        <button id="quickSlot1" class="quickSlotBtn" data-slot="1" onclick="return quickSlotPress(1,event)">1</button>
-        <button id="quickSlot2" class="quickSlotBtn" data-slot="2" onclick="return quickSlotPress(2,event)">2</button>
-        <button id="quickSlot3" class="quickSlotBtn" data-slot="3" onclick="return quickSlotPress(3,event)">3</button>
-        <button id="quickSlot4" class="quickSlotBtn" data-slot="4" onclick="return quickSlotPress(4,event)">4</button>
-        <button id="quickSlot5" class="quickSlotBtn" data-slot="5" onclick="return quickSlotPress(5,event)">5</button>
-        <button id="quickSlot6" class="quickSlotBtn" data-slot="6" onclick="return quickSlotPress(6,event)">6</button>
-      </div>
-      <div class="mainActionRow">
-        <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
-        <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
-        <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">액션</button>
-      </div>
+    <div class="actions">
+      <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
+      <button id="useBtn" class="compactBtn cooldownShadeBtn" onclick="smartUse()">살펴보기</button>
+      <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="return attackPress(event)">공격</button>
     </div>
   </div>
 
@@ -3053,13 +3056,14 @@ Object.assign(itemDefs, {
   silverFishingRod:{name:'은장 낚싯대', type:'tool', grade:'레어', price:210, rod:{distance:2.75,power:1.28,luck:0.10}, desc:'레어 낚싯대. 거리 2.75칸, 파워 1.28, 행운 +10%.'},
   epicFishingRod:{name:'폭풍 낚싯대', type:'tool', grade:'에픽', price:420, rod:{distance:3.05,power:1.45,luck:0.15}, desc:'에픽 낚싯대. 거리 3.05칸, 파워 1.45, 행운 +15%.'},
   legendaryFishingRod:{name:'용비늘 낚싯대', type:'tool', grade:'전설', price:850, rod:{distance:3.45,power:1.72,luck:0.22}, desc:'전설 낚싯대. 거리 3.45칸, 파워 1.72, 행운 +22%.'},
-  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'}
+  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'},
+  storageLock:{name:'자물쇠', type:'tool', grade:'일반', price:90, desc:'창고에 설치하면 다른 유저가 창고 아이템을 훔칠 수 없다.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
   manaPotion:17, healthPotion:17, oakLog:8, copperOre:7, silverOre:13,
   dungeonKey:16, batWing:12, slimeGel:10, ancientRelic:18,
-  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16, sturdyBackpack:21, adventurerBackpack:21, epicBackpack:21, legendaryBackpack:21, mythicBackpack:21, sturdyFishingRod:6, silverFishingRod:6, epicFishingRod:6, legendaryFishingRod:6, mythicFishingRod:6
+  steelSword:2, rangerBow:3, arrow:16, relicShard:18, boneCharm:18, frostOre:13, jailToken:16, storageLock:16, sturdyBackpack:21, adventurerBackpack:21, epicBackpack:21, legendaryBackpack:21, mythicBackpack:21, sturdyFishingRod:6, silverFishingRod:6, epicFishingRod:6, legendaryFishingRod:6, mythicFishingRod:6
 });
 
 
@@ -3144,6 +3148,7 @@ shopItems.push(
   {id:'cookedFish', price:18, stock:6, desc:'중간 회복 음식'},
   {id:'healthPotion', price:42, stock:6, desc:'체력 회복 물약'},
   {id:'manaPotion', price:34, stock:6, desc:'마나 회복 물약'},
+  {id:'storageLock', price:125, stock:2, desc:'창고 도난 방지용 자물쇠'},
   {id:'rangerBow', price:170, stock:1, desc:'원거리 사냥용 고급 활'},
   {id:'sturdyFishingRod', price:120, stock:1, desc:'고급 낚싯대'}
 );
@@ -3166,6 +3171,7 @@ recipes.push(
   {id:'bandage', name:'붕대', grade:'일반', skill:'healing', skillName:'회복', need:{herb:3, hide:1}, gold:6, min:10},
   {id:'cookedFish', name:'구운 생선', grade:'일반', skill:'fishing', skillName:'낚시', need:{fish:2, herb:1}, gold:4, min:10},
   {id:'backpack', name:'여행 가방', grade:'일반', skill:'carpentry', skillName:'목공', need:{log:8, hide:6}, gold:16, min:18},
+  {id:'storageLock', name:'자물쇠', grade:'일반', skill:'blacksmith', skillName:'대장기술', need:{ore:5, log:1}, gold:12, min:16},
   {id:'healthPotion', name:'체력 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:5, slimeGel:2}, gold:12, min:22},
   {id:'manaPotion', name:'마나 물약', grade:'고급', skill:'healing', skillName:'회복', need:{herb:3, batWing:1}, gold:10, min:18},
   {id:'sturdyBackpack', name:'튼튼한 가방', grade:'고급', skill:'carpentry', skillName:'목공', need:{backpack:1, oakLog:6, hide:4}, gold:28, min:26},
@@ -3389,7 +3395,7 @@ const player = {
     resistance:{name:'저항', v: 1.0}
   },
   inv: {rustySword:1, herb:2, arrow:10},
-  bank: {}, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
+  bank: {}, storage:{}, storageSlots:30, storageLocked:false, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
   shopStock: {},
   merchantStock: {},
   questKills: {},
@@ -3445,7 +3451,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     crimeRecord:{steals:0, arrests:0},
     skills:starterSkillSet(),
     inv:{rustySword:1, herb:2},
-    bank:{}, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
+    bank:{}, storage:{}, storageSlots:30, storageLocked:false, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
     shopStock:{},
     merchantStock:{},
     questKills:{},
@@ -3462,6 +3468,7 @@ const npcs = [
   {x:33,y:22,homeX:33,homeY:22,name:'대장장이 로간', role:'대장장이', hp:85, maxHp:85, atk:5, loot:['ore','stolenPouch'], talk:'광석과 가죽으로 장비를 제작한다. [제작] 메뉴를 열어라.'},
   {x:27,y:24,homeX:27,homeY:24,name:'길드 서기', role:'안내', hp:60, maxHp:60, atk:2, loot:['stolenPouch'], talk:'이 게임은 직업보다 행동으로 성장한다. 하고 싶은 일을 계속 하면 된다.'},
   {x:31,y:24,homeX:31,homeY:24,name:'은행원 세라', role:'은행', hp:65, maxHp:65, atk:2, loot:['stolenRing','gold'], talk:'골드를 금액 지정으로 입금·출금하고 변동금리 이자를 받을 수 있다. [은행] 메뉴를 사용해라.'},
+  {x:29,y:23,homeX:29,homeY:23,name:'창고 관리인', role:'창고', hp:65, maxHp:65, atk:1, loot:['storageLock','silverCoin'], talk:'마을 공동 창고를 관리한다. 내 창고는 30칸이고 자물쇠가 없으면 도둑맞을 수 있다.'},
   {x:25,y:21,homeX:25,homeY:21,name:'의뢰 관리인', role:'의뢰', hp:75, maxHp:75, atk:3, loot:['stolenPouch'], talk:'길드 의뢰를 맡긴다. [의뢰하기]로 의뢰를 수락한 뒤에만 퀘스트가 활성화된다.'},
   {x:32,y:20,homeX:32,homeY:20,name:'잡화상 리나', role:'상점', hp:68, maxHp:68, atk:2, loot:['herb','fish','stolenPouch'], talk:'회복품과 기본 장비를 판다. [상점] 메뉴를 열어라.'},
   {x:23,y:23,homeX:23,homeY:23,name:'마을 경비병', role:'경비', guard:true, hp:120, maxHp:120, atk:13, loot:[], talk:'수배 중인 자는 즉시 제압한다.'},
@@ -3474,6 +3481,7 @@ const NPC_OUTFITS = {
   '대장장이': {cloth:'#6b4632', pants:'#2c2520', trim:'#9f6b43', hair:'#2a1a12', style:'apron'},
   '안내': {cloth:'#5c4b88', pants:'#2a2942', trim:'#d7b45a', hair:'#3b2416', style:'robe'},
   '은행': {cloth:'#2f6d75', pants:'#24313a', trim:'#d9d0ad', hair:'#5a3a1f', style:'formal'},
+  '창고': {cloth:'#52633a', pants:'#2f3323', trim:'#d7b45a', hair:'#4a2d18', style:'vest'},
   '의뢰': {cloth:'#7a6540', pants:'#342b20', trim:'#9fd0ff', hair:'#302018', style:'sash'},
   '상점': {cloth:'#8a4f6d', pants:'#302433', trim:'#ffd36a', hair:'#44240f', style:'dress'},
   '경비': {cloth:'#8d3434', pants:'#2d2b32', trim:'#c7c6b1', hair:'#1d1712', style:'guard'},
@@ -3486,7 +3494,6 @@ function npcVisualStyle(npc){
 
 let currentNpc = null;
 let activeTradeNpc = null;
-let activeTradeMode = 'trade';
 let merchantDrag = null;
 let dragGhost = null;
 let worldMinutes = 8 * 60;
@@ -4983,20 +4990,11 @@ function attack(target=null){
   closeMiniTrade();
 
   const isManualButtonAttack = !target;
-  let carriedAutoKind = null;
   if(isManualButtonAttack && autoAttackChase?.ref){
-    const chaseKind = autoAttackChase.kind || 'mob';
-    const chaseRef = autoAttackChase.ref;
-    const valid = chaseKind === 'npc' ? isNpcTargetValid(chaseRef) : chaseKind === 'player' ? isRemotePlayerTargetValid(chaseRef) : isMobTargetAlive(chaseRef);
-    if(valid && canAttackByPkMode(chaseKind, chaseRef)){
-      target = chaseRef;
-      carriedAutoKind = chaseKind;
-    }else{
-      stopAutoAttackChase();
-    }
+    stopAutoAttackChase();
   }
 
-  let targetKind = carriedAutoKind || 'mob';
+  let targetKind = 'mob';
   const isAutoChaseSwing = !!(target && autoAttackChase?.ref === target);
   const isManualAttack = isManualButtonAttack || isAutoChaseSwing;
 
@@ -5042,8 +5040,9 @@ function attack(target=null){
 
   if(!inRange){
     if(isManualAttack){
-      startAutoAttackChase(target, targetKind);
-      addCombatEffect(target.x, target.y, '접근', 'guard');
+      const pos = targetCombatPos(target, targetKind) || target;
+      addCombatEffect(pos.x, pos.y, '사거리 밖', 'miss');
+      toast('사거리 밖');
       draw();
     }
     return;
@@ -5129,8 +5128,8 @@ function attackRemotePlayer(rp, opts={}){
 
   if(!canAttackCombatTarget(rp, kind, ranged ? 0.12 : 0.16)){
     if(isManualAttack){
-      startAutoAttackChase(rp, 'player');
-      addCombatEffect(pos.x, pos.y, '접근', 'guard');
+      addCombatEffect(pos.x, pos.y, '사거리 밖', 'miss');
+      toast('사거리 밖');
       draw();
     }
     return;
@@ -5213,8 +5212,8 @@ function attackNpc(npc, opts={}){
 
   if(!canAttackCombatTarget(npc, kind, ranged ? 0.12 : 0.18)){
     if(isManualAttack){
-      startAutoAttackChase(npc, 'npc');
-      addCombatEffect(npc.x, npc.y, '접근', 'guard');
+      addCombatEffect(npc.x, npc.y, '사거리 밖', 'miss');
+      toast('사거리 밖');
       draw();
     }else if(tick % 12 === 0){
       toast('NPC가 너무 멀다');
@@ -5939,6 +5938,13 @@ function npcRoleActions(npc){
 
   if(role === '은행'){
     add('은행', "openPop('popBank'); closeMiniNpcMenu()");
+    add('창고', "openPop('popStorage'); closeMiniNpcMenu()");
+    add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
+    return actions;
+  }
+
+  if(role === '창고'){
+    add('창고', "openPop('popStorage'); closeMiniNpcMenu()");
     add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
     return actions;
   }
@@ -6034,7 +6040,6 @@ function renderMiniNpcMenu(npc){
 
 function openNpcBagFromMenu(){
   if(!currentNpc){ toast('NPC 없음'); return; }
-  activeTradeMode = 'peek';
   closeMiniNpcMenu();
   openMerchantTrade(currentNpc);
 }
@@ -6042,7 +6047,6 @@ function openNpcBagFromMenu(){
 function openNpcTradeFromMenu(){
   if(!currentNpc){ toast('NPC 없음'); return; }
   activeTradeNpc = currentNpc;
-  activeTradeMode = 'trade';
   closeMiniNpcMenu();
   openPop('popShop');
 }
@@ -6076,7 +6080,7 @@ function smartUse(){
     return;
   }
   if(ctx.type === 'player'){
-    openRemoteUserPopup(ctx.player);
+    openRemotePeekPopup(ctx.player?.id);
     return;
   }
   useTile();
@@ -6996,15 +7000,13 @@ function showMiniItemInfo(id, owner='', ev=null){
   }
   if(ev){
     const origin = owner === 'NPC 소지품' ? 'merchant' : owner === '내 가방' ? 'player' : 'inventory';
-    const mode = activeTradeMode === 'peek' ? 'peek' : 'trade';
-    showInventoryItemPopup(ev, id, {mode, origin});
+    showInventoryItemPopup(ev, id, {mode:'trade', origin});
   }
 }
 
 function showTradeItemPopup(ev, id, origin='merchant'){
   if(ev){ ev.preventDefault(); ev.stopPropagation(); }
-  const mode = activeTradeMode === 'peek' ? 'peek' : 'trade';
-  showInventoryItemPopup(ev, id, {mode, origin});
+  showInventoryItemPopup(ev, id, {mode:'trade', origin});
 }
 
 function merchantRowForItem(npc, id){
@@ -7154,6 +7156,7 @@ function merchantCatalog(npc){
       {id:'rustySword', price:18, stock:3, desc:'초보자용 검'},
       {id:'shortBow', price:42, stock:2, desc:'초보자용 활'},
       {id:'arrow', price:3, stock:99, desc:'활 공격 탄약'},
+      {id:'storageLock', price:125, stock:2, desc:'창고 도난 방지용 자물쇠'},
       {id:'fishingRod', price:52, stock:2, desc:'낚시 도구'},
       {id:'leatherArmor', price:96, stock:2, desc:'가죽 방어구'},
       {id:'log', price:6, stock:10, desc:'목재'},
@@ -7228,7 +7231,6 @@ function openMerchantTrade(npc){
   if(!npc || !isMerchantNpc(npc)){ openPop('popNpc'); return; }
   if(dist(npc, player) > 1.9){ toast('NPC가 너무 멀다'); return; }
   activeTradeNpc = npc;
-  activeTradeMode = 'peek';
   currentNpc = npc;
   addLog(`${npc.name} 가방을 살펴봄.`);
   closePop();
@@ -7418,9 +7420,7 @@ function renderMiniTrade(){
     const w = inventoryWeight();
     const max = maxCarryWeight();
     const cls = w > max * 0.9 ? 'weightBad' : 'weightGood';
-    info.innerHTML = activeTradeMode === 'peek'
-      ? `<b>${activeTradeNpc?.name || 'NPC'} 훔쳐보기</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템은 훔치기만 가능하다. 구매/판매 버튼은 표시하지 않는다.`
-      : `<b>${activeTradeNpc?.name || 'NPC'} 거래</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>상인 아이템은 구매/훔치기, 내 가방 아이템은 판매할 수 있다.`;
+    info.innerHTML = `<b>${activeTradeNpc?.name || 'NPC'} 가방</b><br>내 무게 <span class="${cls}">${w.toFixed(1)} / ${max}</span><br>NPC 아이템을 누르면 설명창에서 구매 또는 훔치기를 선택할 수 있다.`;
   }
 }
 
@@ -7448,7 +7448,6 @@ function renderShop(){
   const panelTitle = document.getElementById('merchantPanelTitle');
   if(!merchantGrid || !bagGrid) return;
 
-  activeTradeMode = 'trade';
   if(!activeTradeNpc){
     const near = npcs.filter(n=>isMerchantNpc(n) && dist(n,player)<=2.0).sort((a,b)=>dist(a,player)-dist(b,player))[0];
     if(near) activeTradeNpc = near;
@@ -7461,8 +7460,8 @@ function renderShop(){
   }
 
   const stock = ensureMerchantStock(activeTradeNpc);
-  if(title) title.textContent = `${activeTradeNpc.name} 거래`;
-  if(panelTitle) panelTitle.textContent = `거래 · ${activeTradeNpc.name}`;
+  if(title) title.textContent = `${activeTradeNpc.name} 보관함`;
+  if(panelTitle) panelTitle.textContent = `상인 · ${activeTradeNpc.name}`;
 
   merchantGrid.innerHTML = merchantCatalog(activeTradeNpc).map(row=>{
     const def = itemDefs[row.id] || {name:row.id, type:'기타'};
@@ -7648,6 +7647,203 @@ function renderBank(){
   }
 }
 
+
+function storageUsedSlots(obj=null){
+  const src = obj || player.storage || {};
+  return Object.keys(src).filter(id => (src[id]||0) > 0).length;
+}
+function storageCapacity(){ return 30; }
+function storageIsNearTown(){ return isTownArea(player.x, player.y) || npcs.some(n => n.role === '창고' && !n.down && dist(n, player) <= 3.2); }
+function storageRequireAccess(){
+  if(!storageIsNearTown()){
+    toast('마을 창고 근처에서만 이용 가능');
+    return false;
+  }
+  return true;
+}
+function installStorageLock(){
+  normalizePlayer();
+  if(player.storageLocked){ toast('이미 자물쇠 설치됨'); return; }
+  if(!player.inv.storageLock){ toast('자물쇠가 없음'); return; }
+  removeItem('storageLock', 1);
+  player.storageLocked = true;
+  addLog('창고에 자물쇠를 설치했다. 다른 유저가 창고를 훔칠 수 없다.', 'system');
+  toast('창고 잠금 완료');
+  renderStorageHub(); renderInventory(); updateHud(); draw();
+}
+function renderStorageHub(){
+  normalizePlayer();
+  const list = document.getElementById('storageUserList');
+  const detail = document.getElementById('storageDetail');
+  if(!list || !detail) return;
+  const lockText = player.storageLocked ? '<span class="storageLockState locked">자물쇠 설치됨</span>' : '<span class="storageLockState unlocked">자물쇠 없음 · 도난 위험</span>';
+  const selfCard = `<div class="card">
+    <h3>내 창고</h3>
+    <p>${lockText}</p>
+    <p>보관칸 ${storageUsedSlots()}/${storageCapacity()}</p>
+    <button class="primary" onclick="openOwnStorage()">이용하기</button>
+  </div>`;
+  const remotes = Object.values(remotePlayers || {}).filter(rp => rp.id && Date.now() - (rp.ts||0) <= 18000).sort((a,b)=>(a.nick||'').localeCompare(b.nick||''));
+  const remoteCards = remotes.map(rp=>{
+    const locked = !!rp.storageLocked;
+    const cnt = storageUsedSlots(rp.storage || {});
+    return `<div class="card">
+      <h3>${escapeHtml(rp.nick || '유저')} 창고</h3>
+      <p>Lv.${escapeHtml(rp.level || 1)} ${escapeHtml(rp.job || '방랑자')} · ${escapeHtml(regionNameAt(rp.x||0, rp.y||0))}</p>
+      <p>${locked ? '<span class="storageLockState locked">자물쇠 있음</span>' : '<span class="storageLockState unlocked">자물쇠 없음</span>'} · 보이는 물품 ${cnt}</p>
+      <button class="danger" onclick="openRemoteStoragePeek('${escapeAttr(rp.id)}')">훔쳐보기</button>
+    </div>`;
+  }).join('');
+  list.innerHTML = selfCard + (remoteCards || '<div class="card"><h3>타 유저 창고</h3><p>현재 보이는 접속 유저가 없습니다.</p></div>');
+  if(!detail.innerHTML.trim()) openOwnStorage(false);
+}
+function openOwnStorage(requireAccess=true){
+  if(requireAccess && !storageRequireAccess()) return;
+  renderOwnStorage();
+}
+function renderOwnStorage(){
+  normalizePlayer();
+  const detail = document.getElementById('storageDetail');
+  if(!detail) return;
+  const lockText = player.storageLocked ? '<span class="storageLockState locked">자물쇠 설치됨</span>' : '<span class="storageLockState unlocked">자물쇠 없음 · 도난 위험</span>';
+  const lockButton = player.storageLocked ? '' : `<button onclick="installStorageLock()">자물쇠 설치</button>`;
+  detail.innerHTML = `<div class="card">
+    <h3>내 창고 이용</h3>
+    <p>${lockText} · ${storageUsedSlots()}/${storageCapacity()}칸</p>
+    <div class="actionLine">${lockButton}<button onclick="renderStorageHub()">유저리스트 새로고침</button></div>
+  </div>
+  <div class="storagePanelGrid">
+    <div class="tradePanel"><h3>내 가방 → 창고</h3><div class="storageSlotGrid">${renderStorageInventorySlots()}</div></div>
+    <div class="tradePanel"><h3>창고 → 내 가방</h3><div class="storageSlotGrid">${renderStorageSlots()}</div></div>
+  </div>`;
+}
+function renderStorageInventorySlots(){
+  const ids = Object.keys(player.inv || {}).filter(id => (player.inv[id]||0) > 0);
+  if(!ids.length) return '<div class="notice">가방이 비어 있다.</div>';
+  return ids.map(id=>{
+    const def = itemDefs[id] || {name:id};
+    return `<div class="storageSlot ${itemRarityClass(id)}" onclick="showInventoryItemPopup(event,'${escapeAttr(id)}',{mode:'storage',origin:'player'})">
+      <div class="itemIcon">${itemIcon(id)}</div><div class="itemName">${escapeHtml(def.name)}</div><div class="itemMeta">${player.inv[id]}</div>
+    </div>`;
+  }).join('');
+}
+function renderStorageSlots(){
+  const ids = Object.keys(player.storage || {}).filter(id => (player.storage[id]||0) > 0);
+  const slots = ids.map(id=>{
+    const def = itemDefs[id] || {name:id};
+    return `<div class="storageSlot ${itemRarityClass(id)}" onclick="showInventoryItemPopup(event,'${escapeAttr(id)}',{mode:'storage',origin:'storage'})">
+      <div class="itemIcon">${itemIcon(id)}</div><div class="itemName">${escapeHtml(def.name)}</div><div class="itemMeta">${player.storage[id]}</div>
+    </div>`;
+  });
+  while(slots.length < storageCapacity()) slots.push('<div class="storageSlot empty"></div>');
+  return slots.join('');
+}
+function depositStorageItem(id, qty=1){
+  normalizePlayer();
+  if(!storageRequireAccess()) return;
+  qty = Math.max(1, Math.min(Math.floor(Number(qty)||1), player.inv?.[id] || 0));
+  if(qty <= 0){ toast('가방에 없음'); return; }
+  if(!player.storage[id] && storageUsedSlots() >= storageCapacity()){ toast('창고 30칸이 가득 찼다'); return; }
+  if(id === player.weapon || id === player.armor){ toast('장착 중인 장비는 먼저 해제'); return; }
+  if(removeItem(id, qty)){
+    player.storage[id] = (player.storage[id] || 0) + qty;
+    addLog(`${itemDefs[id]?.name || id} ${qty}개 창고 보관.`, 'system');
+  }
+  renderOwnStorage(); renderInventory(); updateHud(); draw();
+}
+function withdrawStorageItem(id, qty=1){
+  normalizePlayer();
+  if(!storageRequireAccess()) return;
+  qty = Math.max(1, Math.min(Math.floor(Number(qty)||1), player.storage?.[id] || 0));
+  if(qty <= 0){ toast('창고에 없음'); return; }
+  if(!canCarryItem(id, qty)){ toast('가방 무게 초과'); return; }
+  player.storage[id] -= qty;
+  if(player.storage[id] <= 0) delete player.storage[id];
+  addItem(id, qty);
+  addLog(`${itemDefs[id]?.name || id} ${qty}개 창고에서 찾음.`, 'system');
+  renderOwnStorage(); renderInventory(); updateHud(); draw();
+}
+function openRemoteStoragePeek(targetId){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  const detail = document.getElementById('storageDetail');
+  if(!detail) return;
+  const locked = !!rp.storageLocked;
+  const storage = rp.storage || {};
+  const ids = Object.keys(storage).filter(id => (storage[id]||0) > 0 && itemDefs[id]);
+  const lockText = locked ? '<span class="storageLockState locked">자물쇠 있음 · 훔치기 불가</span>' : '<span class="storageLockState unlocked">자물쇠 없음 · 훔치기 가능</span>';
+  const grid = locked ? '<div class="notice">자물쇠가 걸려 있어 내용물을 훔칠 수 없습니다.</div>' : (ids.length ? ids.map(id=>{
+    const def = itemDefs[id] || {name:id};
+    return `<div class="storageSlot ${itemRarityClass(id)}" onclick="attemptStealRemoteStorageItem('${escapeAttr(rp.id)}','${escapeAttr(id)}')">
+      <div class="itemIcon">${itemIcon(id)}</div><div class="itemName">${escapeHtml(def.name)}</div><div class="itemMeta">${Math.max(0, Math.floor(Number(storage[id])||0))}</div>
+    </div>`;
+  }).join('') : '<div class="notice">보이는 보관품 없음</div>');
+  detail.innerHTML = `<div class="card">
+    <h3>${escapeHtml(rp.nick || '유저')} 창고 훔쳐보기</h3>
+    <p>${lockText}</p>
+    <p>창고를 누르면 훔치기를 시도합니다. 실패하거나 들키면 수배도가 오를 수 있습니다.</p>
+  </div><div class="storageSlotGrid">${grid}</div>`;
+}
+function attemptStealRemoteStorageItem(targetId, id){
+  const rp = remotePlayerCurrent(targetId);
+  if(!rp){ toast('대상 유저 없음'); return; }
+  if(rp.storageLocked){ toast('자물쇠가 걸린 창고'); return; }
+  const qty = rp.storage?.[id] || 0;
+  if(qty <= 0){ toast('보이는 아이템 없음'); return; }
+  const reqId = `${player.userId || 'local'}_storage_${Date.now()}_${Math.floor(Math.random()*9999)}`;
+  try{
+    onlineChannel?.send?.({type:'broadcast', event:'storage_steal_request', payload:{reqId, fromId:player.userId, fromNick:displayGameNickname(), toId:targetId, itemId:id, skill:player.skills?.stealing?.v||0, ts:Date.now()}});
+    addLog(`${rp.nick || '유저'} 창고의 ${itemDefs[id]?.name || id} 훔치기 시도.`, 'system');
+    toast('창고 훔치기 시도');
+  }catch(e){ toast('훔치기 요청 실패'); }
+}
+function handleRemoteStorageStealRequest(payload){
+  if(!payload || payload.toId !== player.userId) return;
+  normalizePlayer();
+  const itemId = payload.itemId;
+  const qty = player.storage?.[itemId] || 0;
+  const def = itemDefs[itemId] || {};
+  let success = false, caught = false, reason = '';
+  if(player.storageLocked){ reason = '자물쇠'; }
+  else if(qty <= 0){ reason = '아이템 없음'; }
+  else{
+    const pricePenalty = Math.min(0.30, (def.price||10)/800);
+    const chance = clamp(0.34 + (Number(payload.skill)||0)/165 - pricePenalty, 0.05, 0.82);
+    success = Math.random() < chance;
+    caught = !success && Math.random() < 0.70;
+    if(success){
+      player.storage[itemId] -= 1;
+      if(player.storage[itemId] <= 0) delete player.storage[itemId];
+    }
+  }
+  try{
+    onlineChannel?.send?.({type:'broadcast', event:'storage_steal_result', payload:{reqId:payload.reqId, fromId:player.userId, fromNick:displayGameNickname(), toId:payload.fromId, thiefNick:payload.fromNick, itemId, success, caught, reason, ts:Date.now()}});
+  }catch(e){}
+  if(success) addLog(`${payload.fromNick || '누군가'}가 창고에서 ${def.name || itemId} 1개를 훔쳐갔다.`, 'system');
+  else if(caught) addLog(`${payload.fromNick || '누군가'}가 창고를 훔치려다 들켰다.`, 'system');
+  saveGame(); renderStorageHub(); updateHud();
+}
+function handleRemoteStorageStealResult(payload){
+  if(!payload || payload.toId !== player.userId) return;
+  const name = itemDefs[payload.itemId]?.name || payload.itemId || '아이템';
+  if(payload.success){
+    addItem(payload.itemId, 1);
+    gainSkill('stealing',0.28);
+    addLog(`${payload.fromNick || '유저'} 창고에서 ${name} 1개를 훔쳤다.`, 'system');
+    toast('창고 훔치기 성공');
+  }else{
+    gainSkill('stealing',0.12);
+    if(payload.caught){
+      markCriminal(`${payload.fromNick || '유저'} 창고 훔치기 발각.`, 2);
+      addLog(`${payload.fromNick || '유저'} 창고 훔치기 실패. 수배도 +2.`, 'system');
+    }else{
+      toast(payload.reason === '자물쇠' ? '자물쇠가 걸려 있음' : '훔치기 실패');
+      addLog(`${payload.fromNick || '유저'} 창고 훔치기 실패.`, 'system');
+    }
+  }
+  renderStorageHub(); renderInventory(); updateHud(); draw();
+}
+
 function normalizePlayer(){
   if(typeof player.bankGold !== 'number') player.bankGold = 0;
   if(typeof player.bankRate !== 'number') player.bankRate = 0.006;
@@ -7679,6 +7875,10 @@ function normalizePlayer(){
   if(typeof player.bagSlots !== 'number' || !Number.isFinite(player.bagSlots)) player.bagSlots = bagSlotBase();
   player.bagSlots = clamp(Math.floor(player.bagSlots), bagSlotBase(), 240);
   if(!player.bank) player.bank = {};
+  if(!player.storage || typeof player.storage !== 'object') player.storage = {};
+  if(typeof player.storageSlots !== 'number' || !Number.isFinite(player.storageSlots)) player.storageSlots = 30;
+  player.storageSlots = 30;
+  if(typeof player.storageLocked !== 'boolean') player.storageLocked = false;
   if(!player.shopStock) player.shopStock = {};
   if(!player.merchantStock) player.merchantStock = {};
   if(!player.questKills) player.questKills = {};
@@ -7707,153 +7907,7 @@ function normalizePlayer(){
     if(!player.skills[k]) player.skills[k] = {...v};
   }
   ensureAutoSettings();
-  ensureQuickSlots();
   applyJobBonuses();
-  renderQuickSlots();
-}
-
-
-function defaultQuickSlots(){
-  return [
-    {type:'menu', id:'inv', label:'가방'},
-    {type:'menu', id:'status', label:'상태'},
-    {type:'menu', id:'skills', label:'스킬'},
-    {type:'item', id:'healthPotion', label:'체력'},
-    {type:'menu', id:'map', label:'지도'},
-    {type:'menu', id:'main', label:'메뉴'}
-  ];
-}
-function ensureQuickSlots(){
-  if(!Array.isArray(player.quickSlots)) player.quickSlots = defaultQuickSlots();
-  while(player.quickSlots.length < 6) player.quickSlots.push(null);
-  player.quickSlots = player.quickSlots.slice(0,6).map((slot, idx)=>{
-    if(!slot || typeof slot !== 'object') return null;
-    const type = ['menu','skill','item'].includes(slot.type) ? slot.type : null;
-    const id = String(slot.id || '');
-    if(!type || !id) return null;
-    return {type, id, label:String(slot.label || quickSlotAutoLabel(type,id) || `${idx+1}`).slice(0,8)};
-  });
-  return player.quickSlots;
-}
-function quickSlotAutoLabel(type, id){
-  if(type === 'skill') return ACTIVE_SKILL_DEFS.find(s=>s.id===id)?.name || '스킬';
-  if(type === 'item') return itemDefs[id]?.name || '아이템';
-  if(type === 'menu') return ({inv:'가방',status:'상태',skills:'스킬',map:'지도',main:'메뉴',life:'생활',craft:'제작',party:'파티',bank:'은행'})[id] || '메뉴';
-  return '';
-}
-function quickSlotShortLabel(slot, idx){
-  if(!slot) return `${idx+1}`;
-  const label = String(slot.label || quickSlotAutoLabel(slot.type, slot.id) || `${idx+1}`).replace(/\s+/g,'').slice(0,4);
-  return `${idx+1}\n${label}`;
-}
-function renderQuickSlots(){
-  if(typeof player === 'undefined') return;
-  const slots = ensureQuickSlots();
-  for(let i=0;i<6;i++){
-    const btn = document.getElementById(`quickSlot${i+1}`);
-    if(!btn) continue;
-    const slot = slots[i];
-    btn.textContent = quickSlotShortLabel(slot, i);
-    btn.classList.toggle('empty', !slot);
-    btn.classList.toggle('assigned', !!slot);
-    btn.title = slot ? `${i+1}번: ${quickSlotAutoLabel(slot.type, slot.id)} / 길게 눌러 변경` : `${i+1}번: 비어 있음 / 길게 눌러 등록`;
-  }
-}
-function quickSlotRunMenu(id){
-  const map = {inv:()=>openPop('popInv'), status:()=>openPop('popStatus'), skills:()=>openPop('popSkills'), map:()=>openPop('popMap'), main:()=>openPop('popMainMenu'), life:()=>openPop('popLife'), craft:()=>openPop('popCraft'), party:()=>openPop('popParty'), bank:()=>openPop('popBank')};
-  const fn = map[id];
-  if(fn) fn(); else toast('메뉴 없음');
-}
-function useQuickSlotItem(id){
-  normalizePlayer();
-  const qty = Math.max(0, Number(player.inv?.[id]) || 0);
-  if(qty <= 0){ toast(`${itemDefs[id]?.name || id} 없음`); renderQuickSlots(); return; }
-  const def = itemDefs[id] || {};
-  if(def.type === 'food' || def.type === 'potion' || id === 'bandage') consumeItem(id);
-  else if(def.type === 'bag') useBagItem(id);
-  else if(id === 'repairKit') useRepairKit();
-  else if(id === 'smokeBomb') useSmokeBomb();
-  else { toast('퀵사용 불가 아이템'); return; }
-  renderInventory(); renderStatus(); updateHud(); draw();
-}
-function runQuickSlot(slotNo){
-  normalizePlayer();
-  const slot = ensureQuickSlots()[slotNo-1];
-  if(!slot){ openQuickSlotSetup(slotNo); return false; }
-  if(slot.type === 'menu') quickSlotRunMenu(slot.id);
-  else if(slot.type === 'skill') useActiveSkill(slot.id);
-  else if(slot.type === 'item') useQuickSlotItem(slot.id);
-  renderQuickSlots();
-  return false;
-}
-let quickSlotLongPress = {slot:0, timer:null, opened:false, startedAt:0};
-function quickSlotPress(slotNo, ev=null){
-  if(ev){ try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){} }
-  if(quickSlotLongPress.opened && quickSlotLongPress.slot === slotNo){ quickSlotLongPress.opened = false; return false; }
-  return runQuickSlot(slotNo);
-}
-function setupQuickSlotButtons(){
-  for(let i=1;i<=6;i++){
-    const btn = document.getElementById(`quickSlot${i}`);
-    if(!btn || btn.dataset.quickBound === '1') continue;
-    btn.dataset.quickBound = '1';
-    const begin = ev=>{
-      try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){}
-      clearTimeout(quickSlotLongPress.timer);
-      quickSlotLongPress = {slot:i, timer:null, opened:false, startedAt:Date.now()};
-      quickSlotLongPress.timer = setTimeout(()=>{ quickSlotLongPress.opened = true; openQuickSlotSetup(i); }, 520);
-    };
-    const end = ev=>{ try{ ev.preventDefault?.(); ev.stopPropagation?.(); }catch(e){} clearTimeout(quickSlotLongPress.timer); };
-    btn.addEventListener('pointerdown', begin, {passive:false});
-    btn.addEventListener('pointerup', end, {passive:false});
-    btn.addEventListener('pointercancel', end, {passive:false});
-    btn.addEventListener('touchstart', begin, {passive:false});
-    btn.addEventListener('touchend', end, {passive:false});
-    btn.addEventListener('touchcancel', end, {passive:false});
-  }
-  renderQuickSlots();
-}
-function closeQuickSlotPicker(){
-  const box = document.getElementById('quickSlotPicker');
-  if(box){ box.classList.remove('open'); box.setAttribute('aria-hidden','true'); }
-}
-function assignQuickSlot(slotNo, type, id, label=''){
-  normalizePlayer();
-  if(slotNo < 1 || slotNo > 6) return;
-  player.quickSlots[slotNo-1] = type ? {type, id, label:label || quickSlotAutoLabel(type,id)} : null;
-  renderQuickSlots();
-  closeQuickSlotPicker();
-  toast(type ? `${slotNo}번 등록` : `${slotNo}번 비움`);
-}
-function quickSlotUsableInventoryItems(){
-  normalizePlayer();
-  return Object.keys(player.inv || {})
-    .filter(id=>{
-      const def = itemDefs[id] || {};
-      return (player.inv[id]||0) > 0 && (def.type === 'food' || def.type === 'potion' || def.type === 'bag' || id === 'bandage' || id === 'repairKit' || id === 'smokeBomb');
-    })
-    .sort((a,b)=>(itemDefs[a]?.name||a).localeCompare(itemDefs[b]?.name||b));
-}
-function openQuickSlotSetup(slotNo){
-  normalizePlayer();
-  const box = document.getElementById('quickSlotPicker');
-  if(!box){ toast('퀵슬롯 설정창 없음'); return; }
-  const menuChoices = [['inv','가방'], ['status','상태'], ['skills','스킬'], ['map','지도'], ['main','메뉴'], ['life','생활'], ['craft','제작'], ['party','파티'], ['bank','은행']];
-  const skills = ACTIVE_SKILL_DEFS.filter(s=>meetsReq(s.req));
-  const items = quickSlotUsableInventoryItems();
-  const menuHtml = menuChoices.map(([id,label])=>`<button onclick="assignQuickSlot(${slotNo},'menu','${id}','${escapeJsString(label)}')">${escapeHtml(label)}</button>`).join('');
-  const skillHtml = skills.length ? skills.map(s=>`<button onclick="assignQuickSlot(${slotNo},'skill','${escapeJsString(s.id)}','${escapeJsString(s.name)}')">${escapeHtml(s.name)}</button>`).join('') : '<div class="notice">사용 가능한 액티브 스킬 없음</div>';
-  const itemHtml = items.length ? items.map(id=>`<button onclick="assignQuickSlot(${slotNo},'item','${escapeJsString(id)}','${escapeJsString(itemDefs[id]?.name || id)}')">${escapeHtml(itemDefs[id]?.name || id)} x${player.inv[id]||0}</button>`).join('') : '<div class="notice">퀵사용 가능한 아이템 없음</div>';
-  box.innerHTML = `<div class="quickSlotPickerHead"><b>${slotNo}번 퀵슬롯 설정</b><button onclick="closeQuickSlotPicker()">X</button></div>
-    <div class="quickSlotPickerBody">
-      <div class="quickSlotHint">짧게 누르면 사용, 길게 누르면 이 설정창이 열립니다.</div>
-      <div class="quickSlotSectionTitle">메뉴</div><div class="quickSlotChoiceGrid">${menuHtml}</div>
-      <div class="quickSlotSectionTitle">스킬</div><div class="quickSlotChoiceGrid">${skillHtml}</div>
-      <div class="quickSlotSectionTitle">회복약 / 응용 아이템</div><div class="quickSlotChoiceGrid">${itemHtml}</div>
-      <div class="quickSlotSectionTitle">비우기</div><div class="quickSlotChoiceGrid"><button class="danger" onclick="assignQuickSlot(${slotNo},null,'','')">비우기</button></div>
-    </div>`;
-  box.classList.add('open');
-  box.setAttribute('aria-hidden','false');
 }
 
 function defaultAutoSettings(){
@@ -8020,11 +8074,17 @@ function inventoryItemActionButtons(id, ctx={}){
   const mode = ctx.mode || 'inventory';
   const origin = ctx.origin || 'inventory';
   const inTrade = mode === 'trade' && !!activeTradeNpc;
-  const inPeek = mode === 'peek' && !!activeTradeNpc;
 
   if(mode === 'remotePeek' && origin === 'remote'){
     const targetId = ctx.targetId || '';
     actions.push(`<button class="danger" onclick="attemptStealRemoteItem('${escapeJsString(targetId)}','${escapeJsString(id)}'); closeInventoryItemPopup()">훔치기</button>`);
+  }
+
+  if(mode === 'storage' && origin === 'player'){
+    actions.push(`<button class="primary" onclick="depositStorageItem('${id}', readTradeQuantity()); closeInventoryItemPopup()">창고 보관</button>`);
+  }
+  if(mode === 'storage' && origin === 'storage'){
+    actions.push(`<button class="primary" onclick="withdrawStorageItem('${id}', readTradeQuantity()); closeInventoryItemPopup()">찾기</button>`);
   }
 
   if(inTrade){
@@ -8042,10 +8102,6 @@ function inventoryItemActionButtons(id, ctx={}){
       const canSell = canNormalTradeWith(npc) && maxQty > 0;
       actions.push(`<button class="${canSell?'primary':'danger'}" onclick="sellTradeItem('${id}', readTradeQuantity())">판매 ${price}g/개</button>`);
     }
-  }
-
-  if(inPeek && origin === 'merchant'){
-    actions.push(`<button class="danger" onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
   }
 
   if(origin !== 'merchant'){
@@ -8066,6 +8122,9 @@ function inventoryItemActionButtons(id, ctx={}){
     }
     if(id === 'smokeBomb'){
       actions.push(`<button onclick="useSmokeBomb(); closeInventoryItemPopup()">사용</button>`);
+    }
+    if(id === 'storageLock'){
+      actions.push(`<button onclick="installStorageLock(); closeInventoryItemPopup()">창고에 설치</button>`);
     }
   }
   return actions.join('');
@@ -8096,7 +8155,7 @@ function showInventoryItemPopup(ev, id, ctx={}){
     ? (npc ? (ensureMerchantStock(npc)[id] || 0) : 0)
     : (origin === 'remote'
       ? Math.max(0, Math.floor(Number(ctx.remoteQty ?? remotePlayers?.[ctx.targetId]?.inv?.[id] ?? 0) || 0))
-      : (origin === 'bank' ? (player.bank?.[id] || 0) : (player.inv?.[id] || 0)));
+      : (origin === 'storage' ? (player.storage?.[id] || 0) : (origin === 'bank' ? (player.bank?.[id] || 0) : (player.inv?.[id] || 0))));
   const weight = itemWeight(id);
   const dur = (def.type==='weapon' || def.type==='armor') && origin !== 'merchant'
     ? `<span>내구도 ${Math.round(player.durability?.[id] ?? 100)}%</span>`
@@ -8116,13 +8175,12 @@ function showInventoryItemPopup(ev, id, ctx={}){
     ? (origin === 'merchant'
       ? `<span>구매가 ${tradeBuyPrice(npc,id)}g</span>`
       : `<span>판매가 ${tradeSellPrice(id,npc)}g</span>`)
-    : mode === 'peek' && npc
-      ? `<span>${origin === 'merchant' ? '훔쳐보기' : '내 가방'}</span>`
-      : '';
+    : '';
   const ownerText = origin === 'merchant'
     ? `${npc?.name || 'NPC'} 소지품`
     : origin === 'remote'
       ? `${ctx.remoteName || remotePlayers?.[ctx.targetId]?.nick || '상대 유저'} 소지품`
+      : origin === 'storage' ? '내 창고 보관품'
       : origin === 'bank' ? '은행 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
     ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
@@ -8133,6 +8191,10 @@ function showInventoryItemPopup(ev, id, ctx={}){
   let tradeQtyBlock = '';
   if(mode === 'trade' && npc && (origin === 'merchant' || origin === 'player')){
     const maxQty = origin === 'merchant' ? maxBuyQuantity(npc, id) : maxSellQuantity(id, npc);
+    tradeQtyBlock = tradeQuantityInputHtml(Math.max(1, maxQty));
+  }
+  if(mode === 'storage' && (origin === 'player' || origin === 'storage')){
+    const maxQty = origin === 'storage' ? (player.storage?.[id] || 0) : (player.inv?.[id] || 0);
     tradeQtyBlock = tradeQuantityInputHtml(Math.max(1, maxQty));
   }
 
@@ -9471,69 +9533,18 @@ function publicInventorySnapshot(){
   }
   return inv;
 }
+function publicStorageSnapshot(){
+  normalizePlayer();
+  const out = {};
+  for(const [id, qty] of Object.entries(player.storage || {})){
+    const q = Math.max(0, Math.floor(Number(qty)||0));
+    if(q > 0 && itemDefs[id]) out[id] = Math.min(q, 9999);
+  }
+  return out;
+}
 function remotePlayerCurrent(id){
   return id ? (remotePlayers?.[id] || null) : null;
 }
-
-function closeRemoteUserPopup(){
-  const box = document.getElementById('remoteUserPopup');
-  if(box){ box.classList.remove('open'); box.setAttribute('aria-hidden','true'); }
-}
-function openRemoteUserPopup(rp, clientX=null, clientY=null){
-  if(!rp || !isRemotePlayerTargetValid(rp)){ toast('대상 유저 없음'); return; }
-  const box = document.getElementById('remoteUserPopup');
-  if(!box){ toast('유저 팝업 없음'); return; }
-  const pos = remotePlayerPos(rp);
-  const d = Math.hypot(pos.x - player.x, pos.y - player.y);
-  const near = d <= 2.35;
-  box.innerHTML = `<div class="remoteUserHead"><b>유저 정보</b><button onclick="closeRemoteUserPopup()">X</button></div>
-    <div class="remoteUserBody">
-      <div class="remoteUserInfo">
-        <b>Lv.${escapeHtml(rp.level || 1)} ${escapeHtml(rp.nick || '유저')}</b><br>
-        직업 ${escapeHtml(rp.job || '방랑자')} · HP ${Math.max(0, Math.ceil(rp.hp || 0))}/${Math.max(1, Math.ceil(rp.maxHp || 100))}<br>
-        위치 ${escapeHtml(regionNameAt(pos.x || 0, pos.y || 0))} · ${gridX(pos.x || 0)}, ${gridY(pos.y || 0)}<br>
-        거리 ${d.toFixed(1)}칸 ${near ? '' : '· 가까이 가야 거래/훔쳐보기 가능'}
-      </div>
-      <div class="remoteUserActionsLine">
-        <button ${near?'':'disabled'} onclick="requestRemoteTrade('${escapeAttr(rp.id)}')">거래하기</button>
-        <button class="danger" ${near?'':'disabled'} onclick="openRemotePeekPopup('${escapeAttr(rp.id)}'); closeRemoteUserPopup()">훔쳐보기</button>
-      </div>
-    </div>`;
-  box.classList.add('open');
-  box.setAttribute('aria-hidden','false');
-  if(clientX != null && clientY != null){
-    requestAnimationFrame(()=>{
-      const bw = box.offsetWidth || 320;
-      const bh = box.offsetHeight || 220;
-      let left = clientX - bw/2;
-      let top = clientY - bh - 16;
-      if(top < 82) top = clientY + 18;
-      left = clamp(left, 7, Math.max(7, window.innerWidth - bw - 7));
-      top = clamp(top, 76, Math.max(76, window.innerHeight - bh - 8));
-      box.style.left = `${left + bw/2}px`;
-      box.style.bottom = 'auto';
-      box.style.top = `${top}px`;
-    });
-  }
-}
-function requestRemoteTrade(targetId){
-  const rp = remotePlayerCurrent(targetId);
-  if(!rp){ toast('대상 유저 없음'); return; }
-  const pos = remotePlayerPos(rp);
-  if(Math.hypot(pos.x-player.x, pos.y-player.y) > 2.35){ toast('거래하기엔 너무 멀다'); return; }
-  try{
-    onlineChannel?.send?.({type:'broadcast', event:'remote_trade_request', payload:{fromId:player.userId, fromNick:displayGameNickname(), toId:targetId, ts:Date.now()}});
-    addLog(`${rp.nick || '유저'}에게 거래 요청을 보냈다.`, 'system');
-    toast('거래 요청 전송');
-  }catch(e){ toast('거래 요청 실패'); }
-  closeRemoteUserPopup();
-}
-function receiveRemoteTradeRequest(payload){
-  if(!payload || payload.toId !== player.userId) return;
-  addLog(`${payload.fromNick || '유저'}가 거래를 요청했다.`, 'system');
-  toast('거래 요청 도착');
-}
-
 function openMessagesPopup(){
   renderMessagesPopup();
   openPop('popMessages');
@@ -9617,7 +9628,8 @@ function attackRemoteFromPeek(targetId){
   const rp = remotePlayerCurrent(targetId);
   if(!rp){ toast('대상 유저 없음'); return; }
   closePop();
-  startAutoAttackChase(rp, 'player');
+  selectTarget('player', rp, false);
+  attackRemotePlayer(rp, {manual:true});
 }
 function attemptStealRemoteItem(targetId, id){
   const rp = remotePlayerCurrent(targetId);
@@ -9758,8 +9770,6 @@ function openOnlineUserActions(targetId, ev){
       <h3>Lv.${escapeHtml(rp.level||1)} ${escapeHtml(rp.nick||'유저')}</h3>
       <p>${escapeHtml(rp.job||'방랑자')} · ${escapeHtml(regionNameAt(pos.x||0,pos.y||0))} · ${gridX(pos.x||0)}, ${gridY(pos.y||0)}</p>
       <div class="actionLine">
-        <button onclick="requestRemoteTrade('${escapeAttr(rp.id)}')">거래하기</button>
-        <button class="danger" onclick="openRemotePeekPopup('${escapeAttr(rp.id)}')">훔쳐보기</button>
         <button onclick="sendPrivateNote('${escapeAttr(rp.id)}')">쪽지보내기</button>
         <button onclick="partyInviteFromOnlineList('${escapeAttr(rp.id)}')" ${partySame(rp.id)?'disabled':''}>${partySame(rp.id)?'이미 파티중':'파티 신청 보내기'}</button>
       </div>
@@ -9817,6 +9827,8 @@ function onlinePayload(){
     partyLeaderId: partyState.leaderId || null,
     partyCount: partyMemberCount(),
     inv: publicInventorySnapshot(),
+    storage: publicStorageSnapshot(),
+    storageLocked: !!player.storageLocked,
     vx,
     vy,
     moving,
@@ -10019,9 +10031,10 @@ function setupRealtimeOnline(){
       draw();
     })
     .on('broadcast', { event: 'private_note' }, ({payload}) => receivePrivateNote(payload))
-    .on('broadcast', { event: 'remote_trade_request' }, ({payload}) => receiveRemoteTradeRequest(payload))
     .on('broadcast', { event: 'remote_steal_request' }, ({payload}) => handleRemoteStealRequest(payload))
     .on('broadcast', { event: 'remote_steal_result' }, ({payload}) => handleRemoteStealResult(payload))
+    .on('broadcast', { event: 'storage_steal_request' }, ({payload}) => handleRemoteStorageStealRequest(payload))
+    .on('broadcast', { event: 'storage_steal_result' }, ({payload}) => handleRemoteStorageStealResult(payload))
     .on('broadcast', { event: 'party_invite' }, ({payload}) => partyHandleBroadcast('party_invite', payload))
     .on('broadcast', { event: 'party_accept' }, ({payload}) => partyHandleBroadcast('party_accept', payload))
     .on('broadcast', { event: 'party_decline' }, ({payload}) => partyHandleBroadcast('party_decline', payload))
@@ -10685,9 +10698,8 @@ function updateHud(){
   const goldEl = document.getElementById('gold');
   if(goldEl){
     goldEl.classList.add('statusGoldLine');
-    goldEl.innerHTML = `골드 ${player.gold}g · 수배 ${player.wanted || 0} ${dayNightPixelHtml()} ${weatherPixelHtml()}`;
+    goldEl.innerHTML = `<span>골드 ${Math.floor(player.gold)}g</span><span>수배 ${player.wanted || 0}</span><span>${dayNightPixelHtml()} ${weatherPixelHtml()}</span>`;
   }
-  renderQuickSlots();
   applyTopHudAdaptiveTone();
 }
 
@@ -11708,6 +11720,7 @@ function openPop(id){
   if(id==='popJournal') renderJournal();
   if(id==='popCraft') renderCraft();
   if(id==='popBank') renderBank();
+  if(id==='popStorage') renderStorageHub();
   if(id==='popStatus') renderStatus();
   if(id==='popSettings') renderSettings();
   if(id==='popAccount') renderAccountStatus();
@@ -11722,8 +11735,6 @@ function openPop(id){
 function closePop(){
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
   closeInventoryItemPopup();
-  closeQuickSlotPicker?.();
-  closeRemoteUserPopup?.();
 }
 
 (function bindOnlineBadgeClickFix(){
@@ -11906,34 +11917,14 @@ function chestAtScreenPoint(clientX, clientY){
 }
 
 function setupCanvasGestures(){
-  let down = null;
+  // 타겟팅 시스템 삭제: 월드 오브젝트를 터치해도 타겟 잠금을 만들지 않는다.
+  // 상호작용은 근처에 접근하면 자동으로 바뀌는 액션 버튼으로만 처리한다.
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType === 'mouse' && e.button !== 0) return;
-    down = {x:e.clientX, y:e.clientY, ts:Date.now()};
     canvasPointerTargeted = null;
   }, {passive:true});
-  canvas.addEventListener('pointerup', e=>{
-    if(!down){ canvasPointerTargeted = null; return; }
-    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 18;
-    down = null;
-    canvasPointerTargeted = null;
-    if(moved) return;
-    const rp = remotePlayerAtScreenPoint(e.clientX, e.clientY);
-    if(rp){ openRemoteUserPopup(rp, e.clientX, e.clientY); return; }
-    const npc = npcAtScreenPoint(e.clientX, e.clientY);
-    if(npc){
-      if(dist(npc, player) <= actionRangeForTarget('npc', npc) + 0.2) openNpcMenu(npc);
-      else { startAutoActionChase('npc', npc); toast(`${npc.name}에게 이동`); }
-      return;
-    }
-    const mob = mobAtScreenPoint(e.clientX, e.clientY);
-    if(mob){ startAutoAttackChase(mob, 'mob'); toast(`${mob.name} 공격 대상`); return; }
-    const chest = chestAtScreenPoint(e.clientX, e.clientY);
-    if(chest){ startAutoActionChase('chest', chest); toast('상자 이동'); return; }
-    const res = resourceAtScreenPoint(e.clientX, e.clientY);
-    if(res){ const act = resourceActionForKind(res.kind); startAutoActionChase('resource', res, act); toast(`${act.label} 이동`); return; }
-  }, {passive:true});
-  canvas.addEventListener('pointercancel', ()=>{ down = null; canvasPointerTargeted = null; });
+  canvas.addEventListener('pointerup', ()=>{ canvasPointerTargeted = null; }, {passive:true});
+  canvas.addEventListener('pointercancel', ()=>{ canvasPointerTargeted = null; });
 }
 
 function setupAnalogPad(){
@@ -12485,18 +12476,17 @@ if(attackButtonEl){
   attackButtonEl.addEventListener('touchend', releaseAttackPress, {passive:false});
   attackButtonEl.addEventListener('touchcancel', releaseAttackPress, {passive:false});
 }
-setupQuickSlotButtons();
 ['gesturestart','gesturechange','gestureend','dblclick','contextmenu','selectstart','dragstart'].forEach(type=>{
   document.addEventListener(type, e=>e.preventDefault(), {passive:false});
 });
 
 let lastTouch=0;
 document.addEventListener('touchstart', e=>{
-  const controlTouch = e.target && e.target.closest && (e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions') || e.target.closest('.quickSlotBar') || e.target.closest('#quickSlotPicker') || e.target.closest('#remoteUserPopup'));
+  const controlTouch = e.target && e.target.closest && (e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions'));
   if(e.touches && e.touches.length > 1 && !controlTouch) e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchmove', e=>{
-  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log') || e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions') || e.target.closest('.quickSlotBar') || e.target.closest('#quickSlotPicker') || e.target.closest('#remoteUserPopup') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
+  if(e.target && e.target.closest && (e.target.closest('#log') || e.target.closest('.log') || e.target.closest('#analogPad') || e.target.closest('#attackBtn') || e.target.closest('.actions') || e.target.closest('.popBody') || e.target.closest('#miniTrade') || e.target.closest('#miniNpcMenu') || e.target.closest('#chatPanel') || e.target.closest('input'))) return;
   e.preventDefault();
 }, {passive:false});
 document.addEventListener('touchend', e=>{
