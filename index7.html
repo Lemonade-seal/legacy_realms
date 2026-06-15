@@ -2043,6 +2043,12 @@
   }
   .toolbar{bottom:calc(50px + env(safe-area-inset-bottom)) !important;}
 
+  /* log type colors */
+  #log .log-entry{white-space:normal !important; overflow-wrap:anywhere; word-break:keep-all;}
+  #log .log-entry.chat{color:#60a5fa !important;}
+  #log .log-entry.system{color:#facc15 !important;}
+  #log .log-entry.combat{color:#4ade80 !important;}
+
 
   /* bottom-up log flow: newest records stay at the bottom and older records rise upward */
   .log,
@@ -2121,7 +2127,7 @@
     <canvas id="game" width="960" height="640"></canvas>
     <div class="questBox" id="activeQuestHud"></div>
     <div class="worldHud" id="worldHud"></div>
-    <div class="coolHint" id="targetHint">NPC 터치: 가방 · 공격버튼: 공격</div>
+    <div class="coolHint" id="targetHint">대상 터치: 타겟 · 공격버튼: 공격</div>
     <div class="miniTrade" id="miniTrade">
       <div class="miniTradeHead">
         <b id="miniTradeTitle">NPC 가방</b>
@@ -2267,7 +2273,6 @@
           <button onclick="gather('fish')">낚시</button>
           <button onclick="gather('herb')">약초채집</button>
           <button onclick="sellJunk()">재료 판매</button>
-          <button onclick="rest()">휴식</button>
         </div>
         <br>
         <div class="card">
@@ -2394,8 +2399,7 @@
     </div>
     <div class="actions">
       <button id="autoBtn" class="compactBtn" onclick="toggleAutoMode()">오토</button>
-      <button id="restBtn" class="compactBtn" onclick="rest()">휴식</button>
-      <button id="useBtn" class="compactBtn" onclick="smartUse()">말걸기</button>
+      <button id="useBtn" class="compactBtn" onclick="smartUse()">살펴보기</button>
       <button id="attackBtn" class="primary compactBtn cooldownShadeBtn" onclick="attack()">공격</button>
     </div>
   </div>
@@ -2428,9 +2432,9 @@ const analog = {x:0, y:0, active:false, pointerId:null};
 const keysDown = new Set();
 
 const itemDefs = {
-  rustySword:{name:'녹슨 검', type:'weapon', atk:2, price:12, desc:'기본 근접 무기.'},
+  rustySword:{name:'녹슨 검', type:'weapon', atk:2, range:1.18, price:12, desc:'기본 근접 무기. 사거리는 짧지만 안정적이다.'},
   shortBow:{name:'짧은 활', type:'weapon', atk:3, range:5.2, price:18, ammo:'arrow', desc:'가벼운 원거리 무기. 화살을 소비해 멀리서 공격한다.'},
-  ironSword:{name:'철검', type:'weapon', atk:8, price:85, desc:'채광과 대장기술로 제작하는 표준 검.'},
+  ironSword:{name:'철검', type:'weapon', atk:8, range:1.28, price:85, desc:'채광과 대장기술로 제작하는 표준 검. 근접 사거리가 짧다.'},
   hunterBow:{name:'사냥꾼 활', type:'weapon', atk:7, range:6.4, price:72, ammo:'arrow', desc:'목재와 가죽으로 제작하는 활. 화살을 소비해 원거리 공격한다.'},
   leatherArmor:{name:'가죽 갑옷', type:'armor', def:3, price:64, desc:'받는 피해를 줄인다.'},
   ironArmor:{name:'철 갑옷', type:'armor', def:6, price:130, desc:'무겁지만 튼튼한 방어구.'},
@@ -2480,7 +2484,7 @@ Object.assign(itemDefs, {
   batWing:{name:'박쥐 날개', type:'mat', price:9, desc:'던전 몬스터 재료.'},
   slimeGel:{name:'슬라임 젤', type:'mat', price:7, desc:'약품과 제작 재료.'},
   ancientRelic:{name:'고대 유물', type:'special', price:190, desc:'던전 깊은 곳의 희귀 수집품.'},
-  steelSword:{name:'강철검', type:'weapon', atk:13, price:180, desc:'철검보다 강한 던전 대응 무기.'},
+  steelSword:{name:'강철검', type:'weapon', atk:13, range:1.35, price:180, desc:'철검보다 강한 던전 대응 무기. 근접 사거리가 짧다.'},
   rangerBow:{name:'순찰자 활', type:'weapon', atk:11, range:7.2, price:150, ammo:'arrow', desc:'야외 사냥에 좋은 장거리 활. 화살을 소비한다.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
@@ -2698,7 +2702,7 @@ const player = {
   exp: 0, nextExp: 100,
   nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0, attackReadyTick: 0,
-  auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
+  auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:false, wood:false, mine:false, fish:false, herb:false},
   weapon: 'rustySword', armor: null,
   durability: {},
   discoveredRegions: {},
@@ -3340,15 +3344,28 @@ function updateWorldHud(){
   const region = regionNameAt(player.x, player.y);
   player.discoveredRegions = player.discoveredRegions || {};
   player.discoveredRegions[region] = true;
-  const restText = tick >= (player.restReadyTick||0) ? '가능' : Math.ceil(((player.restReadyTick||0)-tick)*0.45)+'초';
   const jailText = tick < (player.jailUntilTick||0) ? ` · 수감 ${jailRemainingSeconds()}초` : '';
-  el.innerHTML = `<b>${region}</b> · 위험 ${regionDangerLevel()}${jailText}<br>Day ${c.day} · ${c.hh}:${c.mm} ${isNight()?'밤':'낮'} · ${weatherLabel()}<br>휴식 ${restText} · 자동저장 ${Math.max(0, 60 - Math.floor((tick-lastAutoSaveTick)*0.45))}초`;
+  el.innerHTML = `<b>${region}</b> · 위험 ${regionDangerLevel()}${jailText}<br>Day ${c.day} · ${c.hh}:${c.mm} ${isNight()?'밤':'낮'} · ${weatherLabel()}<br>자동저장 ${Math.max(0, 60 - Math.floor((tick-lastAutoSaveTick)*0.45))}초`;
   updateQuestHud();
 }
 
-function addLog(msg){
+function classifyLogType(msg, explicitType=null){
+  if(explicitType) return explicitType;
+  const s = String(msg || '');
+  if(/^\[?파티\]?/.test(s)) return 'chat';
+  if(/피해|공격|빗나감|처치|원거리|베기|치명|대미지|데미지/.test(s)) return 'combat';
+  return 'system';
+}
+function normalizeJournalEntry(entry){
+  if(entry && typeof entry === 'object'){
+    return {text:String(entry.text || ''), type:entry.type || classifyLogType(entry.text)};
+  }
+  return {text:String(entry || ''), type:classifyLogType(entry)};
+}
+function addLog(msg, type=null){
   const stamp = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-  player.journal.push(`[${stamp}] ${msg}`);
+  const text = `[${stamp}] ${msg}`;
+  player.journal.push({text, type:classifyLogType(msg, type)});
   player.journal = player.journal.slice(-80);
   renderLog();
 }
@@ -3751,7 +3768,7 @@ function drawCombatEffects(camPxX, camPxY){
 
 let manualAttackLock = {ref:null, kind:null, until:0};
 let autoAttackChase = {ref:null, until:0, attackTick:0};
-let autoActionChase = {type:null, ref:null, action:null, until:0};
+let autoActionChase = {type:null, ref:null, action:null, until:0, actionTick:0};
 let canvasPointerTargeted = null;
 
 function isMobTargetAlive(mob){
@@ -3768,10 +3785,9 @@ function isChestTargetValid(chest){
 }
 function remotePlayerPos(rp){
   if(!rp) return {x:0,y:0};
-  const source = (rp.id && remotePlayers?.[rp.id]) ? remotePlayers[rp.id] : rp;
-  const p = (typeof remoteRenderPosition === 'function') ? remoteRenderPosition(source) : null;
-  const x = Number(p?.x ?? source.renderX ?? source.x);
-  const y = Number(p?.y ?? source.renderY ?? source.y);
+  const p = (typeof remoteRenderPosition === 'function') ? remoteRenderPosition(rp) : null;
+  const x = Number(p?.x ?? rp.renderX ?? rp.x);
+  const y = Number(p?.y ?? rp.renderY ?? rp.y);
   return {x:Number.isFinite(x)?x:0, y:Number.isFinite(y)?y:0};
 }
 function isRemotePlayerTargetValid(rp){
@@ -3848,7 +3864,7 @@ function stopAutoAttackChase(){
   autoAttackChase = {ref:null, until:0, attackTick:0};
 }
 function stopAutoActionChase(){
-  autoActionChase = {type:null, ref:null, action:null, until:0};
+  autoActionChase = {type:null, ref:null, action:null, until:0, actionTick:0};
 }
 
 function actionRangeForTarget(type, ref){
@@ -3875,7 +3891,7 @@ function startAutoActionChase(type, ref, action=null){
   if(!ok) return false;
   stopAutoAttackChase();
   manualAttackLock = {ref, kind:type, until:tick + 9999};
-  autoActionChase = {type, ref, action, until:tick + 700};
+  autoActionChase = {type, ref, action, until:tick + 700, actionTick:0};
   draw();
   return true;
 }
@@ -3888,8 +3904,7 @@ function executeAutoActionTarget(type, ref, action=null){
   if(type === 'resource'){
     const act = action || resourceActionForKind(ref.kind);
     if(dist(ref, player) > actionRangeForTarget(type, ref) + 0.15) return false;
-    gather(act.kind, ref, {noChase:true});
-    return true;
+    return gather(act.kind, ref, {noChase:true, autoRepeat:true});
   }
   if(type === 'chest'){
     if(dist(ref, player) > actionRangeForTarget(type, ref) + 0.15) return false;
@@ -4046,28 +4061,8 @@ function pickManualAttackTarget(){
     return {kind:manualAttackLock.kind, ref:manualAttackLock.ref, score:-999};
   }
 
-  const candidates = [];
-
-  // 1순위: 몬스터. 방향 상관 없이 주변 5칸 안이면 잡는다.
-  for(const m of mobs){
-    const score = manualAttackCandidateScore(m, 'mob');
-    if(score !== null) candidates.push({kind:'mob', ref:m, score});
-  }
-
-  // 몬스터가 없을 때만 NPC 공격 후보를 허용한다. 오타격 방지.
-  if(!candidates.length){
-    for(const n of npcs){
-      const score = manualAttackCandidateScore(n, 'npc');
-      if(score !== null) candidates.push({kind:'npc', ref:n, score});
-    }
-  }
-
-  candidates.sort((a,b)=>a.score-b.score);
-  const picked = candidates[0] || null;
-  if(picked){
-    manualAttackLock = {ref:picked.ref, kind:picked.kind, until:tick + 90};
-  }
-  return picked;
+  // 자동 후보 선택은 제거한다. 공격은 반드시 먼저 타겟팅한 대상에게만 시작된다.
+  return null;
 }
 
 function pullPlayerTowardManualTarget(target){
@@ -4126,11 +4121,8 @@ function attack(target=null){
       target = picked.ref;
       targetKind = picked.kind;
     }else{
-      target = mobs
-        .filter(m=>m.hp>0 && entityScreenAwareDistance(m)<=Math.max(3.2, playerHitRange()+2.6))
-        .sort((a,b)=>entityScreenAwareDistance(a)-entityScreenAwareDistance(b))[0] || null;
-      targetKind = 'mob';
-      if(target) manualAttackLock = {ref:target, kind:'mob', until:tick + 9999};
+      toast('먼저 대상을 타겟팅하세요');
+      return;
     }
   }else if(autoAttackChase?.ref === target){
     targetKind = autoAttackChase.kind || 'mob';
@@ -4200,7 +4192,7 @@ function attack(target=null){
     target.aggroUntil = tick + 180;
     if(target.animal) target.fleeUntil = tick + 80;
     addCombatEffect(target.x, target.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-    addLog(`${target.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`);
+    addLog(`${target.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.${tiredManual ? ' 지친 공격.' : ''}`, 'combat');
     gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.22 : 0.18);
     gainSkill('tactics', isManualAttack ? 0.16 : 0.13);
     if(target.hp <= 0){
@@ -4211,7 +4203,7 @@ function attack(target=null){
     }
   }else{
     addCombatEffect(target.x, target.y, '빗나감', 'miss');
-    addLog(`${target.name} 공격 빗나감.`);
+    addLog(`${target.name} 공격 빗나감.`, 'combat');
     gainSkill(ranged ? 'archery' : 'sword',0.06);
   }
   draw();
@@ -4271,7 +4263,7 @@ function attackRemotePlayer(rp, opts={}){
     damageDurability(player.weapon, ranged ? 0.16 : 0.24);
     rp.hp = Math.max(0, (rp.hp || rp.maxHp || 100) - dmg);
     addCombatEffect(pos.x, pos.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-    addLog(`${rp.nick || '유저'}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.`);
+    addLog(`${rp.nick || '유저'}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해.`, 'combat');
     gainSkill(ranged ? 'archery' : 'sword', isManualAttack ? 0.18 : 0.13);
     gainSkill('tactics', isManualAttack ? 0.13 : 0.09);
     try{
@@ -4361,7 +4353,7 @@ function attackNpc(npc, opts={}){
   damageDurability(player.weapon, ranged ? 0.18 : 0.45);
   npc.hp = Math.max(0, (npc.hp||npc.maxHp||50) - dmg);
   addCombatEffect(npc.x, npc.y, `-${dmg}`, dmg >= 12 ? 'crit' : 'hit');
-  addLog(`${npc.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해를 줌.${tiredManual ? ' 지친 공격.' : ''}`);
+  addLog(`${npc.name}에게 ${ranged ? '원거리 ' : ''}${dmg} 피해를 줌.${tiredManual ? ' 지친 공격.' : ''}`, 'combat');
   gainSkill(ranged ? 'archery' : 'sword',0.14);
   gainSkill('tactics',0.1);
 
@@ -4893,7 +4885,7 @@ function nearbyChest(range=1.35){
 function getContextAction(){
   if(isTargetLockValid(manualAttackLock)){
     const lock = manualAttackLock;
-    if(lock.kind === 'npc') return {type:'npc', label:'말걸기', npc:lock.ref, targeted:true};
+    if(lock.kind === 'npc') return {type:'npc', label:'대화', npc:lock.ref, targeted:true};
     if(lock.kind === 'resource'){
       const action = resourceActionForKind(lock.ref.kind);
       return {type:'resource', label:action.label, res:{...action, res:lock.ref}, targeted:true};
@@ -4901,12 +4893,12 @@ function getContextAction(){
     if(lock.kind === 'chest') return {type:'chest', label:'상자', chest:lock.ref, targeted:true};
   }
   const npc = nearbyNpc();
-  if(npc) return {type:'npc', label:'말걸기', npc};
+  if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
   if(res) return {type:'resource', label:res.label, res};
   const chest = nearbyChest();
   if(chest) return {type:'chest', label:'상자', chest};
-  return {type:'use', label:'사용'};
+  return {type:'use', label:'살펴보기'};
 }
 
 function updateContextButtons(){
@@ -4918,7 +4910,7 @@ function updateContextButtons(){
   const attackButton = document.getElementById('attackBtn');
   const autoButton = document.getElementById('autoBtn');
   const ctx = getContextAction();
-  if(use) use.textContent = autoActionChase?.ref ? '이동중' : (ctx.type === 'use' ? '말걸기' : ctx.label);
+  if(use) use.textContent = autoActionChase?.ref ? '이동중' : ctx.label;
   if(attackButton){
     attackButton.textContent = autoAttackChase?.ref ? '공격 취소' : '공격';
     const cdTotal = Math.max(1, Math.ceil(playerAttackSpeed ? playerAttackSpeed() : 12));
@@ -4950,7 +4942,7 @@ function openNpcMenu(npc){
 
   closeMiniTrade();
   document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'));
-  addLog(`${npc.name}: ${npc.talk}`);
+  addLog(`${npc.name}: ${npc.talk}`, 'system');
 
   const title = document.getElementById('npcTitle');
   const role = document.getElementById('npcRole');
@@ -5161,7 +5153,7 @@ function useTile(){
 function openChest(chest){
   normalizePlayer();
   if(!chest || chest.opened) return;
-  if(player.sta < 4){ toast('기력이 부족하다'); return; }
+  if(player.sta < 4){ toast('기력이 부족하다'); return false; }
 
   const locked = chest.locked;
   if(locked){
@@ -5248,22 +5240,22 @@ function gather(kind, forced=null, opts={}){
   let res = forced || resources.find(r => r.amount>0 && r.kind===resKind[kind] && dist(r, player)<=actionRangeForTarget('resource', r));
   if(!res){
     toast(`${verb[kind]} 대상 없음`);
-    return;
+    return false;
   }
   if(dist(res, player) > actionRangeForTarget('resource', res)){
     if(!opts.noChase){
       startAutoActionChase('resource', res, {kind, label:verb[kind]});
-      return;
+      return 'chasing';
     }
     toast(`${verb[kind]} 대상이 너무 멀다`);
-    return;
+    return false;
   }
   if(kind === 'fish' && tileAt(res.x, res.y) !== 'water'){
     res.kind = 'herb';
     toast('낚시는 물가에서만 가능');
-    return;
+    return false;
   }
-  if(player.sta < 4){ toast('기력이 부족하다'); return; }
+  if(player.sta < 4){ toast('기력이 부족하다'); return false; }
   const regionHere = regionNameAt(player.x,player.y);
   const resultItem = kind === 'fish' ? pickFishCatch() :
     kind === 'mine' && regionHere==='북서 빙원' && Math.random()<0.38 ? 'frostOre' :
@@ -5271,7 +5263,7 @@ function gather(kind, forced=null, opts={}){
     kind === 'mine' && regionHere==='망자의 묘지' && Math.random()<0.28 ? 'boneCharm' :
     kind === 'mine' && regionHere==='검은동굴 던전' && Math.random()<0.28 ? 'silverOre' :
     kind === 'wood' && Math.random()<0.24 ? 'oakLog' : itemMap[kind];
-  if(!canCarryItem(resultItem,1)){ toast('가방 무게 초과'); return; }
+  if(!canCarryItem(resultItem,1)){ toast('가방 무게 초과'); return false; }
   player.sta -= 4;
   const sk = player.skills[skillMap[kind]].v;
   let toolBonus = kind==='fish' && player.inv.fishingRod ? 0.08 : 0;
@@ -5291,6 +5283,7 @@ function gather(kind, forced=null, opts={}){
     gainSkill(skillMap[kind], 0.08);
   }
   draw();
+  return true;
 }
 
 function sellJunk(){
@@ -5557,7 +5550,8 @@ function playerHitRange(){
   const weapon = equippedWeaponDef();
   if(isRangedWeapon()) return (weapon.range || 5.5) + archeryRangeBonus();
   const tactics = player.skills?.tactics?.v || 0;
-  return Math.min(2.15, 1.52 + tactics/220);
+  const baseRange = Number(weapon.range || 1.18);
+  return Math.min(1.65, baseRange + tactics/420);
 }
 function consumeAmmoForWeapon(weapon){
   if(!weapon?.ammo) return true;
@@ -6697,7 +6691,6 @@ function renderSettings(){
       ${check('potion','물약 자동사용')}
       ${check('skill','스킬 자동사용')}
       ${check('attack','자동 공격')}
-      ${check('rest','자동 휴식')}
       ${check('wood','벌목 자동')}
       ${check('mine','채광 자동')}
       ${check('fish','낚시 자동')}
@@ -6723,11 +6716,6 @@ function runAutoMode(){
   const a = ensureAutoSettings();
   if(!a.enabled) return;
   if(a.food || a.potion) autoConsumeEmergency();
-
-  if(a.rest && player.hp <= player.maxHp * (a.hpPercent/100) && tick >= (player.restReadyTick||0)){
-    rest();
-    return;
-  }
 
   if(a.skill && player.hp <= player.maxHp * ((a.hpPercent + 10)/100) && meetsReq({healing:12}) && player.mana >= 6){
     useActiveSkill('mend');
@@ -6758,7 +6746,10 @@ function renderLog(){
   if(!el) return;
   const prevBottomGap = (el.scrollHeight || 0) - (el.scrollTop || 0) - (el.clientHeight || 0);
   const keepBottom = prevBottomGap <= 8;
-  el.innerHTML = player.journal.map(x=>`<div>${escapeHtml(x)}</div>`).join('');
+  el.innerHTML = player.journal.map(entry=>{
+    const e = normalizeJournalEntry(entry);
+    return `<div class="log-entry ${escapeHtml(e.type)}">${escapeHtml(e.text)}</div>`;
+  }).join('');
   if(keepBottom){
     el.scrollTop = el.scrollHeight;
   }else{
@@ -7012,7 +7003,7 @@ function renderSkills(){
 
 function renderJournal(){
   const el = document.getElementById('journalRows');
-  el.innerHTML = player.journal.map(x=>`<div class="row"><span>${escapeHtml(x)}</span></div>`).join('');
+  el.innerHTML = player.journal.map(x=>{ const e = normalizeJournalEntry(x); return `<div class="row"><span class="log-entry ${escapeHtml(e.type)}">${escapeHtml(e.text)}</span></div>`; }).join('');
 }
 
 function normalizeSupabaseUrl(url){
@@ -7908,14 +7899,14 @@ function sendChatMessage(){
     if(ptxt){
       partySend('party_chat', {text:ptxt});
       localSpeech = {text:`[파티] ${ptxt}`, until:Date.now()+4200};
-      addLog(`[파티] ${displayGameNickname()}: ${ptxt}`);
+      addLog(`[파티] ${displayGameNickname()}: ${ptxt}`, 'chat');
     }
     closeChatInput();
     draw();
     return;
   }
   localSpeech = {text, until:Date.now()+4200};
-  addLog(`${displayGameNickname()}: ${text}`);
+  addLog(`${displayGameNickname()}: ${text}`, 'chat');
   if(onlineChannel && player.isOnline){
     onlineChannel.send({ type:'broadcast', event:'chat', payload:{id:player.userId, nick:displayGameNickname(), text, ts:Date.now()} });
   }
@@ -8310,7 +8301,7 @@ function setupRealtimeOnline(){
       if(!payload || payload.id === player.userId) return;
       const old = remotePlayers[payload.id] || {};
       remotePlayers[payload.id] = smoothRemotePayload(old, {...payload, chatText:String(payload.text||'').slice(0,60), chatUntil:Date.now()+4200});
-      addLog(`${payload.nick || '유저'}: ${String(payload.text||'').slice(0,60)}`);
+      addLog(`${payload.nick || '유저'}: ${String(payload.text||'').slice(0,60)}`, 'chat');
       updateOnlineBadge();
     })
     .on('broadcast', { event: 'pvp_hit' }, ({payload}) => {
@@ -9648,6 +9639,13 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'로그 색상·무기 사거리·자원 자동수집·대화 버튼 정리', items:[
+    '로그창 색상을 채팅 파랑, 시스템 노랑, 전투 초록으로 분리했다.',
+    '모든 무기에 사거리 수치를 부여하고 검 계열은 짧은 근접 사거리로 조정했다.',
+    '벌목·채집·채광·낚시는 타겟 후 액션 버튼을 누르면 근처까지 이동해 자원이 소진될 때까지 자동 반복한다.',
+    '공격은 반드시 대상을 타겟팅한 뒤 공격 버튼을 눌러야 시작되며, 마을 안 유저 공격은 차단된다.',
+    '휴식 버튼을 제거하고 대화 표기를 대화로, 평상시 버튼은 살펴보기로 변경했다.'
+  ]},
   {
     version:'현재 단계',
     title:'사거리 기반 전투 흐름·로그 하단 정렬',
@@ -9826,7 +9824,7 @@ const PATCH_NOTES = [
     items:[
       '브라이트헤이븐 북서쪽에 실제 감옥 구역과 철창 타일 추가',
       '체포 시 감옥으로 이동, 벌금/장물 압수/수감 시간 적용',
-      '수감 중 말걸기 버튼으로 복역·자물쇠 관찰·형기 감소 상황 발생',
+      '수감 중 대화 버튼으로 복역·자물쇠 관찰·형기 감소 상황 발생',
       '형기 종료 시 감옥 밖으로 자동 석방',
       '맵 크기 100x70에서 140x100으로 확장',
       '북서 빙원, 동부 고대 유적, 망자의 묘지, 확장 던전/무법지대 추가',
@@ -10199,6 +10197,17 @@ function autoActionChaseStep(dt){
   manualAttackLock = {ref:target, kind:chase.type, until:tick + 9999};
   const range = actionRangeForTarget(chase.type, target);
   if(d <= range){
+    if(chase.type === 'resource'){
+      if(tick >= (chase.actionTick || 0)){
+        const acted = executeAutoActionTarget(chase.type, target, chase.action);
+        chase.actionTick = tick + 2;
+        if(!acted || !isResourceTargetValid(target)){
+          stopAutoActionChase();
+          draw();
+        }
+      }
+      return true;
+    }
     executeAutoActionTarget(chase.type, target, chase.action);
     stopAutoActionChase();
     draw();
@@ -10208,6 +10217,15 @@ function autoActionChaseStep(dt){
   player.dir = [dx/len, dy/len];
   const moved = move(dx, dy, Math.max(playerMoveSpeed(), 4.05) * (dt/1000));
   if(!moved && d <= range + 0.45){
+    if(chase.type === 'resource'){
+      if(tick >= (chase.actionTick || 0)){
+        const acted = executeAutoActionTarget(chase.type, target, chase.action);
+        chase.actionTick = tick + 2;
+        if(!acted || !isResourceTargetValid(target)) stopAutoActionChase();
+      }
+      draw();
+      return true;
+    }
     executeAutoActionTarget(chase.type, target, chase.action);
     stopAutoActionChase();
     draw();
@@ -10503,7 +10521,7 @@ function ultimaDynamicWorldTick(){
       '소문: 숲과 길에는 숨겨진 상자와 습격 상황이 생긴다.',
       '소문: 가축을 해치면 카르마와 평판이 내려간다.',
       '소문: 보스와 강도를 잡으면 평판이 올라 주민 선물을 받을 수 있다.',
-      '소문: 감옥에서는 말걸기 버튼으로 형기를 줄이거나 자물쇠를 살필 수 있다.',
+      '소문: 감옥에서는 대화 버튼으로 형기를 줄이거나 자물쇠를 살필 수 있다.',
       '소문: 북서 빙원·동부 유적·망자의 묘지는 확장 지역이라 희귀 재료가 나온다.'
     ];
     addLog(rumors[rand(rumors.length)]);
@@ -10618,8 +10636,8 @@ addLog('화면 비율을 원래 느낌에 맞게 복원하고 아이템 이미�
 addLog('새 아이템, 새 제작식, 새 몬스터, 날씨, 적재량 확장 시스템이 추가되었습니다.');
 addLog('모든 NPC가 개인 가방을 가지며, 드래그 절도/체포/장물 압수가 추가되었습니다.');
 addLog('상단 메뉴 이동, 우측 4버튼, 큰 아날로그, 자동 상황 버튼이 적용되었습니다.');
-addLog('사용 버튼은 대상에 따라 말걸기/벌목/채광/낚시/상자로 자동 전환됩니다.');
-addLog('말걸기는 NPC 메뉴를 열고, 훔치기는 NPC 가방을 따로 연다.');
+addLog('사용 버튼은 대상에 따라 대화/벌목/채광/낚시/상자로 자동 전환됩니다.');
+addLog('대화는 NPC 메뉴를 열고, 훔치기는 NPC 가방을 따로 연다.');
 addLog('맵 표시를 자연형 지형으로 변경하고 몬스터/경비 이동을 자유 이동으로 수정했다.');
 addLog('몬스터가 마을에 들어오면 경비병이 자동으로 추격해 처리한다.');
 addLog('NPC 메뉴는 NPC 근처에 작고 간단한 팝업으로 표시된다.');
