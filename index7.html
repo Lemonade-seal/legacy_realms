@@ -7177,8 +7177,7 @@ function inventoryWeight(inv=player.inv){
 }
 
 function maxCarryWeight(){
-  const base = 52 + Math.floor((player.skills.tactics?.v || 0) / 5);
-  return base;
+  return 250;
 }
 
 function canCarryItem(id, qty=1){
