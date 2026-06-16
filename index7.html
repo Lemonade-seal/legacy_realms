@@ -2692,6 +2692,40 @@ header.topbar,
     #gold.statusGoldLine .pixelIcon{ width:9px !important; height:9px !important; transform:scale(.75) !important; }
   }
 
+
+  /* ==== patch: restore warehouse only ==== */
+  #popStorage .tradeWrap{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+  #popStorage .tradePanel{
+    min-height:260px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #popStorage .itemGrid{
+    flex:1 1 auto;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    padding-right:3px;
+  }
+  .storageSummary{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+    font-size:11px;
+    color:#d9d0ad;
+  }
+  @media(max-width:560px){
+    #popStorage .tradeWrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; gap:5px;}
+    #popStorage .tradePanel{min-height:220px; padding:6px;}
+    #popStorage .itemGrid{grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); gap:4px;}
+    #popStorage .itemSlot{min-height:56px; padding:4px;}
+  }
+
 </style>
 
 
@@ -2885,6 +2919,27 @@ header.topbar,
       </div>
     </section>
 
+    <section class="pop" id="popStorage">
+      <div class="popHead"><b>창고</b><button onclick="closePop(); closeInventoryItemPopup()">닫기</button></div>
+      <div class="popBody">
+        <div class="notice">창고는 아이템 전용 보관함이다. 가방 아이템을 누르면 창고에 넣고, 창고 아이템을 누르면 가방으로 꺼낸다.</div>
+        <div class="storageSummary">
+          <span>가방: <b id="storageBagCount">0/0</b></span>
+          <span>창고: <b id="storageCount">0/0</b></span>
+        </div>
+        <div class="tradeWrap storageWrap">
+          <div class="tradePanel">
+            <h3>내 가방</h3>
+            <div id="storageInvGrid" class="itemGrid"></div>
+          </div>
+          <div class="tradePanel">
+            <h3>창고</h3>
+            <div id="storageGrid" class="itemGrid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="pop" id="popNpc">
       <div class="popHead"><b id="npcTitle">NPC</b><button onclick="closePop()">닫기</button></div>
       <div class="popBody">
@@ -2934,6 +2989,7 @@ header.topbar,
         <div class="grid4">
           <button onclick="openPop('popStatus')">상태</button>
           <button onclick="openPop('popInv')">가방</button>
+          <button onclick="openPop('popStorage')">창고</button>
           <button onclick="openPop('popSkills')">스킬</button>
           <button onclick="openPop('popCraft')">제작</button>
           <button onclick="openPop('popBank')">은행</button>
@@ -3556,7 +3612,7 @@ const player = {
   },
   inv: {rustySword:1, herb:2, arrow:10},
   quickSlots: [null,null,null,null,null,null],
-  bank: {}, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
+  bank: {}, storage: {}, bagSlots:20, bankRate: 0.006, bankRateNextTick: 0, bankInterestNextTick: 0,
   shopStock: {},
   merchantStock: {},
   questKills: {},
@@ -3612,7 +3668,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
     crimeRecord:{steals:0, arrests:0},
     skills:starterSkillSet(),
     inv:{rustySword:1, herb:2},
-    bank:{}, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
+    bank:{}, storage:{}, bankRate:0.006, bankRateNextTick:0, bankInterestNextTick:0,
     shopStock:{},
     merchantStock:{},
     questKills:{},
@@ -6116,6 +6172,7 @@ function npcRoleActions(npc){
 
   if(role === '은행'){
     add('은행', "openPop('popBank'); closeMiniNpcMenu()");
+    add('창고', "openPop('popStorage'); closeMiniNpcMenu()");
     add('훔쳐보기', 'openNpcBagFromMenu()', 'danger');
     return actions;
   }
@@ -6695,9 +6752,49 @@ function withdrawGold(){
   renderBank(); draw();
 }
 
-// 은행 아이템 보관은 제거됨. 과거 저장 데이터 호환을 위해 함수만 no-op 처리한다.
-function depositItem(id){ toast('은행은 이제 골드만 보관합니다'); }
-function withdrawItem(id){ toast('은행은 이제 골드만 보관합니다'); }
+// 창고 아이템 보관 복구. 은행은 골드 전용으로 유지하고, 아이템은 창고에서만 처리한다.
+function storageCapacity(){ return 120; }
+function storageItems(){
+  if(!player.storage || typeof player.storage !== 'object') player.storage = {};
+  return player.storage;
+}
+function usedStorageSlots(){
+  const st = storageItems();
+  return Object.keys(st).filter(id => (st[id] || 0) > 0).length;
+}
+function hasFreeStorageSlotFor(id){
+  const st = storageItems();
+  if((st[id] || 0) > 0) return true;
+  return usedStorageSlots() < storageCapacity();
+}
+function depositStorageItem(id, qty=1){
+  normalizePlayer();
+  qty = Math.max(1, Math.floor(Number(qty) || 1));
+  if(!player.inv?.[id]){ toast('가방에 아이템 없음'); return; }
+  if(!hasFreeStorageSlotFor(id)){ toast('창고 칸 부족'); return; }
+  const amount = Math.min(qty, player.inv[id] || 0);
+  if(amount <= 0) return;
+  removeItem(id, amount);
+  const st = storageItems();
+  st[id] = (st[id] || 0) + amount;
+  addLog(`${itemDefs[id]?.name || id} ${amount}개 창고 보관.`);
+  renderStorage(); renderInventory(); draw();
+}
+function withdrawStorageItem(id, qty=1){
+  normalizePlayer();
+  qty = Math.max(1, Math.floor(Number(qty) || 1));
+  const st = storageItems();
+  if(!st[id]){ toast('창고에 아이템 없음'); return; }
+  const amount = Math.min(qty, st[id] || 0);
+  if(!canCarryItem(id, amount)){ toast(carryBlockReason(id, amount) || '가방에 넣을 수 없음'); return; }
+  st[id] -= amount;
+  if(st[id] <= 0) delete st[id];
+  addItem(id, amount);
+  addLog(`${itemDefs[id]?.name || id} ${amount}개 창고에서 꺼냄.`);
+  renderStorage(); renderInventory(); draw();
+}
+function depositItem(id){ depositStorageItem(id, 1); }
+function withdrawItem(id){ withdrawStorageItem(id, 1); }
 
 function bankRatePercent(){
   normalizePlayer();
@@ -7824,6 +7921,39 @@ function renderBank(){
   }
 }
 
+function renderStorage(){
+  normalizePlayer();
+  closeInventoryItemPopup();
+  const invEl = document.getElementById('storageInvGrid');
+  const stEl = document.getElementById('storageGrid');
+  const bagCount = document.getElementById('storageBagCount');
+  const storageCount = document.getElementById('storageCount');
+  if(bagCount) bagCount.textContent = bagSlotText();
+  if(storageCount) storageCount.textContent = `${usedStorageSlots()} / ${storageCapacity()}`;
+
+  const slot = (id, qty, origin)=>{
+    const def = itemDefs[id] || {name:id, type:'기타', price:0, desc:''};
+    const mode = origin === 'storage' ? 'storage' : 'inventory';
+    return `<div class="itemSlot ${itemRarityClass(id)}" title="${escapeHtml(def.name)}" onclick="showInventoryItemPopup(event,'${escapeJsString(id)}',{mode:'storage',origin:'${mode}'})">
+      <div class="itemIcon">${itemIcon(id)}</div>
+      <div class="itemName">${escapeHtml(def.name || id)}</div>
+      <div class="itemMeta">x${qty}</div>
+    </div>`;
+  };
+
+  if(invEl){
+    const ids = Object.keys(player.inv || {}).filter(id => (player.inv[id] || 0) > 0);
+    invEl.className = ids.length ? 'itemGrid' : 'notice';
+    invEl.innerHTML = ids.length ? ids.map(id => slot(id, player.inv[id], 'inventory')).join('') : '가방이 비어 있다.';
+  }
+  if(stEl){
+    const st = storageItems();
+    const ids = Object.keys(st || {}).filter(id => (st[id] || 0) > 0);
+    stEl.className = ids.length ? 'itemGrid' : 'notice';
+    stEl.innerHTML = ids.length ? ids.map(id => slot(id, st[id], 'storage')).join('') : '창고가 비어 있다.';
+  }
+}
+
 function normalizePlayer(){
   if(typeof player.bankGold !== 'number') player.bankGold = 0;
   if(typeof player.bankRate !== 'number') player.bankRate = 0.006;
@@ -7855,6 +7985,13 @@ function normalizePlayer(){
   if(typeof player.bagSlots !== 'number' || !Number.isFinite(player.bagSlots)) player.bagSlots = bagSlotBase();
   player.bagSlots = clamp(Math.floor(player.bagSlots), bagSlotBase(), 240);
   if(!player.bank) player.bank = {};
+  if(!player.storage || typeof player.storage !== 'object') player.storage = {};
+  if(player.bank && typeof player.bank === 'object' && Object.keys(player.bank).length && !player._storageMigrated){
+    for(const [id,qty] of Object.entries(player.bank)){
+      if((qty || 0) > 0) player.storage[id] = (player.storage[id] || 0) + qty;
+    }
+    player._storageMigrated = true;
+  }
   if(!player.shopStock) player.shopStock = {};
   if(!player.merchantStock) player.merchantStock = {};
   if(!player.questKills) player.questKills = {};
@@ -8219,7 +8356,15 @@ function inventoryItemActionButtons(id, ctx={}){
     actions.push(`<button class="danger" onclick="attemptStealTradeItem(activeTradeNpc,'${id}'); closeInventoryItemPopup()">훔치기</button>`);
   }
 
-  if(origin !== 'merchant'){
+  if(mode === 'storage'){
+    if(origin === 'inventory'){
+      actions.push(`<button class="primary" onclick="depositStorageItem('${escapeJsString(id)}'); closeInventoryItemPopup()">창고 넣기</button>`);
+    }else if(origin === 'storage'){
+      actions.push(`<button class="primary" onclick="withdrawStorageItem('${escapeJsString(id)}'); closeInventoryItemPopup()">가방으로 꺼내기</button>`);
+    }
+  }
+
+  if(origin !== 'merchant' && origin !== 'storage'){
     if(def.type === 'weapon') actions.push(`<button onclick="equip('${id}'); closeInventoryItemPopup()">${player.weapon===id?'착용중':'착용'}</button>`);
     if(def.type === 'armor') actions.push(`<button onclick="equipArmor('${id}'); closeInventoryItemPopup()">${player.armor===id?'착용중':'착용'}</button>`);
     if(def.type === 'food' || def.type === 'potion') actions.push(`<button onclick="consumeItem('${id}'); closeInventoryItemPopup()">사용</button>`);
@@ -8255,7 +8400,9 @@ function showInventoryItemPopup(ev, id, ctx={}){
     ? (npc ? (ensureMerchantStock(npc)[id] || 0) : 0)
     : (origin === 'remote'
       ? Math.max(0, Math.floor(Number(ctx.remoteQty ?? remotePlayers?.[ctx.targetId]?.inv?.[id] ?? 0) || 0))
-      : (origin === 'bank' ? (player.bank?.[id] || 0) : (player.inv?.[id] || 0)));
+      : (origin === 'bank' ? (player.bank?.[id] || 0)
+        : origin === 'storage' ? (player.storage?.[id] || 0)
+        : (player.inv?.[id] || 0)));
   const weight = itemWeight(id);
   const dur = (def.type==='weapon' || def.type==='armor') && origin !== 'merchant'
     ? `<span>내구도 ${Math.round(player.durability?.[id] ?? 100)}%</span>`
@@ -8280,7 +8427,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
     ? `${npc?.name || 'NPC'} 소지품`
     : origin === 'remote'
       ? `${ctx.remoteName || remotePlayers?.[ctx.targetId]?.nick || '상대 유저'} 소지품`
-      : origin === 'bank' ? '은행 보관품' : '내 소지품';
+      : origin === 'bank' ? '은행 보관품'
+      : origin === 'storage' ? '창고 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
     ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
     : def.rod ? `${def.desc || '설명 없음'} 거리 ${def.rod.distance}칸, 파워 ${def.rod.power}, 행운 +${Math.round((def.rod.luck||0)*100)}%.`
@@ -11892,6 +12040,7 @@ function openPop(id){
   if(id==='popJournal') renderJournal();
   if(id==='popCraft') renderCraft();
   if(id==='popBank') renderBank();
+  if(id==='popStorage') renderStorage();
   if(id==='popStatus') renderStatus();
   if(id==='popSettings') renderSettings();
   if(id==='popAccount') renderAccountStatus();
