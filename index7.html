@@ -2726,6 +2726,33 @@ header.topbar,
     #popStorage .itemSlot{min-height:56px; padding:4px;}
   }
 
+
+
+  /* map popup: keep bottom legend visible when enlarged */
+  #popMap.pop{
+    bottom:var(--popupControlClearance) !important;
+    max-height:calc(100dvh - var(--topbar-offset, 72px) - var(--popupControlClearance) - 8px) !important;
+  }
+  #popMap .popBody{
+    display:flex !important;
+    flex-direction:column !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+    padding-bottom:8px !important;
+  }
+  #popMap .fullMapWrap{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:auto !important;
+  }
+  #popMap .mapLegend{
+    flex:0 0 auto !important;
+    margin-top:6px !important;
+    padding:4px 0 2px !important;
+    position:relative !important;
+    z-index:2 !important;
+  }
 </style>
 
 
@@ -3218,7 +3245,7 @@ const itemDefs = {
   hunterBow:{name:'사냥꾼 활', type:'weapon', atk:7, range:6.4, price:72, ammo:'arrow', desc:'목재와 가죽으로 제작하는 활. 화살을 소비해 원거리 공격한다.'},
   leatherArmor:{name:'가죽 갑옷', type:'armor', def:3, price:64, desc:'받는 피해를 줄인다.'},
   ironArmor:{name:'철 갑옷', type:'armor', def:6, price:130, desc:'무겁지만 튼튼한 방어구.'},
-  fishingRod:{name:'낚싯대', type:'tool', grade:'일반', price:35, rod:{distance:2.15,power:1.0,luck:0.03}, desc:'일반 낚싯대. 거리 2.15칸, 파워 1.0, 행운 +3%.'},
+  fishingRod:{name:'낚싯대', type:'tool', grade:'일반', price:35, rod:{distance:2.15,power:1.0,luck:0.03}, desc:'일반 낚싯대. 거리 2.15, 파워 1.0, 행운 +3%.'},
   ore:{name:'철광석', type:'mat', price:4, desc:'대장 제작 재료.'},
   log:{name:'통나무', type:'mat', price:3, desc:'목공 제작 재료.'},
   fish:{name:'민물고기', type:'food', price:5, heal:10, desc:'먹으면 HP를 회복한다.'},
@@ -3271,11 +3298,11 @@ Object.assign(itemDefs, {
   epicBackpack:{name:'차원 가방', type:'bag', grade:'에픽', slotBonus:22, price:520, desc:'사용하면 가방 슬롯이 22칸 증가한다.'},
   legendaryBackpack:{name:'전설의 가방', type:'bag', grade:'전설', slotBonus:30, price:950, desc:'사용하면 가방 슬롯이 30칸 증가한다.'},
   mythicBackpack:{name:'신화의 가방', type:'bag', grade:'신화', slotBonus:40, price:1600, desc:'사용하면 가방 슬롯이 40칸 증가한다.'},
-  sturdyFishingRod:{name:'튼튼한 낚싯대', type:'tool', grade:'고급', price:96, rod:{distance:2.45,power:1.14,luck:0.06}, desc:'고급 낚싯대. 거리 2.45칸, 파워 1.14, 행운 +6%.'},
-  silverFishingRod:{name:'은장 낚싯대', type:'tool', grade:'레어', price:210, rod:{distance:2.75,power:1.28,luck:0.10}, desc:'레어 낚싯대. 거리 2.75칸, 파워 1.28, 행운 +10%.'},
-  epicFishingRod:{name:'폭풍 낚싯대', type:'tool', grade:'에픽', price:420, rod:{distance:3.05,power:1.45,luck:0.15}, desc:'에픽 낚싯대. 거리 3.05칸, 파워 1.45, 행운 +15%.'},
-  legendaryFishingRod:{name:'용비늘 낚싯대', type:'tool', grade:'전설', price:850, rod:{distance:3.45,power:1.72,luck:0.22}, desc:'전설 낚싯대. 거리 3.45칸, 파워 1.72, 행운 +22%.'},
-  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9칸, 파워 2.05, 행운 +32%.'}
+  sturdyFishingRod:{name:'튼튼한 낚싯대', type:'tool', grade:'고급', price:96, rod:{distance:2.45,power:1.14,luck:0.06}, desc:'고급 낚싯대. 거리 2.45, 파워 1.14, 행운 +6%.'},
+  silverFishingRod:{name:'은장 낚싯대', type:'tool', grade:'레어', price:210, rod:{distance:2.75,power:1.28,luck:0.10}, desc:'레어 낚싯대. 거리 2.75, 파워 1.28, 행운 +10%.'},
+  epicFishingRod:{name:'폭풍 낚싯대', type:'tool', grade:'에픽', price:420, rod:{distance:3.05,power:1.45,luck:0.15}, desc:'에픽 낚싯대. 거리 3.05, 파워 1.45, 행운 +15%.'},
+  legendaryFishingRod:{name:'용비늘 낚싯대', type:'tool', grade:'전설', price:850, rod:{distance:3.45,power:1.72,luck:0.22}, desc:'전설 낚싯대. 거리 3.45, 파워 1.72, 행운 +22%.'},
+  mythicFishingRod:{name:'별빛 낚싯대', type:'tool', grade:'신화', price:1500, rod:{distance:3.9,power:2.05,luck:0.32}, desc:'신화 낚싯대. 거리 3.9, 파워 2.05, 행운 +32%.'}
 });
 Object.assign(ITEM_SPRITE_INDEX, {
   trout:9, carp:9, bass:9, eel:24, catfish:9, salmon:24, goldenFish:24,
@@ -4018,13 +4045,6 @@ function isJailTile(x,y){
 function isInsideJailCell(x,y){
   const gx = gridX(x), gy = gridY(y);
   return gx>=JAIL.x1 && gx<=JAIL.x2 && gy>=JAIL.y1 && gy<=JAIL.y2;
-}
-function isJailDoorTile(x,y){
-  const gx = gridX(x), gy = gridY(y);
-  return gx === JAIL.releaseX && gy === JAIL.outerY1;
-}
-function isJailedPlayerActive(){
-  return tick < (player.jailUntilTick || 0);
 }
 const ONLINE_TIMER_CAPS = {
   jail: 1800,       // 13분 30초. 저장 오류로 말도 안 되게 늘어나는 것을 막는다.
@@ -4932,9 +4952,11 @@ function startAutoAttackChase(target, kind='mob'){
     toast('마을 안에서는 유저 공격 불가');
     return false;
   }
+  // 공격 버튼으로 대상에게 자동 접근하지 않는다. 대상 잠금만 유지한다.
   stopAutoActionChase();
-  autoAttackChase = {ref:target, kind, until:tick + 99999, attackTick:0};
-  return true;
+  autoAttackChase = {ref:null, until:0, attackTick:0};
+  manualAttackLock = {ref:target, kind, until:tick + 9999};
+  return false;
 }
 function stopAutoAttackChase(){
   autoAttackChase = {ref:null, until:0, attackTick:0};
@@ -5059,9 +5081,9 @@ function playerFrontStrikeZone(target=null, kind='mob'){
   }
   const bodyR = 0.48;
   const range = Math.max(1.25, playerHitRange ? playerHitRange() : 1.55);
-  // 타격 판정은 플레이어 중심에서 시작한다.
-  // 기존처럼 앞쪽 원 중심으로 밀어 두면 근접한 대상이 헛치는 문제가 생긴다.
-  const radius = Math.max(1.05, Math.min(2.45, range + bodyR + 0.26));
+  // 타격 범위는 앞쪽 칸 중심이 아니라 플레이어 중심에서 바로 시작한다.
+  // 상태창에 표시되는 사거리 숫자가 실제 판정 반경의 기준이다.
+  const radius = Math.max(1.05, Math.min(2.75, range + bodyR + 0.24));
   return {
     x: player.x,
     y: player.y,
@@ -5136,7 +5158,7 @@ function pickManualAttackTarget(){
   // 이동 중에도 공격이 들어가야 하므로 후보 범위와 판정을 넉넉하게 잡는다.
   const ranged = isRangedWeapon();
   const baseRange = playerHitRange ? playerHitRange() : 1.35;
-  const searchRange = ranged ? 9.5 : Math.max(4.4, baseRange + 3.1);
+  const searchRange = ranged ? baseRange + 0.55 : baseRange + 0.35;
   const dirX = Array.isArray(player.dir) ? Number(player.dir[0] || 0) : 0;
   const dirY = Array.isArray(player.dir) ? Number(player.dir[1] || 1) : 1;
   const candidates = [];
@@ -5272,9 +5294,10 @@ function attack(target=null){
   const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.12 : 0.16);
 
   if(!inRange){
+    stopAutoAttackChase();
     if(isManualAttack){
-      startAutoAttackChase(target, targetKind);
-      addCombatEffect(target.x, target.y, '접근', 'guard');
+      addCombatEffect(target.x, target.y, '사거리밖', 'guard');
+      toast('사거리 밖');
       draw();
     }
     return;
@@ -5359,9 +5382,10 @@ function attackRemotePlayer(rp, opts={}){
   const ranged = isRangedWeapon();
 
   if(!canAttackCombatTarget(rp, kind, ranged ? 0.12 : 0.16)){
+    stopAutoAttackChase();
     if(isManualAttack){
-      startAutoAttackChase(rp, 'player');
-      addCombatEffect(pos.x, pos.y, '접근', 'guard');
+      addCombatEffect(pos.x, pos.y, '사거리밖', 'guard');
+      toast('사거리 밖');
       draw();
     }
     return;
@@ -5443,9 +5467,10 @@ function attackNpc(npc, opts={}){
   const ranged = isRangedWeapon();
 
   if(!canAttackCombatTarget(npc, kind, ranged ? 0.12 : 0.18)){
+    stopAutoAttackChase();
     if(isManualAttack){
-      startAutoAttackChase(npc, 'npc');
-      addCombatEffect(npc.x, npc.y, '접근', 'guard');
+      addCombatEffect(npc.x, npc.y, '사거리밖', 'guard');
+      toast('사거리 밖');
       draw();
     }else if(tick % 12 === 0){
       toast('NPC가 너무 멀다');
@@ -5577,11 +5602,10 @@ function npcStepToward(npc, target, speed=0.034){
     if(npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius)) return false;
 
     // 경비병이 마을 침입 몬스터를 쫓거나 순찰할 때는 플레이어를 관통하지 않는다.
-    // 단, 수배 상태로 플레이어를 직접 추격하거나 감옥 경비 호출에 대응 중일 때는 예외 처리한다.
+    // 단, 수배 상태로 플레이어를 직접 추격하는 경우에는 공격 거리까지 접근해야 하므로 예외 처리한다.
     const chasingPlayer = !!target && target === player;
-    const jailResponse = npc.guard && (npc.guardJailUntil || 0) > tick;
     const playerBlockRadius = npc.guard ? 0.54 : 0.46;
-    if(npc.guard && !chasingPlayer && !jailResponse && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
+    if(npc.guard && !chasingPlayer && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
     return true;
   };
 
@@ -5711,72 +5735,6 @@ function nearestTownMonsterTo(guard, range=12){
     .sort((a,b)=>dist(a,guard)-dist(b,guard))[0] || null;
 }
 
-function jailIntrudingMobs(){
-  return mobs
-    .filter(m=>!m.animal && isMobTargetAlive(m) && isJailTile(m.x, m.y))
-    .sort((a,b)=>dist(a,player)-dist(b,player));
-}
-
-function nearestJailMonsterTo(guard, range=999){
-  return jailIntrudingMobs()
-    .filter(m=>dist(m, guard) <= range)
-    .sort((a,b)=>dist(a,guard)-dist(b,guard))[0] || null;
-}
-
-function assignJailGuardResponse(intruder=null){
-  const target = intruder || jailIntrudingMobs()[0] || {x:JAIL.cellX, y:JAIL.cellY};
-  const guards = npcs
-    .filter(n=>n.guard && !n.down)
-    .sort((a,b)=>dist(a,target)-dist(b,target))
-    .slice(0, 2);
-  for(const g of guards){
-    g.guardJailUntil = tick + 260;
-    g.guardJailTarget = target;
-    g.patrolTarget = null;
-    g.guardPauseUntil = 0;
-  }
-  return guards.length;
-}
-
-function extendJailTime(extraTicks){
-  const left = countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail);
-  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', left + extraTicks, ONLINE_TIMER_CAPS.jail);
-}
-
-function callJailGuard(){
-  normalizePlayer();
-  if(!isJailedPlayerActive()){ useTile(); return; }
-  if(!isInsideJailCell(player.x, player.y) || isJailDoorTile(player.x, player.y)){
-    jailInteraction();
-    return;
-  }
-
-  player.jailGuardCallTicks = Array.isArray(player.jailGuardCallTicks) ? player.jailGuardCallTicks : [];
-  player.jailGuardCallTicks = player.jailGuardCallTicks.filter(t=>tick - Number(t||0) <= 135);
-  player.jailGuardCallTicks.push(tick);
-
-  const spamCount = Math.max(0, player.jailGuardCallTicks.length - 2);
-  if(spamCount > 0){
-    const extra = Math.min(36, 8 + spamCount * 5);
-    extendJailTime(extra);
-    addLog(`경비병을 과도하게 불러 수감 시간이 ${Math.ceil(extra*0.45)}초 늘었다.`);
-  }
-
-  const intruders = jailIntrudingMobs();
-  const guards = assignJailGuardResponse(intruders[0] || null);
-  player.jailActionCd = tick + 28;
-  player.jailActionRemainingTicks = 28;
-
-  if(intruders.length){
-    addLog(`감옥 경비 호출. 경비병 ${guards || 0}명이 감옥 침입 몬스터 ${intruders.length}마리를 제압하러 이동한다.`);
-    toast('경비 호출');
-  }else{
-    addLog('경비병을 불렀지만 감옥 안 침입 몬스터가 없다. 반복 호출하면 수감 시간이 늘어난다.');
-    toast('침입 몬스터 없음');
-  }
-  draw();
-}
-
 function guardAttackMonster(guard, mob){
   if(!guard || !mob) return;
   guard.attackCd = Math.max(0, (guard.attackCd||0) - simDtSeconds);
@@ -5785,8 +5743,7 @@ function guardAttackMonster(guard, mob){
   const dmg = Math.max(4, (guard.atk||10) + rand(8));
   mob.hp -= dmg;
   addCombatEffect(mob.x, mob.y, `-${dmg}`, 'guard');
-  const place = isJailTile(mob.x, mob.y) ? '감옥 침입 몬스터' : '마을 침입 몬스터';
-  addLog(`${guard.name}이 ${place}를 공격. ${dmg} 피해.`);
+  addLog(`${guard.name}이 마을 침입 몬스터를 공격. ${dmg} 피해.`);
   if(mob.hp <= 0){
     mobs = mobs.filter(m=>m!==mob);
     addLog(`${guard.name}이 ${mob.name}을 처리했다.`);
@@ -5812,24 +5769,6 @@ function guardAI(){
     }
 
     if(npc.guard){
-      const jailTarget = (npc.guardJailUntil || 0) > tick ? nearestJailMonsterTo(npc, 999) : null;
-      if(jailTarget){
-        npc.guardJailTarget = jailTarget;
-        if(dist(npc, jailTarget) <= 1.15){
-          guardAttackMonster(npc, jailTarget);
-        }else{
-          npcStepToward(npc, jailTarget, 0.052);
-        }
-        continue;
-      }
-      if((npc.guardJailUntil || 0) > tick && !jailTarget){
-        const jailPost = {x:JAIL.cellX, y:JAIL.y1};
-        if(dist(npc, jailPost) > 1.25){
-          npcStepToward(npc, jailPost, 0.044);
-          continue;
-        }
-      }
-
       const intruder = nearestTownMonsterTo(npc, 13);
       if(intruder){
         if(dist(npc, intruder) <= 1.15){
@@ -6154,12 +6093,6 @@ function updatePassiveAutoTarget(){
 
 function getContextAction(){
   // 타겟팅 시스템 삭제: 현재 위치 기준으로만 액션 버튼을 바꾼다.
-  if(isJailedPlayerActive() && isInsideJailCell(player.x, player.y)){
-    const f = typeof frontTile === 'function' ? frontTile() : null;
-    if(!isJailDoorTile(player.x, player.y) && !(f && isJailDoorTile(f.x, f.y))){
-      return {type:'jailGuardCall', label:'경비호출'};
-    }
-  }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
@@ -6382,12 +6315,8 @@ function openNpcTradeFromMenu(){
 }
 
 function smartUse(){
+  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const ctx = getContextAction();
-  if(isJailedPlayerActive()){
-    if(ctx.type === 'jailGuardCall') callJailGuard();
-    else jailInteraction();
-    return;
-  }
   if(ctx.type === 'npc'){
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
       startAutoActionChase('npc', ctx.npc);
@@ -6433,11 +6362,7 @@ function smartLifeAction(){
 }
 
 function useTile(){
-  if(isJailedPlayerActive()){
-    if(getContextAction().type === 'jailGuardCall') callJailGuard();
-    else jailInteraction();
-    return;
-  }
+  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
   const f = frontTile();
   const npc = npcs.find(n=>n.x===f.x&&n.y===f.y) || npcs.find(n=>dist(n,player)<=1.15);
   if(npc){
@@ -6796,7 +6721,7 @@ function renderCraft(){
         const chance = Math.round(clamp(0.45 + (skill-r.min)/100, 0.18, 0.92)*100);
         const ok = player.gold >= r.gold && canPayNeed(r.need) && canCarryItem(r.id, r.outputQty || 1);
         const qtyText = r.outputQty ? ` x${r.outputQty}` : '';
-        const rodText = def.rod ? `<p>낚싯대 성능: 거리 ${def.rod.distance}칸 · 파워 ${def.rod.power} · 행운 +${Math.round((def.rod.luck||0)*100)}%</p>` : '';
+        const rodText = def.rod ? `<p>낚싯대 성능: 거리 ${def.rod.distance} · 파워 ${def.rod.power} · 행운 +${Math.round((def.rod.luck||0)*100)}%</p>` : '';
         const bagText = def.slotBonus ? `<p>사용 효과: 가방 슬롯 +${def.slotBonus}칸</p>` : '';
         return `<div class="card craftCard ${gradeClassName(grade)}">
           <h3>${escapeHtml(r.name)}${qtyText} <span class="tag">${escapeHtml(grade)}</span> <span class="tag">${escapeHtml(def.type)}</span></h3>
@@ -7168,7 +7093,7 @@ function renderStatus(){
         ${tile('방어력', cp.def)}
         ${tile('이속', cp.moveSpeed.toFixed(2))}
         ${tile('공속', cp.attackSpeed.toFixed(1)+'틱')}
-        ${tile('사거리', cp.hitRange.toFixed(1)+'칸')}
+        ${tile('사거리', cp.hitRange.toFixed(1))}
         ${tile('탄약', cp.ammo ? `${escapeHtml(itemDefs[cp.ammo]?.name || cp.ammo)} ${player.inv[cp.ammo]||0}` : '-')}
       </div>
       <div class="card">
@@ -8517,9 +8442,9 @@ function showInventoryItemPopup(ev, id, ctx={}){
   const equip = (player.weapon===id || player.armor===id) && origin !== 'merchant' ? '<span>장착중</span>' : '';
   const statMeta = [
     def.type === 'weapon' ? `<span>공격력 +${def.atk || 0}</span>` : '',
-    def.range ? `<span>사거리 ${def.range}칸</span>` : '',
+    def.range ? `<span>사거리 ${def.range}</span>` : '',
     def.ammo ? `<span>탄약 ${escapeHtml(itemDefs[def.ammo]?.name || def.ammo)}</span>` : '',
-    def.rod ? `<span>거리 ${def.rod.distance}칸</span><span>파워 ${def.rod.power}</span><span>행운 +${Math.round((def.rod.luck||0)*100)}%</span>` : '',
+    def.rod ? `<span>거리 ${def.rod.distance}</span><span>파워 ${def.rod.power}</span><span>행운 +${Math.round((def.rod.luck||0)*100)}%</span>` : '',
     def.slotBonus ? `<span>가방칸 +${def.slotBonus}</span>` : '',
     def.type === 'armor' ? `<span>방어력 +${def.def || 0}</span>` : '',
     def.heal ? `<span>HP 회복 +${def.heal}</span>` : '',
@@ -8537,8 +8462,8 @@ function showInventoryItemPopup(ev, id, ctx={}){
       : origin === 'bank' ? '은행 보관품'
       : origin === 'storage' ? '창고 보관품' : '내 소지품';
   const descText = def.type === 'weapon'
-    ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}칸` : ''}.`
-    : def.rod ? `${def.desc || '설명 없음'} 거리 ${def.rod.distance}칸, 파워 ${def.rod.power}, 행운 +${Math.round((def.rod.luck||0)*100)}%.`
+    ? `${def.desc || '설명 없음'} 공격력 +${def.atk || 0}${def.range ? `, 사거리 ${def.range}` : ''}.`
+    : def.rod ? `${def.desc || '설명 없음'} 거리 ${def.rod.distance}, 파워 ${def.rod.power}, 행운 +${Math.round((def.rod.luck||0)*100)}%.`
     : def.slotBonus ? `${def.desc || '설명 없음'} 사용 시 가방 슬롯이 ${def.slotBonus}칸 증가한다.`
     : (def.desc || '설명 없음');
   const actions = inventoryItemActionButtons(id, {mode, origin, targetId:ctx.targetId, remoteQty:ctx.remoteQty, remoteName:ctx.remoteName});
@@ -9358,7 +9283,7 @@ async function loginWithKakao(ev=null){
 }
 
 
-const CLIENT_PATCH_VERSION = '2026-06-16-hud-login-update-gate';
+const CLIENT_PATCH_VERSION = '2026-06-16-attack-range-map-fix';
 const CLIENT_PATCH_STORAGE_KEY = 'legacyRealmsAppliedPatchVersion';
 
 function shouldShowPatchUpdatePage(){
@@ -9635,17 +9560,6 @@ function sendChatMessage(){
   const input = document.getElementById('chatInput');
   const text = String(input?.value || '').trim().slice(0,60);
   if(!text){ closeChatInput(); return; }
-  if(text === '/낚시' || text.toLowerCase() === '/fish'){
-    const res = nearbyResourceKind(4.2);
-    if(res && res.kind === 'fish' && res.res){
-      gather('fish', res.res, {noChase:true, autoRepeat:false});
-    }else{
-      gather('fish');
-    }
-    closeChatInput();
-    draw();
-    return;
-  }
   if(text.startsWith('/p ')){
     if(!partyState.id){ toast('파티 없음'); return; }
     const ptxt = text.slice(3).trim().slice(0,80);
@@ -10063,7 +9977,8 @@ function attackRemoteFromPeek(targetId){
   const rp = remotePlayerCurrent(targetId);
   if(!rp){ toast('대상 유저 없음'); return; }
   closePop();
-  startAutoAttackChase(rp, 'player');
+  manualAttackLock = {ref:rp, kind:'player', until:tick + 9999};
+  attackRemotePlayer(rp, {manual:true});
 }
 function attemptStealRemoteItem(targetId, id){
   const rp = remotePlayerCurrent(targetId);
@@ -11845,6 +11760,11 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
+  {version:'현재', title:'공격 사거리·미니맵 설명 표시 수정', items:[
+    '상태창과 아이템 상세의 사거리 표기를 칸 단위 문구 없이 숫자만 보이게 정리했다.',
+    '공격 버튼을 눌렀을 때 사거리 밖 대상에게 자동 접근하지 않고 사거리 밖 안내만 표시한다.',
+    '전체 지도 팝업에서 아래 설명 문구가 지도 영역이나 하단 조작부에 가려지지 않도록 레이아웃을 보정했다.'
+  ]},
   {version:'현재', title:'몬스터 배치·무기 사거리·타격감 재정리', items:[
     '시작 마을 주변 외곽에도 전투 몬스터가 보이도록 근처 스폰 보정 로직을 추가했다.',
     '근접 무기의 실제 명중 판정을 상태창 사거리 기준으로 맞추고 과한 추가 보정값을 제거했다.',
