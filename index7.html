@@ -862,6 +862,19 @@
     justify-content:center;
   }
   .invSlot .spriteIcon{--cell:32px;}
+
+  .invStat{
+    position:absolute;
+    left:3px;
+    bottom:2px;
+    min-width:18px;
+    border-radius:4px;
+    background:rgba(0,0,0,.62);
+    color:#bff0a9;
+    font-size:9px;
+    text-align:center;
+    padding:0 3px;
+  }
   .invQty{
     position:absolute;
     right:3px;
@@ -2694,6 +2707,11 @@ header.topbar,
 
 
   /* ==== patch: restore warehouse only ==== */
+
+  #popStorage .storageQtyCard{margin:6px 0 8px; padding:7px;}
+  #popStorage .storageQtyCard h3{font-size:11px; margin:0 0 5px;}
+  #popStorage .storageQtyCard input{min-height:32px; font-size:12px;}
+  #popStorage .storageQtyCard p{font-size:10px; line-height:1.3; margin:5px 0 0; color:#cfc6a5;}
   #popStorage .tradeWrap{
     grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   }
@@ -2725,7 +2743,6 @@ header.topbar,
     #popStorage .itemGrid{grid-template-columns:repeat(auto-fill,minmax(50px,1fr)); gap:4px;}
     #popStorage .itemSlot{min-height:56px; padding:4px;}
   }
-
 
 
   /* map popup: keep bottom legend visible when enlarged */
@@ -2823,7 +2840,7 @@ header.topbar,
     <div class="gold" id="gold">0g</div>
     <div class="topQuick">
       <button onclick="openPop('popInv')">가방</button>
-      <button onclick="openPop('popStatus')">상태</button>
+      <button onclick="openPop('popStorage')">창고</button>
       <button onclick="openPop('popMainMenu')">메뉴</button>
     </div>
     <button class="onlineBadge" id="onlineBadge" type="button" onclick="openOnlineListPopup(event)">오프라인</button>
@@ -2953,6 +2970,11 @@ header.topbar,
         <div class="storageSummary">
           <span>가방: <b id="storageBagCount">0/0</b></span>
           <span>창고: <b id="storageCount">0/0</b></span>
+        </div>
+        <div class="card storageQtyCard">
+          <h3>옮길 수량</h3>
+          <input id="storageTransferQty" type="number" min="1" step="1" inputmode="numeric" value="1" placeholder="수량">
+          <p>아이템을 누른 뒤 창고 넣기/꺼내기를 선택하면 이 수량만큼 이동한다. 최대 이동은 아이템 설명창의 최대 버튼을 사용한다.</p>
         </div>
         <div class="tradeWrap storageWrap">
           <div class="tradePanel">
@@ -3223,6 +3245,8 @@ try{ window.showLoginForm = showLoginForm; }catch(e){}
 
 const TILE = 32;
 const W = 140, H = 100;
+const MAX_PLAYER_LEVEL = 100;
+const LEVEL_CURVE_VERSION = 2;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const mini = document.getElementById('mini');
@@ -3607,7 +3631,7 @@ function useActiveSkill(id){
 const player = {
   x: 30, y: 22, dir: [0,-1],
   hp: 100, maxHp: 100, mana: 50, maxMana: 50, sta: 100, maxSta: 100,
-  exp: 0, nextExp: 100,
+  exp: 0, nextExp: 0, levelCurveVersion: LEVEL_CURVE_VERSION,
   nickname:'', job:'방랑자', level:1, userId:'guest', isOnline:false, pkMode:false,
   gold: 30, bankGold: 0, fame: 0, wanted: 0, karma: 0, jailUntilTick: 0, jailRemainingTicks: 0, criminalUntil: 0, restReadyTick: 0, restCooldownTicks: 0, attackReadyTick: 0,
   auto: {enabled:false, hpPercent:35, food:true, potion:true, skill:true, attack:true, rest:true, wood:false, mine:false, fish:false, herb:false},
@@ -3678,7 +3702,7 @@ function resetPlayerForNewKakaoAccount(nick='나', userId='guest', isOnline=fals
   Object.assign(player, {
     x:30, y:22, dir:[0,-1],
     hp:100, maxHp:100, mana:50, maxMana:50, sta:100, maxSta:100,
-    exp:0, nextExp:100,
+    exp:0, nextExp:0, levelCurveVersion:LEVEL_CURVE_VERSION,
     nickname:(cleanGameNickname(nick) || '').slice(0,12),
     job:'방랑자',
     level:1,
@@ -4952,10 +4976,10 @@ function startAutoAttackChase(target, kind='mob'){
     toast('마을 안에서는 유저 공격 불가');
     return false;
   }
-  // 공격 버튼으로 대상에게 자동 접근하지 않는다. 대상 잠금만 유지한다.
+  // 공격 버튼으로 대상에게 자동 접근하지 않는다. 직접 이동 후 사거리 안에서 공격한다.
   stopAutoActionChase();
   autoAttackChase = {ref:null, until:0, attackTick:0};
-  manualAttackLock = {ref:target, kind, until:tick + 9999};
+  toast('사거리 밖');
   return false;
 }
 function stopAutoAttackChase(){
@@ -5081,12 +5105,11 @@ function playerFrontStrikeZone(target=null, kind='mob'){
   }
   const bodyR = 0.48;
   const range = Math.max(1.25, playerHitRange ? playerHitRange() : 1.55);
-  // 타격 범위는 앞쪽 칸 중심이 아니라 플레이어 중심에서 바로 시작한다.
-  // 상태창에 표시되는 사거리 숫자가 실제 판정 반경의 기준이다.
-  const radius = Math.max(1.05, Math.min(2.75, range + bodyR + 0.24));
+  const reach = Math.max(bodyR + 0.34, Math.min(range + bodyR*0.34, bodyR + range*0.72 + 0.22));
+  const radius = Math.max(bodyR*0.72 + 0.42, Math.min(2.05, range*0.68 + bodyR*0.38 + 0.38));
   return {
-    x: player.x,
-    y: player.y,
+    x: player.x + fx*reach,
+    y: player.y + fy*reach,
     r: radius,
     facing: Math.atan2(fy, fx),
     arc: Math.PI * 0.92
@@ -5158,7 +5181,7 @@ function pickManualAttackTarget(){
   // 이동 중에도 공격이 들어가야 하므로 후보 범위와 판정을 넉넉하게 잡는다.
   const ranged = isRangedWeapon();
   const baseRange = playerHitRange ? playerHitRange() : 1.35;
-  const searchRange = ranged ? baseRange + 0.55 : baseRange + 0.35;
+  const searchRange = ranged ? 9.5 : Math.max(4.4, baseRange + 3.1);
   const dirX = Array.isArray(player.dir) ? Number(player.dir[0] || 0) : 0;
   const dirY = Array.isArray(player.dir) ? Number(player.dir[1] || 1) : 1;
   const candidates = [];
@@ -5224,7 +5247,7 @@ function manualAttackFeedback(target){
   if(!target) return;
   const d = entityScreenAwareDistance(target);
   if(d > playerHitRange() + 0.55 && tick % 9 === 0){
-    addCombatEffect(target.x, target.y, '추격', 'guard');
+    addCombatEffect(target.x, target.y, '사거리 밖', 'guard');
   }
 }
 
@@ -5294,9 +5317,9 @@ function attack(target=null){
   const inRange = canAttackCombatTarget(target, targetKind, ranged ? 0.12 : 0.16);
 
   if(!inRange){
-    stopAutoAttackChase();
     if(isManualAttack){
-      addCombatEffect(target.x, target.y, '사거리밖', 'guard');
+      const pos = targetCombatPos(target, targetKind) || target;
+      addCombatEffect(pos.x, pos.y, '사거리 밖', 'guard');
       toast('사거리 밖');
       draw();
     }
@@ -5382,9 +5405,8 @@ function attackRemotePlayer(rp, opts={}){
   const ranged = isRangedWeapon();
 
   if(!canAttackCombatTarget(rp, kind, ranged ? 0.12 : 0.16)){
-    stopAutoAttackChase();
     if(isManualAttack){
-      addCombatEffect(pos.x, pos.y, '사거리밖', 'guard');
+      addCombatEffect(pos.x, pos.y, '사거리 밖', 'guard');
       toast('사거리 밖');
       draw();
     }
@@ -5467,9 +5489,8 @@ function attackNpc(npc, opts={}){
   const ranged = isRangedWeapon();
 
   if(!canAttackCombatTarget(npc, kind, ranged ? 0.12 : 0.18)){
-    stopAutoAttackChase();
     if(isManualAttack){
-      addCombatEffect(npc.x, npc.y, '사거리밖', 'guard');
+      addCombatEffect(npc.x, npc.y, '사거리 밖', 'guard');
       toast('사거리 밖');
       draw();
     }else if(tick % 12 === 0){
@@ -5602,10 +5623,11 @@ function npcStepToward(npc, target, speed=0.034){
     if(npcs.some(o=>o!==npc && !o.down && dist(o,{x:nx,y:ny})<blockRadius)) return false;
 
     // 경비병이 마을 침입 몬스터를 쫓거나 순찰할 때는 플레이어를 관통하지 않는다.
-    // 단, 수배 상태로 플레이어를 직접 추격하는 경우에는 공격 거리까지 접근해야 하므로 예외 처리한다.
+    // 단, 수배 상태로 플레이어를 직접 추격하거나 감옥 경비 호출 임무 중일 때는 예외 처리한다.
     const chasingPlayer = !!target && target === player;
+    const jailResponse = npc.guard && !!npc.jailMission;
     const playerBlockRadius = npc.guard ? 0.54 : 0.46;
-    if(npc.guard && !chasingPlayer && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
+    if(npc.guard && !chasingPlayer && !jailResponse && dist(player,{x:nx,y:ny}) < playerBlockRadius) return false;
     return true;
   };
 
@@ -5735,6 +5757,99 @@ function nearestTownMonsterTo(guard, range=12){
     .sort((a,b)=>dist(a,guard)-dist(b,guard))[0] || null;
 }
 
+function isJailDoorFront(){
+  if(typeof frontTile !== 'function') return false;
+  const f = frontTile();
+  return f.x === JAIL.releaseX && f.y === JAIL.outerY1;
+}
+function nearestJailMonsterTo(ref={x:JAIL.cellX, y:JAIL.cellY}, range=999){
+  return mobs
+    .filter(m=>!m.animal && (isInsideJailCell(m.x,m.y) || isJailTile(m.x,m.y)) && dist(m, ref) <= range)
+    .sort((a,b)=>dist(a,ref)-dist(b,ref))[0] || null;
+}
+function assignGuardJailMission(guard){
+  if(!guard) return false;
+  guard.jailMission = true;
+  guard.jailMissionUntil = tick + 520;
+  guard.patrolTarget = null;
+  guard.guardPauseUntil = 0;
+  guard.aggroUntil = 0;
+  return true;
+}
+function jailGuardCallCount(){
+  if(!player.jailGuardCallWindow || tick - player.jailGuardCallWindow > 360){
+    player.jailGuardCallWindow = tick;
+    player.jailGuardCalls = 0;
+  }
+  player.jailGuardCalls = (player.jailGuardCalls || 0) + 1;
+  return player.jailGuardCalls;
+}
+function extendJailTime(extraTicks){
+  const left = countdownRemainingTicks('jailUntilTick', 'jailRemainingTicks', ONLINE_TIMER_CAPS.jail);
+  setOnlineCountdown('jailUntilTick', 'jailRemainingTicks', left + extraTicks, ONLINE_TIMER_CAPS.jail);
+}
+function callJailGuard(){
+  normalizePlayer();
+  if(tick >= (player.jailUntilTick || 0)){ releaseFromJail(); return; }
+  if(isJailDoorFront()){
+    jailInteraction();
+    return;
+  }
+  player.jailActionCd = player.jailActionCd || 0;
+  if(tick < player.jailActionCd){ toast(`경비 호출 대기 ${Math.ceil((player.jailActionCd - tick)*0.45)}초`); return; }
+  player.jailActionCd = tick + 36;
+  player.jailActionRemainingTicks = 36;
+
+  const count = jailGuardCallCount();
+  const guard = nearestGuardTo({x:JAIL.cellX, y:JAIL.cellY}, 999);
+  if(!guard){ toast('부를 경비병 없음'); return; }
+  assignGuardJailMission(guard);
+
+  if(count >= 3){
+    const add = 8 + Math.min(28, count * 4);
+    extendJailTime(add);
+    addLog(`경비를 과도하게 호출해 수감 시간이 ${Math.ceil(add*0.45)}초 늘었다.`);
+  }
+
+  const intruder = nearestJailMonsterTo({x:JAIL.cellX, y:JAIL.cellY});
+  addLog(`${guard.name} 호출. ${intruder ? '감옥 침입 몬스터를 처리하러 이동한다.' : '감옥을 확인한 뒤 복귀한다.'}`);
+  toast('경비 호출');
+  draw();
+}
+function returnGuardHome(npc){
+  if(!npc || !npc.guard) return false;
+  const home = {x:npc.homeX ?? npc.x, y:npc.homeY ?? npc.y};
+  if(dist(npc, home) <= 0.34){
+    npc.jailMission = false;
+    npc.jailMissionUntil = 0;
+    npc.patrolTarget = null;
+    npc.guardPauseUntil = tick + 14 + rand(24);
+    addLog(`${npc.name}이 임무를 마치고 마을 순찰 위치로 복귀했다.`);
+    return true;
+  }
+  npcStepToward(npc, home, 0.038);
+  return true;
+}
+function guardJailMissionAI(npc){
+  if(!npc?.guard || !npc.jailMission) return false;
+  const intruder = nearestJailMonsterTo(npc, 999);
+  if(intruder){
+    npc.jailMissionUntil = tick + 180;
+    if(dist(npc, intruder) <= 1.18){
+      guardAttackMonster(npc, intruder);
+    }else{
+      npcStepToward(npc, intruder, 0.048);
+    }
+    return true;
+  }
+  const jailCenter = {x:JAIL.cellX, y:JAIL.cellY};
+  if((npc.jailMissionUntil || 0) > tick && dist(npc, jailCenter) > 0.55){
+    npcStepToward(npc, jailCenter, 0.044);
+    return true;
+  }
+  return returnGuardHome(npc);
+}
+
 function guardAttackMonster(guard, mob){
   if(!guard || !mob) return;
   guard.attackCd = Math.max(0, (guard.attackCd||0) - simDtSeconds);
@@ -5743,7 +5858,8 @@ function guardAttackMonster(guard, mob){
   const dmg = Math.max(4, (guard.atk||10) + rand(8));
   mob.hp -= dmg;
   addCombatEffect(mob.x, mob.y, `-${dmg}`, 'guard');
-  addLog(`${guard.name}이 마을 침입 몬스터를 공격. ${dmg} 피해.`);
+  const place = isJailTile(mob.x, mob.y) ? '감옥 침입 몬스터' : '마을 침입 몬스터';
+  addLog(`${guard.name}이 ${place}를 공격. ${dmg} 피해.`);
   if(mob.hp <= 0){
     mobs = mobs.filter(m=>m!==mob);
     addLog(`${guard.name}이 ${mob.name}을 처리했다.`);
@@ -5769,6 +5885,7 @@ function guardAI(){
     }
 
     if(npc.guard){
+      if(guardJailMissionAI(npc)) continue;
       const intruder = nearestTownMonsterTo(npc, 13);
       if(intruder){
         if(dist(npc, intruder) <= 1.15){
@@ -6093,6 +6210,9 @@ function updatePassiveAutoTarget(){
 
 function getContextAction(){
   // 타겟팅 시스템 삭제: 현재 위치 기준으로만 액션 버튼을 바꾼다.
+  if(tick < (player.jailUntilTick || 0)){
+    return isJailDoorFront() ? {type:'jail', label:'감옥문'} : {type:'jailGuard', label:'경비호출'};
+  }
   const npc = nearbyNpc();
   if(npc) return {type:'npc', label:'대화', npc};
   const res = nearbyResourceKind();
@@ -6315,8 +6435,14 @@ function openNpcTradeFromMenu(){
 }
 
 function smartUse(){
-  if(tick < (player.jailUntilTick||0)){ jailInteraction(); return; }
+  if(tick < (player.jailUntilTick||0)){
+    if(isJailDoorFront()) jailInteraction();
+    else callJailGuard();
+    return;
+  }
   const ctx = getContextAction();
+  if(ctx.type === 'jailGuard'){ callJailGuard(); return; }
+  if(ctx.type === 'jail'){ jailInteraction(); return; }
   if(ctx.type === 'npc'){
     if(dist(ctx.npc, player) > actionRangeForTarget('npc', ctx.npc)){
       startAutoActionChase('npc', ctx.npc);
@@ -6825,6 +6951,26 @@ function withdrawStorageItem(id, qty=1){
   addItem(id, amount);
   addLog(`${itemDefs[id]?.name || id} ${amount}개 창고에서 꺼냄.`);
   renderStorage(); renderInventory(); draw();
+}
+function readStorageTransferQty(max=1){
+  const el = document.getElementById('storageTransferQty');
+  const raw = Math.floor(Number(el?.value) || 1);
+  const limit = Math.max(1, Math.floor(Number(max) || 1));
+  return clamp(raw, 1, limit);
+}
+function setStorageTransferQty(v){
+  const el = document.getElementById('storageTransferQty');
+  if(!el) return;
+  el.value = String(Math.max(1, Math.floor(Number(v) || 1)));
+}
+function depositStorageItemByInput(id){
+  const max = Math.max(1, Math.floor(Number(player.inv?.[id]) || 1));
+  depositStorageItem(id, readStorageTransferQty(max));
+}
+function withdrawStorageItemByInput(id){
+  const st = storageItems();
+  const max = Math.max(1, Math.floor(Number(st?.[id]) || 1));
+  withdrawStorageItem(id, readStorageTransferQty(max));
 }
 function depositItem(id){ depositStorageItem(id, 1); }
 function withdrawItem(id){ withdrawStorageItem(id, 1); }
@@ -7690,6 +7836,18 @@ function closeMiniTrade(){
   if(box) box.classList.remove('open');
 }
 
+
+function compactItemStatText(id){
+  const def = itemDefs[id] || {};
+  if(def.type === 'weapon') return `공 ${Number(def.atk || 0)}`;
+  if(def.type === 'armor') return `방 ${Number(def.def || 0)}`;
+  return '';
+}
+function itemMetaWithStats(id, qtyText=''){
+  const stat = compactItemStatText(id);
+  return [qtyText, stat].filter(Boolean).join(stat && qtyText ? '<br>' : '');
+}
+
 function renderMiniTrade(){
   normalizePlayer();
   const box = document.getElementById('miniTrade');
@@ -7715,7 +7873,7 @@ function renderMiniTrade(){
       onclick="showMiniItemInfo('${row.id}','NPC 소지품',event)">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
-      <div class="itemMeta">${qty}</div>
+      <div class="itemMeta">${itemMetaWithStats(row.id, String(qty))}</div>
     </div>`;
   }).join('');
 
@@ -7736,7 +7894,7 @@ function renderMiniBagSlots(){
     return `<div class="miniSlot ${itemRarityClass(id)}" onclick="showMiniItemInfo('${id}','내 가방',event)">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
-      <div class="itemMeta">${player.inv[id]}</div>
+      <div class="itemMeta">${itemMetaWithStats(id, String(player.inv[id]))}</div>
     </div>`;
   });
   while(slots.length < 10){
@@ -7777,7 +7935,7 @@ function renderShop(){
       onclick="showTradeItemPopup(event,'${row.id}','merchant')">
       <div class="itemIcon">${itemIcon(row.id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
-      <div class="itemMeta">재고 ${qty}<br>${row.price||def.price||0}g</div>
+      <div class="itemMeta">${itemMetaWithStats(row.id, `재고 ${qty}`)}<br>${row.price||def.price||0}g</div>
     </div>`;
   }).join('');
 
@@ -7792,7 +7950,7 @@ function renderTradeBagSlots(){
     return `<div class="itemSlot ${itemRarityClass(id)}" onclick="showTradeItemPopup(event,'${id}','player')">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name)}</div>
-      <div class="itemMeta">수량 ${player.inv[id]}</div>
+      <div class="itemMeta">${itemMetaWithStats(id, `수량 ${player.inv[id]}`)}</div>
     </div>`;
   }).join('');
 }
@@ -7969,7 +8127,7 @@ function renderStorage(){
     return `<div class="itemSlot ${itemRarityClass(id)}" title="${escapeHtml(def.name)}" onclick="showInventoryItemPopup(event,'${escapeJsString(id)}',{mode:'storage',origin:'${mode}'})">
       <div class="itemIcon">${itemIcon(id)}</div>
       <div class="itemName">${escapeHtml(def.name || id)}</div>
-      <div class="itemMeta">x${qty}</div>
+      <div class="itemMeta">${itemMetaWithStats(id, `x${qty}`)}</div>
     </div>`;
   };
 
@@ -7987,6 +8145,10 @@ function renderStorage(){
 }
 
 function normalizePlayer(){
+  if(typeof player.exp !== 'number' || !Number.isFinite(player.exp)) player.exp = 0;
+  if(typeof player.level !== 'number' || !Number.isFinite(player.level)) player.level = 1;
+  player.level = clamp(Math.floor(player.level), 1, MAX_PLAYER_LEVEL);
+  migrateLevelCurve();
   if(typeof player.bankGold !== 'number') player.bankGold = 0;
   if(typeof player.bankRate !== 'number') player.bankRate = 0.006;
   if(typeof player.bankRateNextTick !== 'number' || player.bankRateNextTick <= 0) player.bankRateNextTick = tick + 900;
@@ -7995,7 +8157,6 @@ function normalizePlayer(){
   if(typeof player.mana !== 'number') player.mana = 50;
   if(typeof player.maxMana !== 'number') player.maxMana = 50;
   if(typeof player.exp !== 'number') player.exp = 0;
-  if(typeof player.nextExp !== 'number') player.nextExp = 100;
   if(!player.nickname) player.nickname = '나';
   if(!player.userId) player.userId = 'guest';
   if(typeof player.isOnline !== 'boolean') player.isOnline = false;
@@ -8390,9 +8551,11 @@ function inventoryItemActionButtons(id, ctx={}){
 
   if(mode === 'storage'){
     if(origin === 'inventory'){
-      actions.push(`<button class="primary" onclick="depositStorageItem('${escapeJsString(id)}'); closeInventoryItemPopup()">창고 넣기</button>`);
+      actions.push(`<button class="primary" onclick="depositStorageItemByInput('${escapeJsString(id)}'); closeInventoryItemPopup()">창고 넣기</button>`);
+      actions.push(`<button onclick="depositStorageItem('${escapeJsString(id)}', player.inv?.['${escapeJsString(id)}'] || 1); closeInventoryItemPopup()">최대 넣기</button>`);
     }else if(origin === 'storage'){
-      actions.push(`<button class="primary" onclick="withdrawStorageItem('${escapeJsString(id)}'); closeInventoryItemPopup()">가방으로 꺼내기</button>`);
+      actions.push(`<button class="primary" onclick="withdrawStorageItemByInput('${escapeJsString(id)}'); closeInventoryItemPopup()">가방으로 꺼내기</button>`);
+      actions.push(`<button onclick="withdrawStorageItem('${escapeJsString(id)}', storageItems()?.['${escapeJsString(id)}'] || 1); closeInventoryItemPopup()">최대 꺼내기</button>`);
     }
   }
 
@@ -8536,9 +8699,11 @@ function renderInventory(){
     const qty = player.inv[id] || 0;
     const equipped = player.weapon===id || player.armor===id;
     const mark = equipped ? '<div class="invEquipMark">착용</div>' : '';
+    const stat = compactItemStatText(id);
     return `<div class="invSlot ${equipped?'equipped':''} ${itemRarityClass(id)}" title="${escapeHtml(def.name)}" onclick="showInventoryItemPopup(event,'${id}')">
       ${mark}
       <div class="itemIcon">${itemIcon(id)}</div>
+      ${stat ? `<div class="invStat">${escapeHtml(stat)}</div>` : ''}
       <div class="invQty">${qty}</div>
     </div>`;
   }).join('');
@@ -9283,7 +9448,7 @@ async function loginWithKakao(ev=null){
 }
 
 
-const CLIENT_PATCH_VERSION = '2026-06-16-attack-range-map-fix';
+const CLIENT_PATCH_VERSION = '2026-06-16-hud-login-update-gate';
 const CLIENT_PATCH_STORAGE_KEY = 'legacyRealmsAppliedPatchVersion';
 
 function shouldShowPatchUpdatePage(){
@@ -9560,6 +9725,12 @@ function sendChatMessage(){
   const input = document.getElementById('chatInput');
   const text = String(input?.value || '').trim().slice(0,60);
   if(!text){ closeChatInput(); return; }
+  if(text === '/낚시'){
+    closeChatInput();
+    gather('fish');
+    draw();
+    return;
+  }
   if(text.startsWith('/p ')){
     if(!partyState.id){ toast('파티 없음'); return; }
     const ptxt = text.slice(3).trim().slice(0,80);
@@ -9594,7 +9765,7 @@ function partyLocalMember(){
   return {
     id: player.userId,
     nick: displayGameNickname(),
-    level: player.level || 1,
+    level: clampedPlayerLevel(),
     job: player.job || '방랑자',
     hp: Math.ceil(player.hp || 0),
     maxHp: player.maxHp || 100,
@@ -9965,7 +10136,7 @@ function openRemotePeekPopup(targetId){
       return `<div class="itemSlot ${itemRarityClass(id)}" onclick="showRemotePeekItemPopup(event,'${escapeAttr(rp.id)}','${escapeAttr(id)}')">
         <div class="itemIcon">${itemIcon(id)}</div>
         <div class="itemName">${escapeHtml(def.name)}</div>
-        <div class="itemMeta">수량 ${Math.max(0, Math.floor(Number(inv[id])||0))}</div>
+        <div class="itemMeta">${itemMetaWithStats(id, `수량 ${Math.max(0, Math.floor(Number(inv[id])||0))}`)}</div>
       </div>`;
     }).join('') : '<div class="notice">보이는 아이템 없음</div>';
   }
@@ -9977,7 +10148,7 @@ function attackRemoteFromPeek(targetId){
   const rp = remotePlayerCurrent(targetId);
   if(!rp){ toast('대상 유저 없음'); return; }
   closePop();
-  manualAttackLock = {ref:rp, kind:'player', until:tick + 9999};
+  selectTarget('player', rp, false);
   attackRemotePlayer(rp, {manual:true});
 }
 function attemptStealRemoteItem(targetId, id){
@@ -10043,7 +10214,7 @@ function onlineListRows(){
     id: player.userId || 'me',
     nick: displayGameNickname ? displayGameNickname() : (player.nickname || '나'),
     job: player.job || '방랑자',
-    level: player.level || 1,
+    level: clampedPlayerLevel(),
     x: player.x,
     y: player.y,
     hp: player.hp,
@@ -10166,7 +10337,7 @@ function onlinePayload(){
     id: player.userId,
     nick: displayGameNickname(),
     job: player.job || '방랑자',
-    level: player.level || 1,
+    level: clampedPlayerLevel(),
     x: player.x,
     y: player.y,
     hp: player.hp,
@@ -10541,7 +10712,7 @@ function characterRow(user){
     user_id: user.id,
     nickname: displayGameNickname(),
     job: player.job || '방랑자',
-    level: player.level || 1,
+    level: clampedPlayerLevel(),
     gold: player.gold || 0,
     x: player.x,
     y: player.y,
@@ -10932,7 +11103,7 @@ async function refreshPresenceFallback(force=false){
       id,
       nick: row.nickname || '유저',
       job: row.job || '방랑자',
-      level: row.level || 1,
+      level: Math.min(MAX_PLAYER_LEVEL, row.level || 1),
       x: Number(row.x || 0),
       y: Number(row.y || 0),
       hp: Number(row.hp || 0),
@@ -10967,7 +11138,7 @@ async function savePresenceRow(force=false){
       user_id: user.id,
       nickname: displayGameNickname(),
       job: player.job || '방랑자',
-      level: player.level || 1,
+      level: clampedPlayerLevel(),
       x: player.x,
       y: player.y,
       hp: Math.ceil(player.hp || 0),
@@ -11003,31 +11174,68 @@ async function cloudAutoSave(force=false){
   await saveCloudCharacter(true);
 }
 
+function expRequiredForLevel(level){
+  const lv = clamp(Math.floor(Number(level) || 1), 1, MAX_PLAYER_LEVEL);
+  if(lv <= 1) return 0;
+  const n = lv - 1;
+  // 느린 누적 곡선. 100레벨까지 도달하는 데 필요한 총 경험치를 크게 늘린다.
+  return Math.floor(140*n*n + 16*n*n*n);
+}
+function levelFromTotalExp(exp){
+  const total = Math.max(0, Math.floor(Number(exp) || 0));
+  let lo = 1, hi = MAX_PLAYER_LEVEL;
+  while(lo < hi){
+    const mid = Math.ceil((lo + hi) / 2);
+    if(expRequiredForLevel(mid) <= total) lo = mid;
+    else hi = mid - 1;
+  }
+  return clamp(lo, 1, MAX_PLAYER_LEVEL);
+}
+function migrateLevelCurve(){
+  const oldLevel = clamp(Math.floor(Number(player.level) || 1), 1, MAX_PLAYER_LEVEL);
+  if(player.levelCurveVersion !== LEVEL_CURVE_VERSION){
+    const minExp = expRequiredForLevel(oldLevel);
+    player.exp = Math.max(Math.floor(Number(player.exp) || 0), minExp);
+    player.levelCurveVersion = LEVEL_CURVE_VERSION;
+  }
+  player.level = levelFromTotalExp(player.exp || 0);
+  if(player.level >= MAX_PLAYER_LEVEL) player.level = MAX_PLAYER_LEVEL;
+  player.nextExp = calcNextExp();
+}
 function calcPlayerLevel(){
-  const vals = Object.values(player.skills||{}).map(s=>s.v||0);
-  const avg = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 1;
-  const skillLevel = Math.max(1, Math.floor(avg / 3) + 1);
-  const expLevel = Math.max(1, Math.floor((player.exp || 0) / 100) + 1);
-  return Math.max(skillLevel, expLevel);
+  return levelFromTotalExp(player.exp || 0);
 }
-
 function calcNextExp(){
-  return Math.max(100, (player.level || 1) * 100);
+  const lv = clamp(Math.floor(Number(player.level) || calcPlayerLevel()), 1, MAX_PLAYER_LEVEL);
+  if(lv >= MAX_PLAYER_LEVEL) return 0;
+  return expRequiredForLevel(lv + 1) - expRequiredForLevel(lv);
 }
-
+function currentLevelExpProgress(){
+  const lv = clamp(Math.floor(Number(player.level) || calcPlayerLevel()), 1, MAX_PLAYER_LEVEL);
+  if(lv >= MAX_PLAYER_LEVEL) return 0;
+  return Math.max(0, Math.floor(Number(player.exp) || 0) - expRequiredForLevel(lv));
+}
+function clampedPlayerLevel(){
+  player.level = clamp(Math.floor(Number(player.level) || calcPlayerLevel()), 1, MAX_PLAYER_LEVEL);
+  return player.level;
+}
 function gainExp(amount=1){
   normalizePlayer();
   player.exp = Math.max(0, (player.exp || 0) + Math.max(0, Math.floor(amount)));
+  player.level = calcPlayerLevel();
+  if(player.level >= MAX_PLAYER_LEVEL) player.level = MAX_PLAYER_LEVEL;
   player.nextExp = calcNextExp();
 }
 
 function updateHud(){
   player.level = calcPlayerLevel();
+  if(player.level >= MAX_PLAYER_LEVEL) player.level = MAX_PLAYER_LEVEL;
   player.nextExp = calcNextExp();
   const hpPct = clamp(100*player.hp/player.maxHp,0,100);
   const mpPct = clamp(100*player.mana/player.maxMana,0,100);
   const stPct = clamp(100*player.sta/player.maxSta,0,100);
-  const xpPct = clamp(100*((player.exp||0) % player.nextExp)/player.nextExp,0,100);
+  const xpProgress = currentLevelExpProgress();
+  const xpPct = player.level >= MAX_PLAYER_LEVEL ? 100 : clamp(100*xpProgress/Math.max(1, player.nextExp),0,100);
   document.getElementById('hpbar').style.width = `${hpPct}%`;
   document.getElementById('mpbar').style.width = `${mpPct}%`;
   document.getElementById('stbar').style.width = `${stPct}%`;
@@ -11035,7 +11243,7 @@ function updateHud(){
   document.getElementById('hptxt').textContent = `HP ${Math.ceil(player.hp)}/${player.maxHp}`;
   document.getElementById('mptxt').textContent = `MP ${Math.ceil(player.mana)}/${player.maxMana}`;
   document.getElementById('sttxt').textContent = `SP ${Math.ceil(player.sta)}/${player.maxSta}`;
-  document.getElementById('xptxt').textContent = `XP ${(player.exp||0) % player.nextExp}/${player.nextExp}`;
+  document.getElementById('xptxt').textContent = player.level >= MAX_PLAYER_LEVEL ? 'XP MAX' : `XP ${xpProgress}/${player.nextExp}`;
   const charInfo = document.getElementById('charInfo');
   if(charInfo){
     charInfo.innerHTML = `Lv.${player.level} ${escapeHtml(displayGameNickname())}<small>${escapeHtml(player.job || '방랑자')}</small>`;
@@ -11760,11 +11968,6 @@ function gameLoop(){
 
 
 const PATCH_NOTES = [
-  {version:'현재', title:'공격 사거리·미니맵 설명 표시 수정', items:[
-    '상태창과 아이템 상세의 사거리 표기를 칸 단위 문구 없이 숫자만 보이게 정리했다.',
-    '공격 버튼을 눌렀을 때 사거리 밖 대상에게 자동 접근하지 않고 사거리 밖 안내만 표시한다.',
-    '전체 지도 팝업에서 아래 설명 문구가 지도 영역이나 하단 조작부에 가려지지 않도록 레이아웃을 보정했다.'
-  ]},
   {version:'현재', title:'몬스터 배치·무기 사거리·타격감 재정리', items:[
     '시작 마을 주변 외곽에도 전투 몬스터가 보이도록 근처 스폰 보정 로직을 추가했다.',
     '근접 무기의 실제 명중 판정을 상태창 사거리 기준으로 맞추고 과한 추가 보정값을 제거했다.',
