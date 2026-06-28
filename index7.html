@@ -2775,6 +2775,13 @@ header.topbar,
 
 <script>
 (function(){
+  function legacyGamePageUrl(baseHref){
+    const u = new URL('./index7.html', baseHref || location.href);
+    if(u.hostname === 'lemonade-seal.github.io'){
+      u.pathname = '/legacy_realms/index7.html';
+    }
+    return u;
+  }
   try{
     const params = new URLSearchParams(location.search);
     const isAuthReturn = params.has('code') || params.has('error') || params.has('error_description');
@@ -2784,7 +2791,7 @@ header.topbar,
     const isReload = nav ? nav.type === 'reload' : (performance.navigation && performance.navigation.type === 1);
 
     if(isReload && !isAuthReturn && !isLoginRoute){
-      const u = new URL('./index7.html', location.href);
+      const u = legacyGamePageUrl(location.href);
       u.searchParams.set('login', String(Date.now()));
       location.replace(u.href);
     }
@@ -8858,12 +8865,34 @@ function setLoginMsg(msg){
 }
 
 
+const LEGACY_GITHUB_PAGES_GAME_PATH = '/legacy_realms/index7.html';
+
+function getLegacyGamePageUrl(baseHref=window.location.href){
+  const u = new URL('./index7.html', baseHref);
+  if(u.hostname === 'lemonade-seal.github.io'){
+    u.pathname = LEGACY_GITHUB_PAGES_GAME_PATH;
+  }
+  u.search = '';
+  u.hash = '';
+  return u;
+}
+
+function getLegacyGamePageHref(baseHref=window.location.href){
+  return getLegacyGamePageUrl(baseHref).href;
+}
+
+function cleanBrowserUrlToGamePage(){
+  try{
+    history.replaceState({}, document.title, getLegacyGamePageHref());
+  }catch(e){
+    try{ history.replaceState({}, document.title, window.location.origin + window.location.pathname); }catch(_){}
+  }
+}
+
 const LEGACY_LOGIN_CONFIG = {
   url: DEFAULT_SUPABASE_URL,
   anonKey: DEFAULT_SUPABASE_ANON_KEY,
-  redirectTo: (location.origin + (location.pathname.endsWith('/')
-    ? location.pathname + 'index7.html'
-    : location.pathname.replace(/\/[^\/]*$/, '/index7.html')))
+  redirectTo: getLegacyGamePageHref()
 };
 const SUPABASE_SDK_SOURCES = [
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
@@ -8994,10 +9023,7 @@ function createSupabaseClient(){
 }
 
 function getKakaoRedirectUrl(){
-  const u = new URL('./index7.html', window.location.href);
-  u.search = '';
-  u.hash = '';
-  return u.href;
+  return getLegacyGamePageHref();
 }
 
 
@@ -9069,7 +9095,7 @@ function gotoLoginPageForReauth(reason='reauth'){
     player.isOnline = false;
   }catch(e){}
 
-  const u = new URL('./index7.html', window.location.href);
+  const u = getLegacyGamePageUrl(window.location.href);
   u.searchParams.set(reason === 'deleted' ? 'deleted' : reason === 'logout' ? 'logout' : 'reauth', String(Date.now()));
   window.location.replace(u.href);
 }
@@ -9081,14 +9107,14 @@ async function finishOAuthRedirect(client){
 
   if(err){
     setLoginMsg('카카오 로그인 오류: ' + decodeURIComponent(err));
-    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    cleanBrowserUrlToGamePage();
     return false;
   }
 
   const code = params.get('code');
   if(code && client?.auth?.exchangeCodeForSession){
     const { error } = await client.auth.exchangeCodeForSession(code);
-    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    cleanBrowserUrlToGamePage();
 
     if(error){
       const msg = String(error.message || error);
@@ -9650,7 +9676,7 @@ async function bootAuth(){
     clearOnlyAuthTokens();
     supabaseClient = null;
     forceShowLoginAfterSignOut('계정 데이터가 삭제되었습니다. 새 게임 닉네임으로 다시 카카오 로그인하세요.', true);
-    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    cleanBrowserUrlToGamePage();
     return true;
   }
 
@@ -9658,7 +9684,7 @@ async function bootAuth(){
     clearOnlyAuthTokens();
     supabaseClient = null;
     forceShowLoginAfterSignOut('로그아웃되었습니다. 게임 닉네임 작성 후 카카오 로그인하세요.', false);
-    history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+    cleanBrowserUrlToGamePage();
     return true;
   }
 
@@ -10917,7 +10943,7 @@ function forceShowLoginAfterSignOut(message='로그아웃되었습니다. 게임
   updateOnlineBadge?.();
   draw?.();
 
-  history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+  cleanBrowserUrlToGamePage();
 }
 
 
@@ -10937,7 +10963,7 @@ async function kakaoLogout(){
   clearOnlyAuthTokens();
 
   setTimeout(()=>{
-    const u = new URL('./index7.html', window.location.href);
+    const u = getLegacyGamePageUrl(window.location.href);
     u.searchParams.set('logout', String(Date.now()));
     window.location.replace(u.href);
   }, 120);
@@ -10962,7 +10988,7 @@ function hardRedirectToLogin(reason='login'){
     try{ sessionStorage.clear(); }catch(e){}
   }catch(e){}
 
-  const u = new URL('./index7.html', window.location.href);
+  const u = getLegacyGamePageUrl(window.location.href);
   u.searchParams.set(reason === 'deleted' ? 'deleted' : 'login', String(Date.now()));
   window.location.replace(u.href);
 }
@@ -11049,7 +11075,7 @@ async function deleteAccountData(){
   }
 
   setTimeout(()=>{
-    const u = new URL('./index7.html', window.location.href);
+    const u = getLegacyGamePageUrl(window.location.href);
     u.searchParams.set('deleted', String(Date.now()));
     window.location.replace(u.href);
   }, 260);
