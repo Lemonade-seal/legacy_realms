@@ -10,13 +10,38 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="./legacy_realsm_icon.png">
   <link rel="apple-touch-icon" href="./legacy_realsm_icon.png">
+  <meta http-equiv="refresh" content="2;url=./index7.html">
+  <style>
+    html,body{margin:0;width:100%;height:100%;background:#070807;color:#efe8c8;font-family:system-ui,-apple-system,Segoe UI,Apple SD Gothic Neo,Noto Sans KR,sans-serif;}
+    body{display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;box-sizing:border-box;}
+    .box{width:min(360px,100%);border:1px solid rgba(215,180,90,.45);border-radius:14px;background:rgba(16,20,14,.92);padding:18px;}
+    h1{margin:0 0 8px;font-size:20px;color:#ffdc82;}
+    p{margin:8px 0 14px;font-size:13px;color:#cfc6a5;line-height:1.45;}
+    a{display:block;min-height:42px;line-height:42px;border:1px solid #9d8844;border-radius:9px;color:#ffdf79;text-decoration:none;font-weight:800;background:#1c2118;}
+  </style>
 </head>
 <body>
+  <div class="box">
+    <h1>legacy_realsm</h1>
+    <p>게임 화면으로 이동 중입니다. 흰 화면이 계속되면 아래 버튼을 누르세요.</p>
+    <a id="fallbackLink" href="./index7.html">게임 실행</a>
+  </div>
 <script>
-  const target = new URL('/legacy-realms/index7.html', location.href);
-  target.search = location.search;
-  target.hash = location.hash;
-  location.replace(target.href);
+(function(){
+  function resolveTarget(){
+    var u = new URL('./index7.html', location.href);
+    if(location.hostname === 'lemonade-seal.github.io' && !/^\/legacy-realms\//.test(u.pathname)){
+      u = new URL('/legacy-realms/index7.html', location.origin);
+    }
+    u.search = location.search;
+    u.hash = location.hash;
+    return u;
+  }
+  var target = resolveTarget();
+  var link = document.getElementById('fallbackLink');
+  if(link) link.href = target.href;
+  setTimeout(function(){ location.replace(target.href); }, 80);
+})();
 </script>
 <noscript>
   <a href="./index7.html">legacy_realsm 실행</a>
